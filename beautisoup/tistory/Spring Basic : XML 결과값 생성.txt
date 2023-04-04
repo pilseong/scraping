@@ -1,0 +1,5 @@
+1. 아직도 xml 형식으로 데이터를 제공하는 곳이 많긴 하지만 별로 사용되지 않는 것 같다. 2. json외에 xml로 서비스를 요청하면 2-1 Accept 헤더에 application/xml로 서비스를 요청하면 406 not acceptable로 반환된다. 3. 해결 방법은 jacson dataformat xml dependency를 추가하면 된다. 3-1 스프링 부트의 경우에는 호환되는 jackson의 버전을 자동지정하므로 version정보는 삭제해야 안전하다. <dependency>
+    <groupId>com.fasterxml.jackson.dataformat</groupId>
+    <artifactId>jackson-dataformat-xml</artifactId>
+    <version>2.11.1</version>
+</dependency> 4. xml 반환 값

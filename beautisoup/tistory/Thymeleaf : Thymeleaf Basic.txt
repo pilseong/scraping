@@ -1,0 +1,445 @@
+1.  스프링에서 지원하는 View를 사용하는 일이 거의 없지만 그래도 한번씩은 사용해야 하니 별도로 포스트를 만들었다. 2. 타임리프의 가장 큰 장점은 순수 html파일을 구성한다는 점이다. 2-1 디자이너가 만든 템플릿을 그대로 사용하여 작업을 할 수있다는 의미가 된다. <!DOCTYPE html>
+<html>
+
+<head>
+  <!-- Required meta tags -->
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+
+  <!-- Bootstrap CSS -->
+  <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.0/css/bootstrap.min.css"
+    integrity="sha384-9aIt2nRpC12Uk9gS9baDl411NQApFmC26EwAOH8WgZl5MYYxFfc+NcPb1dKGj7Sk" crossorigin="anonymous">
+
+  <title>Goods</title>
+</head>
+
+<body>
+  <div class="container-fluid" style="margin-top: 20px">
+    <div class="row">
+      <div class="col-md-6 offset-md-3">
+        <div class="card text-white bg-primary">
+          <div class="card-body p-0">
+            <div class="card-title">
+              <p class="m-2 font-weight-bold">My Goods</p>
+            </div>
+            <div class="card-text bg-white m-0 p-0">
+              <table class="table table-hover m-0">
+                <thead class="thead-white">
+                  <tr>
+                    <th>ID</th>
+                    <th>Description</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td>1</td>
+                    <td>Goodness 1</td>
+                  </tr>
+                  <tr>
+                    <td>2</td>
+                    <td>Goodness 2</td>
+                  </tr>
+                  <tr>
+                    <td>3</td>
+                    <td>Goodness 3</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <!-- Optional JavaScript -->
+  <!-- jQuery first, then Popper.js, then Bootstrap JS -->
+  <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"
+    integrity="sha384-DfXdz2htPH0lsSSs5nCTpuj/zy4C+OGpamoFVy38MVBnE+IbbVYUew+OrCXaRkfj" crossorigin="anonymous">
+  </script>
+  <script src="https://cdn.jsdelivr.net/npm/popper.js@1.16.0/dist/umd/popper.min.js"
+    integrity="sha384-Q6E9RHvbIyZFJoft+2mJbHaEWldlvI9IOYy5n3zV9zzTtmI3UksdQRVvoxMfooAo" crossorigin="anonymous">
+  </script>
+  <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.0/js/bootstrap.min.js"
+    integrity="sha384-OgVRvuATP1z7JjHLkuOU7Xw704+h835Lr+6QL9UvYjZE3Ipu6Tp75j7Bh/kR0JKI" crossorigin="anonymous">
+  </script>
+</body>
+
+</html> 2-1-1 위의 순수 html 파일을 브라우저로 열었을 때 2-2 위와 같은 순수 html파일 받아서 스프링에서 사용가능한 template으로 간단히 바꿀 수 있다. <!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+
+<head>
+  <!-- Required meta tags -->
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+
+  <!-- Bootstrap CSS -->
+  <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.0/css/bootstrap.min.css"
+    integrity="sha384-9aIt2nRpC12Uk9gS9baDl411NQApFmC26EwAOH8WgZl5MYYxFfc+NcPb1dKGj7Sk" crossorigin="anonymous">
+
+  <title>Goods</title>
+</head>
+
+<body>
+  <div class="container-fluid" style="margin-top: 20px">
+    <div class="row">
+      <div class="col-md-6 offset-md-3">
+        <div class="card text-white bg-primary">
+          <div class="card-body p-0">
+            <div class="card-title">
+              <p class="m-2 font-weight-bold">My Goods</p>
+            </div>
+            <div class="card-text bg-white m-0 p-0" th:if="${not #lists.isEmpty(goods)}">
+              <table class="table table-hover m-0">
+                <thead class="thead-white">
+                  <tr>
+                    <th>ID</th>
+                    <th>Description</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr th:remove="all">
+                    <td th:text="${good.id}">1</td>
+                    <td th:text="${good.description}">Goodness 1</td>
+                  </tr>
+                  <tr th:remove="all">
+                    <td th:text="${good.id}">2</td>
+                    <td th:text="${good.description}">Goodness 2</td>
+                  </tr>
+                  <tr th:each="good : ${goods}">
+                    <td th:text="${good.id}">3</td>
+                    <td th:text="${good.description}">Goodness 3</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <!-- Optional JavaScript -->
+  <!-- jQuery first, then Popper.js, then Bootstrap JS -->
+  <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"
+    integrity="sha384-DfXdz2htPH0lsSSs5nCTpuj/zy4C+OGpamoFVy38MVBnE+IbbVYUew+OrCXaRkfj" crossorigin="anonymous">
+  </script>
+  <script src="https://cdn.jsdelivr.net/npm/popper.js@1.16.0/dist/umd/popper.min.js"
+    integrity="sha384-Q6E9RHvbIyZFJoft+2mJbHaEWldlvI9IOYy5n3zV9zzTtmI3UksdQRVvoxMfooAo" crossorigin="anonymous">
+  </script>
+  <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.0/js/bootstrap.min.js"
+    integrity="sha384-OgVRvuATP1z7JjHLkuOU7Xw704+h835Lr+6QL9UvYjZE3Ipu6Tp75j7Bh/kR0JKI" crossorigin="anonymous">
+  </script>
+</body>
+
+</html> 2-2-1 스프링 템플릿으로 실행한 결과 2-3 위의 코드를 보면 실행시 html에서 사용된 기본값 대신 thymeleaf에서 지정한 코드를 사용하게 된다. 3. vs code에서 multiple module로 maven을 작성할 경우 template 수정이 반영이 안되는 경우 3-1 아래처럼 하니 수정이 되었다. 안되면 시도 해볼만다. 별로 의미가 없을 것 같긴 하지만 삭제하진 않는다. 3-2 사실 스프링부트 devtools을 사용하면 cache가 기본 false이다. 그래도 동작안해서 HTML을 붙인 거다. spring.thymeleaf.cache=false
+spring.thymeleaf.mode=HTML
+# spring.thymeleaf.prefix=/templates/ 4. 최신 버전의 spring boot로는 URI매핑정보가 - 이 부분은 타임리프와 상관없다. 4-1 RequestMappingHandlerMapping에서 loggin level이 기존 info 에서 trace로 변경하여야 표출되도록 변경되었다. logging.level.org.springframework.web=trace 3. 예전에 만든 Thymeleaf로 View를 가지고 예시로 사용한다. 3-0 Spring Boot의 기본 template 폴더는 src/main/resources/templates 이다. 여기에 두면 된다. 3-0-1 Thymeleaf의 확장자는 html이다. 3-2 Spring Boot의 기본 static 폴더는 src/main/resources/static 이다. 여기에 js, css, image를 두면 된다. 3-1 Controller에서 사용하는 customer-form.html,  customers-list.html을 작성한다. 3-2 customer-list.html 3-2-1 기존 jsp와 거의 동일하다. 3-2-2 눈여겨 볼 점이 th로 시작하는 구분들이다. 3-2-2-1 @{...} - Link URL Expressions 경로를 설정하는데 사용한다. 3-2-2-2 ${...} - Variable Expressions attribute를 참조하여 데이터를 보여준다. 3-2-2-3 @로 시작하는 링크에 ( ) 로 채워져 있는 부분은 parameter를 추가한다. 여기에 ${ } 사용할 수 있다. <!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+<link rel="stylesheet"
+  href="https://stackpath.bootstrapcdn.com/bootstrap/4.4.1/css/bootstrap.min.css"
+  integrity="sha384-Vkoo8x4CGsO3+Hhxv8T/Q5PaXtkKtu6ug5TOeNV6gBiFeWPGFN9MuhOf23Q9Ifjh"
+  crossorigin="anonymous">
+<link rel="stylesheet" th:href="@{ /css/style.css }" />
+<title>List of Customers</title>
+</head>
+<body>
+  <div class="container">
+    <h2 class="mb-5 mt-5">CRM - Customer Relationship Manager</h2>
+    <a th:href="@{showAddCustomerForm}" class="btn btn-secondary mb-3">Add
+      Customer</a>
+    <div>
+      <form method="GET" action="search" class="form-inline">
+        <div class="input-group mb-3">
+          <input type="text" class="form-control"
+            placeholder="search first name" aria-label="search"
+            name="search">
+          <div class="input-group-append">
+            <button class="btn btn-outline-secondary" type="submit">Search</button>
+          </div>
+        </div>
+      </form>
+    </div>
+    <table class="table table-bordered table-striped table-hover">
+      <thead>
+        <tr class="thead-dark">
+          <th>First Name</th>
+          <th>Last Name</th>
+          <th>Email</th>
+          <th>Action</th>
+        </tr>
+      </thead>
+      <tbody>      
+        <tr th:each="customer : ${ customers }" >
+          <td th:text="${ customer.firstName }">></td>
+          <td th:text="${ customer.lastName }"></td>
+          <td th:text="${ customer.email }"></td>
+          <td><a th:href="@{/customers/showUpdateCustomerForm(id=${ customer.id })}">Update</a> | <a
+            th:href="@{/customers/deleteCustomer(id=${ customer.id })}"
+            onclick="if (!confirm('Do you really want to delete?')) return false">Delete</a>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+  <script src="https://code.jquery.com/jquery-3.4.1.slim.min.js"
+    integrity="sha384-J6qa4849blE2+poT4WnyKhv5vZF5SrPo0iEjwBvKU7imGFAV0wwj1yYfoRSJoZ+n"
+    crossorigin="anonymous"></script>
+  <script
+    src="https://cdn.jsdelivr.net/npm/popper.js@1.16.0/dist/umd/popper.min.js"
+    integrity="sha384-Q6E9RHvbIyZFJoft+2mJbHaEWldlvI9IOYy5n3zV9zzTtmI3UksdQRVvoxMfooAo"
+    crossorigin="anonymous"></script>
+  <script
+    src="https://stackpath.bootstrapcdn.com/bootstrap/4.4.1/js/bootstrap.min.js"
+    integrity="sha384-wfSDF2E50Y2D1uUdj0O3uMBJnjuUD4Ih7YwaYd1iqfktj0Uod8GCExl3Og8ifwB6"
+    crossorigin="anonymous"></script>
+</body>
+</html> 3-3 customer-form.html 8-3-1 Controller에서 첨부한 객체와의 매핑이 필요한 template이다. 8-3-2 *{...} : Selection Variable Expressions 객체의 속성을 선택하여 사용할 수 있다. 양방향이다. 8-3-3 spring form테그의 modelAttribute는 th:object, path는 th:field와 *{ }로 대체할 수 있다. 4. Thymeleaf View 작성하기 4-0 valiation이 빠져 있다. 추후에 추가한다. 지금은 귀찮아서 못하겠다. 4-1 login.html <!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+<meta charset="UTF-8">
+<link rel="stylesheet"
+  href="https://stackpath.bootstrapcdn.com/bootstrap/4.4.1/css/bootstrap.min.css"
+  integrity="sha384-Vkoo8x4CGsO3+Hhxv8T/Q5PaXtkKtu6ug5TOeNV6gBiFeWPGFN9MuhOf23Q9Ifjh"
+  crossorigin="anonymous">
+<title>Spring Security Custom Login Form</title>
+</head>
+<body>
+  <div class="container">
+    <div class="card" style="width: 350px; margin-left: auto; margin-right: auto; border: none;">
+      <h1 class="display-4">Please Login</h1>
+      
+      <form th:action="@{/authenticateUser}" method="POST" th:object="${user}">
+        
+        <p th:if="${ param.error != null }">
+          <small id="passwordHelpBlock" class="form-text text-warning">
+            Sorry! You entered invalid username/password.
+          </small>
+        </p>          
+        <p th:if="${ param.logout != null }">
+          <small id="passwordHelpBlock" class="form-text text-info">
+            You have been logged out.
+          </small>
+        </p>  
+      
+        <div class="form-group">
+          <label for="username">Username</label>
+          <input type="text" th:field="*{username}" id="username" class="form-control" />
+        </div>
+        <div class="form-group">
+          <label for="password">Password</label> 
+          <input type="password" th:field="*{password}" id="password" class="form-control">
+        </div>
+        <input type="submit" value="Login" class="btn btn-primary">
+      </form>
+
+      <!-- Registration Button -->
+      <div class="mt-3">
+        <a th:href="@{/registrationPage}" class="btn btn-info"> Register New User </a>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://code.jquery.com/jquery-3.4.1.slim.min.js"
+    integrity="sha384-J6qa4849blE2+poT4WnyKhv5vZF5SrPo0iEjwBvKU7imGFAV0wwj1yYfoRSJoZ+n"
+    crossorigin="anonymous"></script>
+  <script
+    src="https://cdn.jsdelivr.net/npm/popper.js@1.16.0/dist/umd/popper.min.js"
+    integrity="sha384-Q6E9RHvbIyZFJoft+2mJbHaEWldlvI9IOYy5n3zV9zzTtmI3UksdQRVvoxMfooAo"
+    crossorigin="anonymous"></script>
+  <script
+    src="https://stackpath.bootstrapcdn.com/bootstrap/4.4.1/js/bootstrap.min.js"
+    integrity="sha384-wfSDF2E50Y2D1uUdj0O3uMBJnjuUD4Ih7YwaYd1iqfktj0Uod8GCExl3Og8ifwB6"
+    crossorigin="anonymous"></script>
+</body>
+</html> 4-2 customers-form.html <!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+<link rel="stylesheet"
+  href="https://stackpath.bootstrapcdn.com/bootstrap/4.4.1/css/bootstrap.min.css"
+  integrity="sha384-Vkoo8x4CGsO3+Hhxv8T/Q5PaXtkKtu6ug5TOeNV6gBiFeWPGFN9MuhOf23Q9Ifjh"
+  crossorigin="anonymous">
+<title>Add Customer</title>
+</head>
+<body>
+  <div class="container">
+    <h2 class="mb-3 mt-5">CRM - Customer Relationship Manager</h2>
+    <h3>Save Customer</h3>
+    <form th:object="${customer}" method="POST" th:action="@{/customers/saveCustomer}">
+      <input type="hidden" th:field="*{id}" />
+      <div class="form-group">
+        <label for="firstname">First Name:</label>
+        <input class="form-control" th:field="*{firstName}" id="firstname"/>
+      </div>
+      <div class="form-group">
+        <label for="lastname">Last Name:</label>
+        <input class="form-control" th:field="*{lastName}" id="lastname"/>
+      </div>
+      <div class="form-group">
+        <label for="email">Email:</label>
+        <input class="form-control" th:field="*{email}" id="email"/>
+      </div>
+      <button type="submit" class="btn btn-secondary">Save</button>
+    </form>
+    <p class="lead mt-4">
+      <a th:href="@{/customers/list}">Back To List</a>
+    </p>
+  </div>
+  <script src="https://code.jquery.com/jquery-3.4.1.slim.min.js"
+    integrity="sha384-J6qa4849blE2+poT4WnyKhv5vZF5SrPo0iEjwBvKU7imGFAV0wwj1yYfoRSJoZ+n"
+    crossorigin="anonymous"></script>
+  <script
+    src="https://cdn.jsdelivr.net/npm/popper.js@1.16.0/dist/umd/popper.min.js"
+    integrity="sha384-Q6E9RHvbIyZFJoft+2mJbHaEWldlvI9IOYy5n3zV9zzTtmI3UksdQRVvoxMfooAo"
+    crossorigin="anonymous"></script>
+  <script
+    src="https://stackpath.bootstrapcdn.com/bootstrap/4.4.1/js/bootstrap.min.js"
+    integrity="sha384-wfSDF2E50Y2D1uUdj0O3uMBJnjuUD4Ih7YwaYd1iqfktj0Uod8GCExl3Og8ifwB6"
+    crossorigin="anonymous"></script>
+</body>
+</html> 4-3 registration-form.html <!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+<meta charset="UTF-8">
+<link rel="stylesheet"
+  href="https://stackpath.bootstrapcdn.com/bootstrap/4.4.1/css/bootstrap.min.css"
+  integrity="sha384-Vkoo8x4CGsO3+Hhxv8T/Q5PaXtkKtu6ug5TOeNV6gBiFeWPGFN9MuhOf23Q9Ifjh"
+  crossorigin="anonymous">
+<title>Registration Form</title>
+</head>
+<body>
+
+  <div class="container">
+    <div class="card" style="width: 350px; margin-left: auto; margin-right: auto; border: none;">
+      <h1 class="display-4 mb-3">Registration</h1>
+      <p th:if="${ error != null }" class="bg-danger">
+        <small th:text="${error}" class="text-light"></small>
+      </p>
+      <form th:action="@{/registerUser}" th:object="${user}" method="POST" >
+      
+        <div class="form-group">
+          <label for="username">Username</label> 
+          <input type="text" id="username" name="username" class="form-control" th:field="*{username}"/>
+          <p th:if="${#fields.hasErrors('username')}" class="label label-danger" 
+            th:errors="*{username}">Incorrect Username</p>
+        </div>
+        <div class="form-group">
+          <label for="password">Password</label>
+          <input type="password" id="password" class="form-control" th:field="*{password}" />
+        </div>  
+        <div class="form-group">
+          <label for="matchingPassword">Confirm Password</label>
+          <input type="password" id="matchingPassword" class="form-control" th:field="*{matchingPassword}"/>
+        </div>  
+        <div class="form-group">
+          <label for="firstName">First Name</label>
+          <input type="text" id="firstName" class="form-control" th:field="*{firstName}"/>
+        </div>  
+        <div class="form-group">
+          <label for="lastName">Last Name</label>
+          <input type="text" id="lastName" class="form-control" th:field="*{lastName}"/>
+        </div>  
+        <div class="form-group">
+          <label for="email">Email</label>
+          <input type="email" id="email" class="form-control" th:field="*{email}" />
+        </div>
+        <div>
+          <input type="submit" value="Register" class="btn btn-primary">
+          <a th:href="@{/login}" class="btn btn-info">Back to Login</a>
+        </div>
+      </form>
+    </div>
+  </div>
+
+
+  <script src="https://code.jquery.com/jquery-3.4.1.slim.min.js"
+    integrity="sha384-J6qa4849blE2+poT4WnyKhv5vZF5SrPo0iEjwBvKU7imGFAV0wwj1yYfoRSJoZ+n"
+    crossorigin="anonymous"></script>
+  <script
+    src="https://cdn.jsdelivr.net/npm/popper.js@1.16.0/dist/umd/popper.min.js"
+    integrity="sha384-Q6E9RHvbIyZFJoft+2mJbHaEWldlvI9IOYy5n3zV9zzTtmI3UksdQRVvoxMfooAo"
+    crossorigin="anonymous"></script>
+  <script
+    src="https://stackpath.bootstrapcdn.com/bootstrap/4.4.1/js/bootstrap.min.js"
+    integrity="sha384-wfSDF2E50Y2D1uUdj0O3uMBJnjuUD4Ih7YwaYd1iqfktj0Uod8GCExl3Og8ifwB6"
+    crossorigin="anonymous"></script>
+</body>
+</html> 4-4 list-customers.html <!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+<link rel="stylesheet"
+  href="https://stackpath.bootstrapcdn.com/bootstrap/4.4.1/css/bootstrap.min.css"
+  integrity="sha384-Vkoo8x4CGsO3+Hhxv8T/Q5PaXtkKtu6ug5TOeNV6gBiFeWPGFN9MuhOf23Q9Ifjh"
+  crossorigin="anonymous">
+<title>List of Customers</title>
+</head>
+<body>
+  <div class="container">
+    <h2 class="mb-5 mt-5">CRM - Customer Relationship Manager</h2>
+    <a th:href="@{/customers/showAddCustomerForm}" class="btn btn-secondary mb-3">Add Customer</a>
+    <div>
+      <form method="GET" th:action="@{/customers/search}" class="form-inline">
+        <div class="input-group mb-3">
+          <input type="text" class="form-control"
+            placeholder="search first name" aria-label="search" name="search">
+          <div class="input-group-append">
+            <button class="btn btn-outline-secondary" type="submit">Search</button>
+          </div>
+        </div>
+      </form>
+    </div>
+    <table class="table table-bordered table-striped table-hover">
+      <thead>
+        <tr class="thead-dark">
+          <th>First Name</th>
+          <th>Last Name</th>
+          <th>Email</th>
+          <th>Action</th>
+        </tr>
+      </thead>
+      <tbody>      
+        <tr th:each="customer : ${ customers }" >
+          <td th:text="${ customer.firstName }">></td>
+          <td th:text="${ customer.lastName }"></td>
+          <td th:text="${ customer.email }"></td>
+          <td><a th:href="@{/customers/showUpdateCustomerForm(id=${ customer.id })}">Update</a> | <a
+            th:href="@{/customers/deleteCustomer(id=${ customer.id })}"
+            onclick="if (!confirm('Do you really want to delete?')) return false">Delete</a>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+    <form method="POST" th:action="@{/logout}">
+      <input type="submit" class="btn btn-info" value="Logout" />
+    </form>
+  </div>
+  <script src="https://code.jquery.com/jquery-3.4.1.slim.min.js"
+    integrity="sha384-J6qa4849blE2+poT4WnyKhv5vZF5SrPo0iEjwBvKU7imGFAV0wwj1yYfoRSJoZ+n"
+    crossorigin="anonymous"></script>
+  <script
+    src="https://cdn.jsdelivr.net/npm/popper.js@1.16.0/dist/umd/popper.min.js"
+    integrity="sha384-Q6E9RHvbIyZFJoft+2mJbHaEWldlvI9IOYy5n3zV9zzTtmI3UksdQRVvoxMfooAo"
+    crossorigin="anonymous"></script>
+  <script
+    src="https://stackpath.bootstrapcdn.com/bootstrap/4.4.1/js/bootstrap.min.js"
+    integrity="sha384-wfSDF2E50Y2D1uUdj0O3uMBJnjuUD4Ih7YwaYd1iqfktj0Uod8GCExl3Og8ifwB6"
+    crossorigin="anonymous"></script>
+</body>
+</html> 4-5 index.html <!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Welcome page</title>
+</head>
+<body>
+  This is a simple demo app
+  <p>
+    <a href="/customers/list">Show Customers list</a>
+  </p>
+</body>
+</html>

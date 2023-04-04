@@ -1,0 +1,111 @@
+0. 이 포스트 점층적인 방식으로 작성할 Shopping website 시리즈의 버전 1이다. 0-1 코드 중 설명하지 않고 넘어가는 부분은 이미 이전 포스트에 설명이 있다. 0-2 말그대로 accumulation이다. 1. 순서를 적어보면 1-0 데이터베이스 작성 1-1 서비스 프로젝트 생성 1-2 Entity 설정 1-3 Respository 설정 1-4 클라이언트 프로젝트 생성  --> 여기서부터 한다. 1-5 Entity 생성하기 1-6 서비스 작성하기 1-7 컴포넌트 작성하기 1-8 view 작성하기 2. 클라이언트는 Angular 9버전을 사용한다. 2-0 Angular를 잘 알고 있다고 가정하고 작성한다. 2-1 아래의 명령어들로 생성한다. 이름을 잘못만든 것 같기도 하다. web은 서버, mall은 client로 구분하자. ng new shoppingmall
+
+ng generate component components/product-list
+
+ng generate class common/product
+
+ng generate service services/product 2-2 bootstrap을 사용하기 위해 아래 명령으로 추가한다. ng add @ng-bootstrap/ng-bootstrap 3. Entity를 생성한다. 3-1 프로젝트 생성 시 Product 클래스를 생성하였다. 이 클래스는 product를 받아서 저장하는 역할을 한다. 3-2 common/product.ts파일을 Product 클래스와 동일한 형식으로 작성한다. export class Product {
+  code: string
+
+  name: string
+
+  description: string 
+
+  unitPrice: number
+
+  imageUrl: string
+
+  active: boolean
+
+  unitsInStock: number
+
+  dateCreated: Date
+
+  lastUpdated: Date
+} 4. Product 서비스를 작성한다. 4-1 이 코드는 Product 데이터를 Rest서비스에서 받아와서 구조에 맞게 매핑하여 Observable<Product[]>를 생성한다. 4-2 프로그램의 어떤 부분에서 이 서비스를 inject받아서 product 데이터에 접근할 수 있다. 4-3 product.service.ts 코드 import { Injectable } from '@angular/core';
+import { HttpClient } from '@angular/common/http';
+import { Product } from '../common/product';
+import { Observable } from 'rxjs';
+import { map } from 'rxjs/operators'
+
+@Injectable({
+  providedIn: 'root'
+})
+export class ProductService {
+
+  private baseUrl = "http://localhost:8080/api/products"
+
+  constructor(private httpClient: HttpClient) { }
+
+  getProuducts(): Observable<Product[]> {
+    return this.httpClient.get<GetResponse>(this.baseUrl).pipe(
+      map(response=> response._embedded.products)
+    )
+  }
+  
+}
+
+interface GetResponse {
+  _embedded: {
+    products: Product[]
+  }
+} 4-4 REST Api를 사용하려면 HttpClient를 사용하면 편리하다. 4-4-1 HttpClient를 사용하려면 모듈에 이 컴포넌트가 담긴 모듈을 사용한다고 지정해야 한다. 4-4-2 app.module.ts의 imports에 HttpClientModule을 추가하였다. import { BrowserModule } from '@angular/platform-browser';
+import { NgModule } from '@angular/core';
+
+import { AppComponent } from './app.component';
+import { ProductListComponent } from './components/product-list/product-list.component';
+import { NgbModule } from '@ng-bootstrap/ng-bootstrap';
+import { HttpClientModule } from '@angular/common/http'
+
+@NgModule({
+  declarations: [
+    AppComponent,
+    ProductListComponent
+  ],
+  imports: [
+    BrowserModule,
+    HttpClientModule,
+    NgbModule
+  ],
+  providers: [],
+  bootstrap: [AppComponent]
+})
+export class AppModule { } 5. 서비스를 사용하는 ProductListComponent를 작성한다. 5-0 ProductService를 주입 받아 데이터를 받아 온다. data는 이미 배열로 만들어진 product 배열이다. 5-1 product-list.component.ts import { Component, OnInit } from '@angular/core';
+import { Product } from 'src/app/common/product';
+import { ProductService } from 'src/app/services/product.service';
+
+@Component({
+  selector: 'app-product-list',
+  templateUrl: './product-list.component.html',
+  styleUrls: ['./product-list.component.css']
+})
+export class ProductListComponent implements OnInit {
+
+  products: Product[]
+
+  constructor(private productService: ProductService) { }
+
+  ngOnInit(): void {
+    this.productService.getProuducts().subscribe(
+      data=> this.products = data
+    )
+  }
+} 6. 화면을 보여주는 View를 작성한다. 6-1 우선 product-list.component.html을 작성한다. 6-2 서비스에서 받은 데이터가 담긴 products 속성을 사용하여 화면에 뿌려준다. Bootstrap을 사용하였다. 6-3 사진은 아무거나 쓰면 되고 저장 폴더는 assets를 기준으로 경로를 사용하면 된다. <table class="table">
+  <thead class="thead-dark">
+    <th class="text-center">Image</th>
+    <th class="text-center">Name</th>
+    <th class="text-center">Units in Stock</th>
+    <th class="text-center">Price</th>
+  </thead>
+  <tbody>
+    <tr *ngFor="let product of products">
+      <td class="text-center"><img src="{{ product.imageUrl }}" width="50px" alt="picture"></td>
+      <td class="text-center">{{ product.name }}</td>
+      <td class="text-center">{{ product.unitsInStock }}</td>
+      <td class="text-center">{{ product.unitPrice | currency }}</td>
+    </tr>
+  </tbody>
+</table> 6-3 마지막으로 app.component.html에 product-list 컴포넌트를 사용하도록 정의하였다. <div class="container">
+  <h1>Product</h1>
+  <app-product-list></app-product-list>
+</div> 7. 결과 화면

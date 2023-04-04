@@ -1,0 +1,115 @@
+1. 일반적인 홈페이지는 지난 포스트처럼 첫화면부터 바로 로그인 페이지가 나오지 않는다. 1-1 보통은 첫페이지를 볼 수 있고 거기서 로그인을 요청하거나 원하는 링크를 눌러 인증 페이지로 이동한다. 1-2 이 포스트는 첫 페이지에 접근 후 로그인을 사용하도록 변경한 내용이다. 2. 홈페이지 진입 시 Landing 페이지를 사용도록 Security Config에 설정한다. 2-0 HttpRequest에 대한 설정이므로 HttpSecurity을 다루는 메소드를 override한다. 2-1 landing페이지의 접근 권한을 모두에게 주고 2-1-1 아래 소스의 "/"는 랜딩페이지 요청 url이고 모든 사람들에게 사용이 허용된다. 2-2 접근 제어할 페이지에 접근 권한을 지정한다. 2-2-0 접근 제어는 antMatchers(접근경로).hasRole(필요권한) 형식으로 지정한다. 2-2-1 여러개의 권한 중 하나만 해당하면 접근을 허용할 경우는 .hasRole 대신 .hasAnyRole(A,B ...)로 설정한다. 2-2-2 "employees", "/leaders/**", "/system/**" 경로에 대한 접근 권한을 설정하였다. 2-3 로그인 페이지 설정을 하고 2-3-1 직전 포스트와 동일한 설정이다. 로그인은 당연 모든 사용자가 사용할 수 있어야 한다. 2-4 로그아웃 시 전환 요청할 url을 지정한다. 로그아웃사용 권한은 모든 사용자로 지정한다. 2-4-1 로그아웃이 되었을 때 landing페이지를 요청하는 "/"를 지정하였다. package pe.pilseong.springsecurity.config;
+
+import org.springframework.context.annotation.Configuration;
+import org.springframework.security.config.annotation.authentication.builders.AuthenticationManagerBuilder;
+import org.springframework.security.config.annotation.web.builders.HttpSecurity;
+import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
+import org.springframework.security.config.annotation.web.configuration.WebSecurityConfigurerAdapter;
+import org.springframework.security.core.userdetails.User;
+import org.springframework.security.core.userdetails.User.UserBuilder;
+
+@Configuration
+@EnableWebSecurity
+public class SecurityConfig extends WebSecurityConfigurerAdapter {
+  
+  @Override
+  protected void configure(AuthenticationManagerBuilder auth) throws Exception {
+    UserBuilder users = User.withDefaultPasswordEncoder();
+    
+    auth.inMemoryAuthentication()
+      .withUser(users.username("pilseong").password("pilseong").roles("EMPLOYEE"))
+      .withUser(users.username("suel").password("suel").roles("EMPLOYEE", "MANAGER"))
+      .withUser(users.username("noel").password("noel").roles("ADMIN"));
+  }
+  
+  @Override
+  protected void configure(HttpSecurity http) throws Exception {
+    http
+      .authorizeRequests()
+        .antMatchers("/").permitAll()
+        .antMatchers("/employees").hasRole("EMPLOYEE")
+        .antMatchers("/leaders/**").hasRole("MANAGER")
+        .antMatchers("/systems/**").hasRole("ADMIN")
+      .and()
+      .formLogin()
+        .loginPage("/showLoginPage")
+        .loginProcessingUrl("/authenticateUser")
+        .permitAll()
+      .and()
+      .logout()
+        .logoutSuccessUrl("/")
+        .permitAll();    
+  }
+} 3. Controller를 적절하게 수정한다. 3-0 HomeController는 단순히 요청 url과 보여질 jsp를 매핑한다. login은 LoginController에서 처리한다. 3-1 "/" 요청이 들어오면 landing.jsp을 보여준다. 3-2 "/employees" 가 들어오면 지난 포스팅에서 보여주었던 로그인 후 페이지를 보여준다. 3-2-1 여기서는 url을 지정하였는데, Security Config에서 이 url은 접근권한을 EMPLOYEE로 설정하였다. 3-2-2 따라서 EMPLOYEE 권한이 있는 USER만 로그인 성공 후 접근할 수 있다. package pe.pilseong.springsecurity.controller;
+
+import org.springframework.stereotype.Controller;
+import org.springframework.web.bind.annotation.GetMapping;
+
+@Controller
+public class HomeController {
+
+  @GetMapping("/")
+  public String landing() {
+    return "landing";
+  }
+  
+  @GetMapping("/employees")
+  public String home() {
+    return "home";
+  }
+} 3-3 LoginController는 수정할 부분이 없다. 설정이 동일하기 때문이다. package pe.pilseong.springsecurity.controller;
+
+import org.springframework.stereotype.Controller;
+import org.springframework.web.bind.annotation.GetMapping;
+
+@Controller
+public class LoginController {
+  @GetMapping("/showLoginPage")
+  public String showLoginPage() {
+    return "plain-login";
+  }
+} 4. Landing화면을 보여주는 langing.jsp를 추가한다. 4-1 최소한의 코드만 추가하였다. 4-2 첫화면에 오면 employees 링크가 있다. 4-2-1 이 링크는 로그인 성공한 경우만 접근할 수 있고 안된 경우는 login페이지로 이동한다. 4-2-2 이 링크는 로그인이 성공하여도 EMPLOYEE권한이 있어야 볼 수 있다. <%@ page language="java" contentType="text/html; charset=UTF-8" pageEncoding="UTF-8"%>
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Welcome to Company</title>
+</head>
+<body>
+  <p>
+    Welcome to Company!!!<br><br>
+    <a href="${ pageContext.request.contextPath }/employees">Click to the employee page</a>
+  </p>
+</body>
+</html> 4-3 화면 모습이다. 5. /employees로 접근했을 때 보여지는 home.jsp이다. 지난 포스트의 소스와 동일하다. <%@ taglib prefix="security" uri="http://www.springframework.org/security/tags" %>
+<%@ taglib prefix="form" uri="http://www.springframework.org/tags/form"%>
+<%@ page language="java" contentType="text/html; charset=UTF-8"
+  pageEncoding="UTF-8"%>
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<link rel="stylesheet"
+  href="https://stackpath.bootstrapcdn.com/bootstrap/4.4.1/css/bootstrap.min.css"
+  integrity="sha384-Vkoo8x4CGsO3+Hhxv8T/Q5PaXtkKtu6ug5TOeNV6gBiFeWPGFN9MuhOf23Q9Ifjh"
+  crossorigin="anonymous">
+<title>Spring Security Custom Login Form</title>
+</head>
+<body>
+  <div class="container">
+    <h2>Company Website</h2>
+    <hr>
+    <p>You are now logged in</p>
+    <p>
+      User :: <security:authentication property="principal.username"/>
+    </p>
+    <p>
+      Roles(s) :: <security:authentication property="principal.authorities"/>
+    </p>
+    
+    <form:form action="${ pageContext.request.contextPath }/logout" method="POST">
+      <input type="submit" class="btn btn-primary" value="Logout"/>
+    </form:form>
+  </div>
+</body>
+</html>

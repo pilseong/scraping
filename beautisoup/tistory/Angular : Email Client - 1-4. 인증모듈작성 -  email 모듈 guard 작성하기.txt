@@ -1,0 +1,69 @@
+1. 이 포스트는 Email Client를 작성하는 시리즈의 일부이다 2. email 모듈은 로그인 한 경우에만 볼 수 있어야 하고 열려져 있다가도 sign out되면 진입이 불가해야 한다. 2-1 lazy 로딩이 대한 가드는 canLoad guard로 작성해야 한다. 2-2 경로에 대한 접근 가드의 작성은 canActivate guard를 작성해야 한다. 3. Inbox라는 Guard를 생성하고 canLoad, canActivate를 함께 작성한다. 3-1 아래의 명령어로 생성한다. 생성시에 나오는 option에서 CanActivate, CanLoad 둘 다 *를 체크한다. 3-2 이제 Guard를 작성한다. 3-2-0 가드는 단순한 함수인데, 보통 Observable<boolean>을 반환한다. 3-2-0-1 즉 해당 경로 접근 시에 Obervable의 최종값이 true false에 따라 접근결과가 결정된다. 3-2-1 두 가지 경우 로직은 동일하지만 canActivate도 작성하는 이유는 3-2-1-0 로그한 후 inbox를 로딩하고 나면 로그인 상태와 상관없이 canLoad가 다시 실행되지 않아 3-2-1-1 로그아웃 이후에도 이메일 페이지에 진입이 가능하기 때문이다. 3-2-2 아래의 두 로직은 완전 동일하다. 그런데 약간 어려운 부분이 있다. 3-2-2-0 기본적으로 현재 로그인 상태를 얻어오는 authService의 signIn$ 속성을 그대로 반환한다. 3-2-2-0-1 하지만 반환되는 데이터를 변환하여 가드를 호출하는 로직이 필요로 하는 데이터를 제공해야 한다. 3-2-2-1 가드는 canActviate, canLoad는 Observable<boolean>을 반환해야 하는데, complete이 되어야만 동작한다. 3-2-2-2 그렇기 때문에 take를 사용하여 임의로 1개의 값을 수신 후 complete를 강제로 시켜준다. 3-2-2-3 skipWhile은 초기값이 확정되지 않았을 경우 발생하는 null에는 반응하지 않겠다는 의미이다. 3-2-2-3-1 즉 실제 로그인 상태가 확인되었을 경우에만 동작한다. 3-2-2-4 로그인 이 되지 않은 상태의 경우는 로그인 페이지로 이동하도록 로직을 tap을 통해 구현했다. 3-2-2-4-1 tap은 결과값에는 아무런 영향을 주지 않는다. 전체 pipe는 null이 아닌 값이 들어왔을 경우, 3-2-2-4-2 자동 complete하여 가드가 정상 동작하게 설정하였다. import { Injectable } from '@angular/core';
+import { CanActivate, CanLoad, Route, UrlSegment, ActivatedRouteSnapshot, RouterStateSnapshot, UrlTree, Router } from '@angular/router';
+import { Observable } from 'rxjs';
+import { AuthService } from './auth.service';
+import { skipWhile, take, tap } from 'rxjs/operators';
+
+@Injectable({
+  providedIn: 'root'
+})
+export class InboxGuard implements CanActivate, CanLoad {
+  canActivate(
+    next: ActivatedRouteSnapshot,
+    state: RouterStateSnapshot): Observable<boolean | UrlTree> | Promise<boolean | UrlTree> | boolean | UrlTree {
+
+    return this.authService.signedIn$.pipe(
+      skipWhile(value=> value === null),
+      take(1),
+      tap(authenticated=> {
+        if (!authenticated) {
+          this.router.navigateByUrl('/auth/signIn')
+        }
+      })
+    )
+  }
+
+  canLoad(
+    route: Route,
+    segments: UrlSegment[]): Observable<boolean> | Promise<boolean> | boolean {
+
+    return this.authService.signedIn$.pipe(
+      skipWhile(value=> value === null),
+      take(1),
+      tap(authenticated=> {
+        if (!authenticated) {
+          this.router.navigateByUrl('/auth/signIn')
+        }
+      })
+    )
+  }
+
+  constructor(private authService: AuthService, private router: Router) {}
+} 3-3 이제 lazy로딩을 처리하는 부분에 이 가드를 설정한다. 3-3-1 email 모듈에 canLoad, canActivate에 동일한 가드를 설정하였다. 배열로 지정하기 때문에 여러 개도 가능하다. import { NgModule } from '@angular/core';
+import { Routes, RouterModule } from '@angular/router';
+import { HomeComponent } from './home/home.component';
+import { NotFoundComponent } from './not-found/not-found.component';
+import { InboxGuard } from './auth/inbox.guard';
+
+const routes: Routes = [
+  {
+    path: 'auth',
+    loadChildren: () =>
+      import('./auth/auth.module').then((module) => module.AuthModule),
+  },
+  {
+    canLoad: [ InboxGuard ],
+    canActivate: [ InboxGuard ],
+    path: 'inbox',
+    loadChildren: () =>
+      import('./email/email.module').then((module) => module.EmailModule),
+  },
+  { path: '', component: HomeComponent },
+  { path: '**', component: NotFoundComponent },
+];
+
+@NgModule({
+  imports: [RouterModule.forRoot(routes)],
+  exports: [RouterModule],
+})
+export class AppRoutingModule {}

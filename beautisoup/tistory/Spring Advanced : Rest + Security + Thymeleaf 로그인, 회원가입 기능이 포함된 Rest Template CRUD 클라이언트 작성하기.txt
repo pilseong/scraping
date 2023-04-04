@@ -1,0 +1,639 @@
+1. 이 포스트는 아래 링크의 서버를 사용할 클라이언트이다. Spring Boot : Rest + Security + Data JPA 로그인, 회원가입 기능이 포함된 CRUD서비스 작성하기 0. 이 포스트는 예전 부터 포스팅에 사용했던 Customer와 거의 유사한 프로그램이다. 1. 이 포스트의 내용은 Spring Security가 설정된 REST API 서비스를 만드는 것이고 다음 포스트는 이 서비스를 사용하 kogle.tistory.com 1-1 자세한 설명이 없는 부분은 이미 이전 포스팅에서 다 설명이 되어 있다. 특히 template 부분이 그렇다. 1-1-1 자세한 설명이 필요하면 아래 링크를 참고한다. Spring Boot : RestTemplate + Thymeleaf with Java Config - CRUD 클라이언트 구현 1. 이 포스트는 Spring : RestTemplate with Java Config - CRUD 클라이언트 구현의 후속 포스트이다. Spring : REST + Hibernate with Java Config - CRUD 클라이언트 구현 1. 이 포스트는 지난 포스트에서 작성.. kogle.tistory.com 2. 순서를 적어보면 2-1 프로젝트 생성 2-2 Dependency 작성 2-3 웹 서비스 설정, 보안 설정 2-4 RestTempate 서비스 작성 2-5 Controller 작성 2-6 Thymeleaf view 작성 3. Spring Starter Project로 프로젝트를 생성한다. 물론 Spring initializer로 생성해도 동일하다. 3-1 RestTemplate 클라이언트이기 때문에 DB관련 모듈은 다 빠졌다. 3-2 View를 위해 Thymeleaf를 추가하였다. 4. 웹과 보안 설정하기 4-1 웹설정이다. 4-2 특별할 건 없고 addViewControllers로 Landing페이지를 설정하였다. package pe.pilseong.crmclient.config;
+
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.web.client.RestTemplate;
+import org.springframework.web.servlet.config.annotation.EnableWebMvc;
+import org.springframework.web.servlet.config.annotation.ViewControllerRegistry;
+import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
+
+@Configuration
+@EnableWebMvc
+public class WebConfig implements WebMvcConfigurer {
+
+  @Bean
+  public RestTemplate restTemplate() {
+    return new RestTemplate();
+  }
+  
+  @Override
+  public void addViewControllers(ViewControllerRegistry registry) {
+    registry.addViewController("/").setViewName("index");
+  }
+} 4-2 보안설정을 한다. 4-2-1 SecurityInitializer package pe.pilseong.crmclient.security;
+
+import org.springframework.security.web.context.AbstractSecurityWebApplicationInitializer;
+
+public class WebSecurityInitializer extends AbstractSecurityWebApplicationInitializer {} 4-2-2 보안 세부 설정하기 4-2-2-0 Customer Login페이지를 사용하고 있고 회원등록과 로그인은 모두에게 접근 허용된다. 4-2-2-1 눈에 띄는 부분은 인증관리자 설정에서 DaoAuthenticationProvider를 사용하고 있다는 점이다. 4-2-2-2 데이터만 받아오면 되기 때문에 REST서비스로 사용자 정보를 받아와 인증하고 세션을 생성한다. package pe.pilseong.crmclient.security;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
+import org.springframework.security.config.annotation.authentication.builders.AuthenticationManagerBuilder;
+import org.springframework.security.config.annotation.web.builders.HttpSecurity;
+import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
+import org.springframework.security.config.annotation.web.configuration.WebSecurityConfigurerAdapter;
+import org.springframework.security.core.userdetails.UserDetailsService;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import org.springframework.security.crypto.password.PasswordEncoder;
+
+@EnableWebSecurity
+@Configuration
+public class SecurityConfig extends WebSecurityConfigurerAdapter {
+
+  @Autowired
+  private UserDetailsService userDetailsService;
+  
+  @Override
+  protected void configure(AuthenticationManagerBuilder auth) throws Exception {
+    // to get the password from authentication
+    auth.authenticationProvider(authenticationProvider()).eraseCredentials(false);
+  }
+  
+  @Override
+  protected void configure(HttpSecurity http) throws Exception {
+    http.authorizeRequests()
+      .antMatchers("/registrationPage", "/registerUser", "/").permitAll()
+      .anyRequest().authenticated()
+      .and()
+      .formLogin()
+        .loginPage("/showLoginPage")
+        .loginProcessingUrl("/authenticateUser")
+        .permitAll()
+      .and()        
+        .logout().permitAll()
+      ;
+  }
+  
+  @Bean
+  public PasswordEncoder passwordEncoder() {
+    return new BCryptPasswordEncoder();
+  }
+  
+  @Bean
+  public DaoAuthenticationProvider authenticationProvider() {
+    DaoAuthenticationProvider auth = new DaoAuthenticationProvider();
+    auth.setUserDetailsService(userDetailsService);
+    auth.setPasswordEncoder(passwordEncoder());
+    
+    return auth;
+  }
+} 4-2-3 REST Service는 Stateless로 동작하기 때문에 세션관리는 Client에서 해주어야 한다. 4-2-3-1 가장 쉬운 세션에 따른 사용자 정보접근은 인증성공 후 SecurityContext에 저장되는 Authentication이다. 4-2-3-1-1 다만 기본값으로 credential이 숨겨져 있으므로 인증설정에서 eraseCredentials(false) 설정해야 한다. 4-2-3-1-2 이것을 안하면 credential은 비밀번호이다. 안하면 null이 나온다. 4-2-3-2 Stateless서버에는 매 request마다 id/password 전송이 필요하기 때문에 이 정보는 필수적이다. 4-2-3-3 어디서나 접근 가능하고 state관리가 가능하도록 bean으로 등록하여 사용할 수 있게 컴포넌트를 작성한다. // 구현 클래스
+package pe.pilseong.crmclient.security;
+
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.stereotype.Component;
+
+@Component
+public class AuthenticationFacadeImpl implements AuthenticationFacade {
+
+  @Override
+  public Authentication getAuthentication() {
+    
+    return SecurityContextHolder.getContext().getAuthentication();
+  }
+}
+
+
+// 인터페이스
+package pe.pilseong.crmclient.security;
+
+import org.springframework.security.core.Authentication;
+
+public interface AuthenticationFacade {
+  Authentication getAuthentication();
+} 5. 이제 Customer 정보와 유저로그인, 가입을 위한 Service를 작성한다. 5-1 CustomerService 인터페이스 - 서버에서 지정한 것과 동일하다. 클라언트는 세부내용을 알 필요가 전혀없다. package pe.pilseong.crmclient.service;
+
+import java.util.List;
+
+import pe.pilseong.crmclient.dto.Customer;
+
+
+public interface CustomerService {
+  
+  List<Customer> getCustomers(String keyword);
+  
+  Customer getCustomer(Long id);
+  
+  void saveCustomer(Customer customer);
+  
+  void deleteCustomer(Long id);
+} 5-2 CustomerServiceImpl - 이 프로그램의 핵심이다. 5-2-0 여기에 정의된 기능으로 모든 데이터를 서버에 요청하고 데이터를 받아오고 처리한다. 5-2-1 가장 핵심적인 부분은 getHeader 메소드이다. 5-2-1-1 이 메소드는 로그인한 사용자의 id/pass를 Base64로 인코딩하여 Authorizaion헤드에 포함하고 있다. 5-2-1-2 이 메소드로 생성한 정보를 HttpEntity에 포함하여 전송하여 REST의 인증절차를 해결할 수 있다. 5-2-1-3 서버의 URL은 application.properties에서 설정한 crmserver.url에서 받아오고 있다. package pe.pilseong.crmclient.service;
+
+import java.util.Arrays;
+import java.util.List;
+
+import org.apache.catalina.User;
+import org.apache.tomcat.util.codec.binary.Base64;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.ParameterizedTypeReference;
+import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpMethod;
+import org.springframework.http.MediaType;
+import org.springframework.security.core.Authentication;
+import org.springframework.stereotype.Service;
+import org.springframework.web.client.RestTemplate;
+
+import pe.pilseong.crmclient.dto.Customer;
+import pe.pilseong.crmclient.security.AuthenticationFacade;
+
+@Service
+public class CustomerServiceImpl implements CustomerService {
+
+  @Value("${crmserver.url}")
+  private String SERVER_URL;
+  
+  @Autowired
+  private RestTemplate restTemplate;
+  
+  @Autowired
+  private AuthenticationFacade authenticationFacade;
+  
+  private HttpHeaders getHeaders() {
+    
+    Authentication auth = authenticationFacade.getAuthentication();
+    
+    String plainCredentials = auth.getName() + ":" + auth.getCredentials();
+    String base64Credentials = new String(Base64.encodeBase64(plainCredentials.getBytes()));
+    
+    HttpHeaders headers = new HttpHeaders();
+    headers.add("Authorization", "Basic " + base64Credentials);
+    headers.setAccept(Arrays.asList(MediaType.APPLICATION_JSON));
+    
+    return headers;    
+  }
+  
+  @Override
+  public List<Customer> getCustomers(String keyword) {
+    HttpEntity<String> request = new HttpEntity<>(getHeaders());
+    
+    if (keyword == null || keyword.length() == 0) {
+      keyword = "";
+    } else {
+      keyword = "?q=" + keyword;
+    }
+    
+    return this.restTemplate.exchange(SERVER_URL + "/customers" + keyword, HttpMethod.GET, 
+        request, new ParameterizedTypeReference<List<Customer>>() {} ).getBody();
+  }
+
+  @Override
+  public Customer getCustomer(Long id) {
+    HttpEntity<String> request = new HttpEntity<>(getHeaders());
+    
+    return this.restTemplate.exchange(SERVER_URL + "/customers" + "/" + id, HttpMethod.GET,
+        request, new ParameterizedTypeReference<Customer>() {} ).getBody();
+  }
+
+  @Override
+  public void saveCustomer(Customer customer) {
+    HttpEntity<Customer> request = new HttpEntity<>(customer, getHeaders());
+    
+    if (customer.getId() == null) {
+      this.restTemplate.postForObject(SERVER_URL + "/customers", request, String.class);
+    } else { 
+      this.restTemplate.put(SERVER_URL, request, String.class);
+    }
+  }
+
+  @Override
+  public void deleteCustomer(Long id) {
+    HttpEntity<String> request = new HttpEntity<>(getHeaders());
+    
+    this.restTemplate.exchange(SERVER_URL + "/customers" + "/" + id, HttpMethod.DELETE, request, User.class);
+  }
+} 5-3 사용자 로그인, 가입을 위한 UserService 인터페이스 5-3-1 이 인터페이스는 UserDetailsService를 상속하여 DaoAuthenticationProvider를 지원하고 있다. package pe.pilseong.crmclient.service;
+
+import org.springframework.security.core.userdetails.UserDetailsService;
+
+import pe.pilseong.crmclient.dto.UserDTO;
+
+public interface UserService extends UserDetailsService {
+
+  Object register(UserDTO user);
+} 5-4 UserService 구현하기 5-4-1 loadUserByUsername은 UserDetailsService에서 제공하고 있고 로그인에서 사용된다. 5-4-1-1 이 메소드는 REST 서비스에 username 정보로 해당 사용자의 정보를 요청하고 5-4-1-2 이를 수신 후 로그인을 수행한다. 5-4-2 register 메소드는 회원가입 처리를 위한 메소드이다. 5-4-2-1 이 메소드는 받아온 회원정보를 REST 서비스로 전송하여 회원가입을 한다. 5-4-2-2 username이 중복되는 경우 HttpClientErrorException이 발생하는데 이를 잡아서 적절하게 반환한다. 5-4-2-3 중복이 발생한 경우 ResponseBody는 문자나 바이트배열로 오는데 5-4-2-3-1 이것을 받아 CustomerErrorResponse로 변경해야 한다. 5-4-2-3-2 이름이 이상하긴 한데 귀찮아서 안바꿨다. 그냥 General이라고 붙이는 게 나을 뻔 했다. 5-4-2-4 반환값이 정상일 경우는 UserDTO가 반환되고 중복일 때는 CustomerErrorResponse가 반환되다. package pe.pilseong.crmclient.service;
+
+import java.util.stream.Collectors;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.security.core.userdetails.User;
+import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.security.core.userdetails.UsernameNotFoundException;
+import org.springframework.stereotype.Service;
+import org.springframework.web.client.HttpClientErrorException;
+import org.springframework.web.client.RestTemplate;
+
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
+
+import pe.pilseong.crmclient.dto.UserDTO;
+import pe.pilseong.crmclient.error.CustomerErrorResponse;
+
+@Service
+public class UserServiceImpl implements UserService {
+
+  @Value("${crmserver.url}")
+  private String SERVER_URL;
+  
+  @Autowired
+  private RestTemplate restTemplate;
+    
+  @Override
+  public UserDetails loadUserByUsername(String username) throws UsernameNotFoundException {
+    UserDTO userDTO = new UserDTO();
+    userDTO.setUsername(username);
+        
+    System.out.println("username :: " + username);
+    UserDTO user = restTemplate.postForObject(SERVER_URL + "/login", userDTO, UserDTO.class);
+
+    System.out.println("UserDetails :: " + user);
+    
+    return new User(user.getUsername(), user.getPassword(),
+        user.getRoles().stream().map(role-> new SimpleGrantedAuthority(role))
+        .collect(Collectors.toList()));    
+  }
+
+  @Override
+  public Object register(UserDTO user) {
+    try {
+      return restTemplate.postForObject(SERVER_URL + "/users", user, Object.class);  
+    } catch (HttpClientErrorException e) {
+      ObjectMapper om = new ObjectMapper();
+      String errorResponse = e.getResponseBodyAsString();
+
+      CustomerErrorResponse response = null;
+      try {
+        response = om.readValue(errorResponse, CustomerErrorResponse.class);
+      } catch (JsonProcessingException e1) {
+        e1.printStackTrace();
+        response = null;
+      }
+      
+      return (Object)response;
+    }
+  }
+} 6 컨트롤러 작성하기 6-1 우선 CustomerController이다. 이건 view를 사용하는 그냥 Controller이다. 예전 포스팅과 큰 차이가 없다. package pe.pilseong.crmclient.controller;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Controller;
+import org.springframework.ui.Model;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.ModelAttribute;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+
+import pe.pilseong.crmclient.dto.Customer;
+import pe.pilseong.crmclient.service.CustomerService;
+
+@Controller
+@RequestMapping("/customers")
+public class CustomerController {
+  
+  @Autowired
+  private CustomerService customerService;
+  
+  @GetMapping("/list")
+  public String getCustomers(Model model) {
+    model.addAttribute("customers", this.customerService.getCustomers(""));
+    
+    return "list-customers";
+  }
+  
+  @GetMapping("/search")
+  public String search(@RequestParam("search") String keyword, Model model) {
+    model.addAttribute("customers", this.customerService.getCustomers(keyword));
+    
+    return "list-customers";
+  }
+  
+  @GetMapping("/showUpdateCustomerForm")
+  public String showUpdateCustomerForm(@RequestParam("id") Long id, Model model) {
+    model.addAttribute("customer", this.customerService.getCustomer(id));
+    
+    return "customer-form";
+  }
+  
+  @PostMapping("/saveCustomer")
+  public String saveCustomer(@ModelAttribute("customer") Customer customer) {
+    
+    this.customerService.saveCustomer(customer);
+    
+    return "redirect:list";
+  }
+  
+  @GetMapping("/showAddCustomerForm")
+  public String showAddCustomerForm(Model model) {
+    model.addAttribute("customer", new Customer());
+    
+    return "customer-form";
+  }
+  
+  @GetMapping("/deleteCustomer")
+  public String deleteCustomer(@RequestParam("id") Long id) {
+    this.customerService.deleteCustomer(id);
+    
+    return "redirect:list";
+    
+  }
+} 6-2 UserController 6-2-0 로그인에서 UserDTO은 의미가 없다. Spring Security에서 제공하는 로그인 로직을 사용한다. 6-2-1 즉 개발자가 검증에 대한 처리를 할 수가 없다. View에서 name 속성으로 값만 넘겨 주면 된다. 6-2-1 로그인과 회원가입 처리를 위한 메소드를 정의하고 있다. 6-2-1-1 회원가입 시 중복의 경우에 메시지를 받아 다시 회원가입화면에서 어떤 오류인지 사용자에게 보여준다. 6-2-1-2 가입 성공의 경우는 login화면으로 redirect 된다. package pe.pilseong.crmclient.controller;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Controller;
+import org.springframework.ui.Model;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.ModelAttribute;
+import org.springframework.web.bind.annotation.PostMapping;
+
+import pe.pilseong.crmclient.dto.UserDTO;
+import pe.pilseong.crmclient.error.CustomerErrorResponse;
+import pe.pilseong.crmclient.service.UserService;
+
+@Controller
+public class UserController {
+
+  @Autowired
+  private UserService userService;
+
+  @GetMapping("/showLoginPage")
+  public String login(Model model) {
+    model.addAttribute("user", new UserDTO());
+
+    return "login";
+  }
+
+  @GetMapping("/registrationPage")
+  public String showRegistrationPage(Model model) {
+    model.addAttribute("user", new UserDTO());
+
+    return "registration-form";
+  }
+
+  @PostMapping("/registerUser")
+  public String registerUser(@ModelAttribute("user") UserDTO userDTO, Model model) {
+    System.out.println("client registerUser :: " + userDTO.toString());
+    Object response = this.userService.register(userDTO);
+
+    if (response instanceof CustomerErrorResponse) {
+      System.out.println(response.toString());
+      model.addAttribute("error", ((CustomerErrorResponse) response).getMessage());
+      return "registration-form";
+    } else {
+      return "redirect:/login";
+    }
+
+  }
+} 7. Thymeleaf View 작성하기 7-0 valiation이 빠져 있다. 추후에 추가한다. 지금은 귀찮아서 못하겠다. 7-1 login.html <!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+<meta charset="UTF-8">
+<link rel="stylesheet"
+  href="https://stackpath.bootstrapcdn.com/bootstrap/4.4.1/css/bootstrap.min.css"
+  integrity="sha384-Vkoo8x4CGsO3+Hhxv8T/Q5PaXtkKtu6ug5TOeNV6gBiFeWPGFN9MuhOf23Q9Ifjh"
+  crossorigin="anonymous">
+<title>Spring Security Custom Login Form</title>
+</head>
+<body>
+  <div class="container">
+    <div class="card" style="width: 350px; margin-left: auto; margin-right: auto; border: none;">
+      <h1 class="display-4">Please Login</h1>
+      
+      <form th:action="@{/authenticateUser}" method="POST" th:object="${user}">
+        
+        <p th:if="${ param.error != null }">
+          <small id="passwordHelpBlock" class="form-text text-warning">
+            Sorry! You entered invalid username/password.
+          </small>
+        </p>          
+        <p th:if="${ param.logout != null }">
+          <small id="passwordHelpBlock" class="form-text text-info">
+            You have been logged out.
+          </small>
+        </p>  
+      
+        <div class="form-group">
+          <label for="username">Username</label>
+          <input type="text" th:field="*{username}" id="username" class="form-control" />
+        </div>
+        <div class="form-group">
+          <label for="password">Password</label> 
+          <input type="password" th:field="*{password}" id="password" class="form-control">
+        </div>
+        <input type="submit" value="Login" class="btn btn-primary">
+      </form>
+
+      <!-- Registration Button -->
+      <div class="mt-3">
+        <a th:href="@{/registrationPage}" class="btn btn-info"> Register New User </a>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://code.jquery.com/jquery-3.4.1.slim.min.js"
+    integrity="sha384-J6qa4849blE2+poT4WnyKhv5vZF5SrPo0iEjwBvKU7imGFAV0wwj1yYfoRSJoZ+n"
+    crossorigin="anonymous"></script>
+  <script
+    src="https://cdn.jsdelivr.net/npm/popper.js@1.16.0/dist/umd/popper.min.js"
+    integrity="sha384-Q6E9RHvbIyZFJoft+2mJbHaEWldlvI9IOYy5n3zV9zzTtmI3UksdQRVvoxMfooAo"
+    crossorigin="anonymous"></script>
+  <script
+    src="https://stackpath.bootstrapcdn.com/bootstrap/4.4.1/js/bootstrap.min.js"
+    integrity="sha384-wfSDF2E50Y2D1uUdj0O3uMBJnjuUD4Ih7YwaYd1iqfktj0Uod8GCExl3Og8ifwB6"
+    crossorigin="anonymous"></script>
+</body>
+</html> 7-2 customers-form.html <!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+<link rel="stylesheet"
+  href="https://stackpath.bootstrapcdn.com/bootstrap/4.4.1/css/bootstrap.min.css"
+  integrity="sha384-Vkoo8x4CGsO3+Hhxv8T/Q5PaXtkKtu6ug5TOeNV6gBiFeWPGFN9MuhOf23Q9Ifjh"
+  crossorigin="anonymous">
+<title>Add Customer</title>
+</head>
+<body>
+  <div class="container">
+    <h2 class="mb-3 mt-5">CRM - Customer Relationship Manager</h2>
+    <h3>Save Customer</h3>
+    <form th:object="${customer}" method="POST" th:action="@{/customers/saveCustomer}">
+      <input type="hidden" th:field="*{id}" />
+      <div class="form-group">
+        <label for="firstname">First Name:</label>
+        <input class="form-control" th:field="*{firstName}" id="firstname"/>
+      </div>
+      <div class="form-group">
+        <label for="lastname">Last Name:</label>
+        <input class="form-control" th:field="*{lastName}" id="lastname"/>
+      </div>
+      <div class="form-group">
+        <label for="email">Email:</label>
+        <input class="form-control" th:field="*{email}" id="email"/>
+      </div>
+      <button type="submit" class="btn btn-secondary">Save</button>
+    </form>
+    <p class="lead mt-4">
+      <a th:href="@{/customers/list}">Back To List</a>
+    </p>
+  </div>
+  <script src="https://code.jquery.com/jquery-3.4.1.slim.min.js"
+    integrity="sha384-J6qa4849blE2+poT4WnyKhv5vZF5SrPo0iEjwBvKU7imGFAV0wwj1yYfoRSJoZ+n"
+    crossorigin="anonymous"></script>
+  <script
+    src="https://cdn.jsdelivr.net/npm/popper.js@1.16.0/dist/umd/popper.min.js"
+    integrity="sha384-Q6E9RHvbIyZFJoft+2mJbHaEWldlvI9IOYy5n3zV9zzTtmI3UksdQRVvoxMfooAo"
+    crossorigin="anonymous"></script>
+  <script
+    src="https://stackpath.bootstrapcdn.com/bootstrap/4.4.1/js/bootstrap.min.js"
+    integrity="sha384-wfSDF2E50Y2D1uUdj0O3uMBJnjuUD4Ih7YwaYd1iqfktj0Uod8GCExl3Og8ifwB6"
+    crossorigin="anonymous"></script>
+</body>
+</html> 7-3 registration-form.html <!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+<meta charset="UTF-8">
+<link rel="stylesheet"
+  href="https://stackpath.bootstrapcdn.com/bootstrap/4.4.1/css/bootstrap.min.css"
+  integrity="sha384-Vkoo8x4CGsO3+Hhxv8T/Q5PaXtkKtu6ug5TOeNV6gBiFeWPGFN9MuhOf23Q9Ifjh"
+  crossorigin="anonymous">
+<title>Registration Form</title>
+</head>
+<body>
+
+  <div class="container">
+    <div class="card" style="width: 350px; margin-left: auto; margin-right: auto; border: none;">
+      <h1 class="display-4 mb-3">Registration</h1>
+      <p th:if="${ error != null }" class="bg-danger">
+        <small th:text="${error}" class="text-light"></small>
+      </p>
+      <form th:action="@{/registerUser}" th:object="${user}" method="POST" >
+      
+        <div class="form-group">
+          <label for="username">Username</label> 
+          <input type="text" id="username" name="username" class="form-control" th:field="*{username}"/>
+          <p th:if="${#fields.hasErrors('username')}" class="label label-danger" 
+            th:errors="*{username}">Incorrect Username</p>
+        </div>
+        <div class="form-group">
+          <label for="password">Password</label>
+          <input type="password" id="password" class="form-control" th:field="*{password}" />
+        </div>  
+        <div class="form-group">
+          <label for="matchingPassword">Confirm Password</label>
+          <input type="password" id="matchingPassword" class="form-control" th:field="*{matchingPassword}"/>
+        </div>  
+        <div class="form-group">
+          <label for="firstName">First Name</label>
+          <input type="text" id="firstName" class="form-control" th:field="*{firstName}"/>
+        </div>  
+        <div class="form-group">
+          <label for="lastName">Last Name</label>
+          <input type="text" id="lastName" class="form-control" th:field="*{lastName}"/>
+        </div>  
+        <div class="form-group">
+          <label for="email">Email</label>
+          <input type="email" id="email" class="form-control" th:field="*{email}" />
+        </div>
+        <div>
+          <input type="submit" value="Register" class="btn btn-primary">
+          <a th:href="@{/login}" class="btn btn-info">Back to Login</a>
+        </div>
+      </form>
+    </div>
+  </div>
+
+
+  <script src="https://code.jquery.com/jquery-3.4.1.slim.min.js"
+    integrity="sha384-J6qa4849blE2+poT4WnyKhv5vZF5SrPo0iEjwBvKU7imGFAV0wwj1yYfoRSJoZ+n"
+    crossorigin="anonymous"></script>
+  <script
+    src="https://cdn.jsdelivr.net/npm/popper.js@1.16.0/dist/umd/popper.min.js"
+    integrity="sha384-Q6E9RHvbIyZFJoft+2mJbHaEWldlvI9IOYy5n3zV9zzTtmI3UksdQRVvoxMfooAo"
+    crossorigin="anonymous"></script>
+  <script
+    src="https://stackpath.bootstrapcdn.com/bootstrap/4.4.1/js/bootstrap.min.js"
+    integrity="sha384-wfSDF2E50Y2D1uUdj0O3uMBJnjuUD4Ih7YwaYd1iqfktj0Uod8GCExl3Og8ifwB6"
+    crossorigin="anonymous"></script>
+</body>
+</html> 7-4 list-customers.html <!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+<link rel="stylesheet"
+  href="https://stackpath.bootstrapcdn.com/bootstrap/4.4.1/css/bootstrap.min.css"
+  integrity="sha384-Vkoo8x4CGsO3+Hhxv8T/Q5PaXtkKtu6ug5TOeNV6gBiFeWPGFN9MuhOf23Q9Ifjh"
+  crossorigin="anonymous">
+<title>List of Customers</title>
+</head>
+<body>
+  <div class="container">
+    <h2 class="mb-5 mt-5">CRM - Customer Relationship Manager</h2>
+    <a th:href="@{/customers/showAddCustomerForm}" class="btn btn-secondary mb-3">Add Customer</a>
+    <div>
+      <form method="GET" th:action="@{/customers/search}" class="form-inline">
+        <div class="input-group mb-3">
+          <input type="text" class="form-control"
+            placeholder="search first name" aria-label="search" name="search">
+          <div class="input-group-append">
+            <button class="btn btn-outline-secondary" type="submit">Search</button>
+          </div>
+        </div>
+      </form>
+    </div>
+    <table class="table table-bordered table-striped table-hover">
+      <thead>
+        <tr class="thead-dark">
+          <th>First Name</th>
+          <th>Last Name</th>
+          <th>Email</th>
+          <th>Action</th>
+        </tr>
+      </thead>
+      <tbody>      
+        <tr th:each="customer : ${ customers }" >
+          <td th:text="${ customer.firstName }">></td>
+          <td th:text="${ customer.lastName }"></td>
+          <td th:text="${ customer.email }"></td>
+          <td><a th:href="@{/customers/showUpdateCustomerForm(id=${ customer.id })}">Update</a> | <a
+            th:href="@{/customers/deleteCustomer(id=${ customer.id })}"
+            onclick="if (!confirm('Do you really want to delete?')) return false">Delete</a>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+    <form method="POST" th:action="@{/logout}">
+      <input type="submit" class="btn btn-info" value="Logout" />
+    </form>
+  </div>
+  <script src="https://code.jquery.com/jquery-3.4.1.slim.min.js"
+    integrity="sha384-J6qa4849blE2+poT4WnyKhv5vZF5SrPo0iEjwBvKU7imGFAV0wwj1yYfoRSJoZ+n"
+    crossorigin="anonymous"></script>
+  <script
+    src="https://cdn.jsdelivr.net/npm/popper.js@1.16.0/dist/umd/popper.min.js"
+    integrity="sha384-Q6E9RHvbIyZFJoft+2mJbHaEWldlvI9IOYy5n3zV9zzTtmI3UksdQRVvoxMfooAo"
+    crossorigin="anonymous"></script>
+  <script
+    src="https://stackpath.bootstrapcdn.com/bootstrap/4.4.1/js/bootstrap.min.js"
+    integrity="sha384-wfSDF2E50Y2D1uUdj0O3uMBJnjuUD4Ih7YwaYd1iqfktj0Uod8GCExl3Og8ifwB6"
+    crossorigin="anonymous"></script>
+</body>
+</html> 7-5 index.html <!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Welcome page</title>
+</head>
+<body>
+  This is a simple demo app
+  <p>
+    <a href="/customers/list">Show Customers list</a>
+  </p>
+</body>
+</html>

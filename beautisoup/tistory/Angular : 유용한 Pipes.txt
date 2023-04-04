@@ -1,0 +1,97 @@
+0. 이 포스트는 Angular의 많이 쓰는 파이프 몇 개를 언급한다. 0-1 아래 링크의 공홈에 가면 공통적으로 많이 쓰이는 built-in pipe이 나온다. Angular angular.io 1. DecimalPipe 1-1 숫자값을 지정된 포멧대로 표현해 준다. 1-2 지정은 digitsInfo에 패턴을 넣어준다. 포멧은 최소정수자리.최소소수자리수-최대소수점자리수 1-3 1.0-2 라고 지정하면 정수는 한자리 이상 표현되고 소수점은 2자리까지 표현된다. 1.0-3이 기본값이다. @Component({
+  selector: 'number-pipe',
+  template: `<div>
+    <!--output '2.718'-->
+    <p>e (no formatting): {{e | number}}</p>
+    
+    <!--output '002.71828'-->
+    <p>e (3.1-5): {{e | number:'3.1-5'}}</p>
+
+    <!--output '0,002.71828'-->
+    <p>e (4.5-5): {{e | number:'4.5-5'}}</p>
+    
+    <!--output '0 002,71828'-->
+    <p>e (french): {{e | number:'4.5-5':'fr'}}</p>
+
+    <!--output '3.14'-->
+    <p>pi (no formatting): {{pi | number}}</p>
+    
+    <!--output '003.14'-->
+    <p>pi (3.1-5): {{pi | number:'3.1-5'}}</p>
+
+    <!--output '003.14000'-->
+    <p>pi (3.5-5): {{pi | number:'3.5-5'}}</p>
+
+    <!--output '-3' / unlike '-2' by Math.round()-->
+    <p>-2.5 (1.0-0): {{-2.5 | number:'1.0-0'}}</p>
+  </div>`
+})
+export class NumberPipeComponent {
+  pi: number = 3.14;
+  e: number = 2.718281828459045;
+} 2. CurrencyPipe 2-1 통화로 표현해 주는 파이프 2-2 아래는 CAD 캐나다 달러로 표현하는데 3자리 통화코드를 넣으면 된다. 아래는 통화코드 링크이다. ISO 4217 - Wikipedia From Wikipedia, the free encyclopedia Jump to navigation Jump to search "Currency code" redirects here. It is not to be confused with Currency sign. Standard which delineates currency designators and country codes ISO 4217 is a standard first published by en.wikipedia.org 2-3 이게 좋은 게 통화에 알아서 소수점까지 지정한다는 것이다. 2-4 3번 째 인자로digitsInfo를 패턴을 지정하여 원하는데로 조정할 수 있다. @Component({
+  selector: 'currency-pipe',
+  template: `<div>
+    <!--output '$0.26'-->
+    <p>A: {{a | currency}}</p>
+
+    <!--output 'CA$0.26'-->
+    <p>A: {{a | currency:'CAD'}}</p>
+
+    <!--output 'CAD0.26'-->
+    <p>A: {{a | currency:'CAD':'code'}}</p>
+
+    <!--output 'CA$0,001.35'-->
+    <p>B: {{b | currency:'CAD':'symbol':'4.2-2'}}</p>
+
+    <!--output '$0,001.35'-->
+    <p>B: {{b | currency:'CAD':'symbol-narrow':'4.2-2'}}</p>
+
+    <!--output '0 001,35 CA$'-->
+    <p>B: {{b | currency:'CAD':'symbol':'4.2-2':'fr'}}</p>
+
+    <!--output 'CLP1' because CLP has no cents-->
+    <p>B: {{b | currency:'CLP'}}</p>
+  </div>`
+})
+export class CurrencyPipeComponent {
+  a: number = 0.259;
+  b: number = 1.3495;
+} 3. DatePipe 3-1 날짜를 다양한 형태로 표출해주는 기능을 가진다. 3-2 2가지 방법으로 포멧지정 가능하다. 3-2-1 미리 정해진 이름으로 지정하기 (short, long, full, shortDate, mediumDate, longDate, fullDate, shortTiem ...) 3-2-2 사용자 설정옵션들 - 많이 사용하는 yyyy-MM-dd 이런 형식의 포멧지정. 아래 링크를 참조한다. Angular angular.io {{ dateObj | date }}               // output is 'Jun 15, 2015'
+{{ dateObj | date:'medium' }}      // output is 'Jun 15, 2015, 9:43:11 PM'
+{{ dateObj | date:'shortTime' }}   // output is '9:43 PM'
+{{ dateObj | date:'mm:ss' }}       // output is '43:11' @Component({
+ selector: 'date-pipe',
+ template: `<div>
+   <p>Today is {{today | date}}</p>
+   <p>Or if you prefer, {{today | date:'fullDate'}}</p>
+   <p>The time is {{today | date:'h:mm a z'}}</p>
+ </div>`
+})
+// Get the current date and time as a date-time value.
+export class DatePipeComponent {
+  today: number = Date.now();
+} 4. TitleCasePipe 4-1 카멜 케이스라고도 하는데 단어의 첫 글자를 대문자화 해준다. 한국에서는 별로 의미가 없을 것 같다. 4-2 기능이 단순하기 때문에 별다른 옵션이 없다. @Component({
+  selector: 'titlecase-pipe',
+  template: `<div>
+    <p>{{'some string' | titlecase}}</p> <!-- output is expected to be "Some String" --> 
+    <p>{{'tHIs is mIXeD CaSe' | titlecase}}</p> <!-- output is expected to be "This Is Mixed Case" --> 
+    <p>{{'it\\'s non-trivial question' | titlecase}}</p> <!-- output is expected to be "It's Non-trivial Question" --> 
+    <p>{{'one,two,three' | titlecase}}</p> <!-- output is expected to be "One,two,three" -->
+    <p>{{'true|false' | titlecase}}</p> <!-- output is expected to be "True|false" -->
+    <p>{{'foo-vs-bar' | titlecase}}</p> <!-- output is expected to be "Foo-vs-bar" -->
+  </div>`
+})
+export class TitleCasePipeComponent {
+} 5. JsonPipe 5-1 객체를 화면에 출력해 주는 기능을 가진다. 5-2 디버그 할 때 많이 사용한다. 화면에 객체를 json형식으로 출력해 준다. @Component({
+  selector: 'json-pipe',
+  template: `<div>
+    <p>Without JSON pipe:</p>
+    <pre>{{object}}</pre>
+    <p>With JSON pipe:</p>
+    <pre>{{object | json}}</pre>
+  </div>`
+})
+export class JsonPipeComponent {
+  object: Object = {foo: 'bar', baz: 'qux', nested: {xyz: 3, numbers: [1, 2, 3, 4, 5]}};
+}

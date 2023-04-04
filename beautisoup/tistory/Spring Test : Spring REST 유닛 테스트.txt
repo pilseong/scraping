@@ -1,0 +1,327 @@
+1. 체계적으로 작성하는 것이 아니라 그냥 코드를 쓰다가 붙여 둔다. 2. 아래는 컨트롤러 유닛 테스트이다. package pe.pilseong.restdemo.controller.v1;
+
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.Mockito.when;
+
+import java.util.Arrays;
+import java.util.List;
+
+import com.fasterxml.jackson.databind.ObjectMapper;
+
+import org.hamcrest.Matchers;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.MockitoAnnotations;
+import org.springframework.http.MediaType;
+import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.request.MockMvcRequestBuilders;
+import org.springframework.test.web.servlet.result.MockMvcResultMatchers;
+import org.springframework.test.web.servlet.setup.MockMvcBuilders;
+
+import pe.pilseong.restdemo.api.v1.model.CustomerDTO;
+import pe.pilseong.restdemo.domain.Customer;
+import pe.pilseong.restdemo.service.CustomerService;
+
+public class CustomerControllerTest {
+
+  @Mock
+  CustomerService customerService;
+
+  @InjectMocks
+  CustomerController customerController;
+
+  MockMvc mockMvc;
+
+  private static final String FIRST_NAME = "Pilseong";
+  private static final String LAST_NAME = "Heo";
+  private static final long ID = 1L;
+
+  Customer customer;
+  CustomerDTO customerDto;
+
+  @BeforeEach
+  public void setup() {
+    MockitoAnnotations.initMocks(this);
+
+    mockMvc = MockMvcBuilders.standaloneSetup(customerController).build();
+
+    customer = new Customer();
+    customer.setFirstName(FIRST_NAME);
+    customer.setLastName(LAST_NAME);
+
+    customerDto = new CustomerDTO();
+    customerDto.setId(ID);
+    customerDto.setFirstname(FIRST_NAME);
+    customerDto.setLastname(LAST_NAME);
+  }
+
+  @Test
+  public void getCustomers() throws Exception {
+    List<CustomerDTO> customers = Arrays.asList(new CustomerDTO(), new CustomerDTO());
+
+    // given
+    when(customerService.getCustomers()).thenReturn(customers);
+
+    mockMvc.perform(MockMvcRequestBuilders.get("/api/v1/customers").contentType(MediaType.APPLICATION_JSON))
+        .andExpect(MockMvcResultMatchers.status().isOk())
+        .andExpect(MockMvcResultMatchers.jsonPath("$.customers", Matchers.hasSize(2)));
+  }
+
+  @Test
+  public void getCustomerDetail() throws Exception {
+    when(customerService.getCustomerById(anyLong())).thenReturn(customerDto);
+
+    mockMvc.perform(MockMvcRequestBuilders.get("/api/v1/customers/1").contentType(MediaType.APPLICATION_JSON))
+        .andExpect(MockMvcResultMatchers.status().isOk())
+        .andExpect(MockMvcResultMatchers.jsonPath("$.firstname", Matchers.equalTo(FIRST_NAME)));
+  }
+
+  @Test
+  public void saveCustomer() throws Exception {
+    customerDto.setCustomer_url("/api/v1/customers/1");
+
+    when(customerService.saveCustomer(any(CustomerDTO.class))).thenReturn(customerDto);
+
+    mockMvc.perform(MockMvcRequestBuilders.post("/api/v1/customers")
+        .contentType(MediaType.APPLICATION_JSON)
+        .content(asJasonString(customer)))
+      .andExpect(MockMvcResultMatchers.status().isCreated())
+      .andExpect(MockMvcResultMatchers.jsonPath("$.firstname", Matchers.equalTo("Pilseong")))
+      .andExpect(MockMvcResultMatchers.jsonPath("$.lastname", Matchers.equalTo("Heo")));
+  }
+
+  private String asJasonString(Customer customer) {
+    try {
+      return new ObjectMapper().writeValueAsString(customer);
+    } catch (Exception e) {
+      throw new RuntimeException(e);
+    }
+  }
+} 2-1 jsonPath ( "$.customers", 이 부분은 JSON path expression인데 $는 최상위 '.'은 자식 속성을 지정한다. 2-1-1 여기서는 최상위의 customers라는 json을 받아서 비교하게 된다. 아래 캡처의 customers 부분이다. 2-2 saveCustomer를 보면 아래 코드가 나오는데 json 테스트의 경우는 content를 String로 변환해 보내야 한다. 2-2-1 맨 아래 보면 asJasonString이라는 변환하는 메소드를 생성하여 그것으로 사용하고 있다. 2-2-2 즉 param으로 각 속성을 하나씩 지정하면 돌아가지 않는다. 2-2-2-1 즉 webMvc처럼 param("firstname", "Pilseong").param("lastname", "Heo") 이런 식으로 하며 안된다. mockMvc.perform(MockMvcRequestBuilders.post("/api/v1/customers")
+        .contentType(MediaType.APPLICATION_JSON)
+        .content(asJasonString(customer)))
+      .andExpect(MockMvcResultMatchers.status().isCreated())
+      .andExpect(MockMvcResultMatchers.jsonPath("$.firstname", Matchers.equalTo("Pilseong")))
+      .andExpect(MockMvcResultMatchers.jsonPath("$.lastname", Matchers.equalTo("Heo"))); 2-3 위의 테스트를 @WebMvcTest로 변환하면 좀 더 간단하게 정리할 수 있다. 2-3-1 @Mock 대신에 @MockBean을 사용하고 2-3-2 @InjectMocks 대신에 테스트 클래스 위에 @WebMvcTest(controllers = 컨트롤러 클래스) 형식으로 지정한다. 2-3-2-1 이런 식으로 controller를 지정하면 MockitoAnnotations . initMocks ( this ) 가 필요없다. 2-3-3 MockMvc는 별도로 생성할 필요없이 @Autowired로 붙이면 된다. package pe.pilseong.restdemo.controller.v1;
+
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+
+import java.util.Arrays;
+import java.util.List;
+
+import com.fasterxml.jackson.databind.ObjectMapper;
+
+import org.hamcrest.Matchers;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
+import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.http.MediaType;
+import org.springframework.test.context.junit.jupiter.SpringExtension;
+import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.request.MockMvcRequestBuilders;
+import org.springframework.test.web.servlet.result.MockMvcResultMatchers;
+
+import pe.pilseong.restdemo.api.v1.model.VendorDTO;
+import pe.pilseong.restdemo.domain.Vendor;
+import pe.pilseong.restdemo.service.VendorService;
+
+@ExtendWith(SpringExtension.class)
+@WebMvcTest(controllers = VendorController.class)
+public class VendorControllerTest {
+  @MockBean
+  VendorService vendorService;
+
+  @Autowired
+  MockMvc mockMvc;
+
+  private static final String NAME = "Pilseong";
+
+  Vendor Vendor;
+  VendorDTO VendorDto;
+
+  @BeforeEach
+  public void setup() {
+    Vendor = new Vendor();
+    Vendor.setName(NAME);
+
+    VendorDto = new VendorDTO();
+    VendorDto.setName(NAME);
+  }
+
+  @Test
+  public void getVendors() throws Exception {
+    List<VendorDTO> Vendors = Arrays.asList(new VendorDTO(), new VendorDTO());
+
+    // given
+    when(vendorService.getVendors()).thenReturn(Vendors);
+
+    mockMvc.perform(MockMvcRequestBuilders.get(VendorController.BASE_URL).contentType(MediaType.APPLICATION_JSON))
+        .andExpect(MockMvcResultMatchers.status().isOk())
+        .andExpect(MockMvcResultMatchers.jsonPath("$.vendors", Matchers.hasSize(2)));
+  }
+
+  @Test
+  public void getVendorDetail() throws Exception {
+    when(vendorService.getVendorById(anyLong())).thenReturn(VendorDto);
+
+    mockMvc.perform(MockMvcRequestBuilders.get(VendorController.BASE_URL + "/1").contentType(MediaType.APPLICATION_JSON))
+        .andExpect(MockMvcResultMatchers.status().isOk())
+        .andExpect(MockMvcResultMatchers.jsonPath("$.name", Matchers.equalTo(NAME)));
+  }
+
+  @Test
+  public void saveVendor() throws Exception {
+    VendorDto.setVendor_url(VendorController.BASE_URL + "/1");
+
+    when(vendorService.saveVendor(any(VendorDTO.class))).thenReturn(VendorDto);
+
+    mockMvc.perform(MockMvcRequestBuilders.post(VendorController.BASE_URL)
+        .contentType(MediaType.APPLICATION_JSON)
+        .content(asJasonString(Vendor)))
+      .andExpect(MockMvcResultMatchers.status().isCreated())
+      .andExpect(MockMvcResultMatchers.jsonPath("$.name", Matchers.equalTo("Pilseong")));
+  }
+
+  private String asJasonString(Vendor Vendor) {
+    try {
+      return new ObjectMapper().writeValueAsString(Vendor);
+    } catch (Exception e) {
+      throw new RuntimeException(e);
+    }
+  }
+
+  @Test
+  public void updateVendor() throws Exception {
+    VendorDto.setVendor_url(VendorController.BASE_URL + "/1");
+
+    when(vendorService.updateVendor(anyLong(), any(VendorDTO.class))).thenReturn(VendorDto);
+    mockMvc.perform(MockMvcRequestBuilders.put(VendorController.BASE_URL + "/1")
+        .contentType(MediaType.APPLICATION_JSON)
+        .content(asJasonString(Vendor)))
+      .andExpect(MockMvcResultMatchers.status().isOk())
+      .andExpect(MockMvcResultMatchers.jsonPath("$.name", Matchers.equalTo("Pilseong")));
+  }
+
+  @Test
+  public void patchVendor() throws Exception {
+    VendorDto.setVendor_url(VendorController.BASE_URL + "/1");
+
+    when(vendorService.patchVendor(anyLong(), any(VendorDTO.class))).thenReturn(VendorDto);
+    mockMvc.perform(MockMvcRequestBuilders.patch(VendorController.BASE_URL + "/1")
+        .contentType(MediaType.APPLICATION_JSON)
+        .content(asJasonString(Vendor)))
+      .andExpect(MockMvcResultMatchers.status().isOk())
+      .andExpect(MockMvcResultMatchers.jsonPath("$.name", Matchers.equalTo("Pilseong")))
+      .andExpect(MockMvcResultMatchers.jsonPath("$.vendor_url", Matchers.equalTo(VendorController.BASE_URL + "/1")));      
+  }
+
+  @Test
+  public void deleteVendor() throws Exception {
+    mockMvc.perform(MockMvcRequestBuilders.delete(VendorController.BASE_URL + "/1"))
+      .andExpect(MockMvcResultMatchers.status().isOk());
+
+    
+    verify(vendorService, times(1)).deleteVendorById(anyLong());
+
+  }
+} 3. 서비스의 Unit 테스트 부분이다. 여긴 특별한 부분이 없어 설명은 생략한다. package pe.pilseong.restdemo.service;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.Mockito.when;
+
+import java.util.Arrays;
+import java.util.List;
+import java.util.Optional;
+
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.mockito.Mock;
+import org.mockito.MockitoAnnotations;
+
+import pe.pilseong.restdemo.api.v1.mapper.CustomerMapper;
+import pe.pilseong.restdemo.api.v1.model.CustomerDTO;
+import pe.pilseong.restdemo.domain.Customer;
+import pe.pilseong.restdemo.repository.CustomerRepository;
+
+public class CustomerServiceImplTest {
+
+  private static final long ID = 1L;
+  private static final String LAST_NAME = "Heo";
+  private static final String FIRST_NAME = "Pilseong";
+
+  @Mock
+  CustomerRepository customerRepository;
+
+  CustomerMapper customerMapper = CustomerMapper.INSTANCE;
+
+  CustomerService customerService;
+
+  List<CustomerDTO> customerDtos;
+  List<Customer> customers;
+
+  Customer customer;
+  CustomerDTO customerDto;
+
+  @BeforeEach
+  public void setup() {
+    MockitoAnnotations.initMocks(this);
+
+    customerService = new CustomerServiceImpl(customerRepository, customerMapper);
+  
+    customer = new Customer();
+    customer.setId(ID);
+    customer.setFirstName(FIRST_NAME);
+    customer.setLastName(LAST_NAME);
+
+    customerDto = new CustomerDTO();
+    customerDto.setId(ID);
+    customerDto.setFirstname(FIRST_NAME);
+    customerDto.setLastname(LAST_NAME);
+    
+    customerDtos = Arrays.asList(new CustomerDTO(), new CustomerDTO()); 
+    customers = Arrays.asList(new Customer(), new Customer()); 
+  }
+
+  @Test
+  public void getCustomerById() {
+    when(customerRepository.findById(anyLong())).thenReturn(Optional.of(customer));
+
+    CustomerDTO customerDto =  customerService.getCustomerById(ID);
+
+    assertEquals(ID, customerDto.getId());
+    assertEquals(FIRST_NAME, customerDto.getFirstname());
+    assertEquals(LAST_NAME, customerDto.getLastname());
+  }
+
+  @Test
+  public void getCustomers() {
+    when(customerRepository.findAll()).thenReturn(customers);
+    
+    List<CustomerDTO> customers = customerService.getCustomers();
+
+    assertEquals(2, customers.size());
+  }
+
+  @Test
+  public void saveCustomer() {
+    when(customerRepository.save(any(Customer.class))).thenReturn(customer);
+
+    CustomerDTO savedCustomerDto = customerService.saveCustomer(customerDto);
+
+    assertEquals(ID, savedCustomerDto.getId());
+    assertEquals(FIRST_NAME, savedCustomerDto.getFirstname());
+
+  }
+}

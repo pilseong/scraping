@@ -1,0 +1,252 @@
+1. MapStuct은 lombok과 유사하게 동작하는 코드를 생성해 주는 라이브러리이다. 1-1 https://mapstruct.org/documentation/stable/reference/html/ 문서를 참고 한다. 2. 주된 목표는 하나의 클래스를 다른 클래스로 변환해주는 기능을 Annotation으로 지원 한다. 3. 공식 홈페이지는 https://mapstruct.org 이고 아래와 같이 Maven에 설정하면 된다. 3-1 1.3.1 버전기준이다. 3-2 두개의 artifacts가 필요하다. 3-2-1 mapstruct: @Mapping 같은 annotation을 정의한다. 3-2-2 mapstruct-processor: 코드를 생성해주는 Annotation 처리 프로세스를 수생한다. ...
+<properties>
+    <org.mapstruct.version>1.3.1.Final</org.mapstruct.version>
+</properties>
+...
+<dependencies>
+    <dependency>
+        <groupId>org.mapstruct</groupId>
+        <artifactId>mapstruct</artifactId>
+        <version>${org.mapstruct.version}</version>
+    </dependency>
+</dependencies>
+...
+<build>
+    <plugins>
+        <plugin>
+            <groupId>org.apache.maven.plugins</groupId>
+            <artifactId>maven-compiler-plugin</artifactId>
+            <version>3.5.1</version>
+            <configuration>
+                <source>1.8</source>
+                <target>1.8</target>
+                <annotationProcessorPaths>
+                    <path>
+                        <groupId>org.mapstruct</groupId>
+                        <artifactId>mapstruct-processor</artifactId>
+                        <version>${org.mapstruct.version}</version>
+                    </path>
+                </annotationProcessorPaths>
+            </configuration>
+        </plugin>
+    </plugins>
+</build> 3-3 실제 프로젝트에서 사용할 때는 lombok과 같이 사용하므로 아래처럼 정의하면 된다. <?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+  <parent>
+    <groupId>org.springframework.boot</groupId>
+    <artifactId>spring-boot-starter-parent</artifactId>
+    <version>2.3.3.RELEASE</version>
+    <relativePath /> <!-- lookup parent from repository -->
+  </parent>
+  <groupId>pe.pilseong</groupId>
+  <artifactId>restdemo</artifactId>
+  <version>0.0.1-SNAPSHOT</version>
+  <name>restdemo</name>
+  <description>Demo project for Spring Boot</description>
+
+  <properties>
+    <java.version>11</java.version>
+    <org.mapstruct.version>1.3.1.Final</org.mapstruct.version>
+  </properties>
+
+  <dependencies>
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-data-jpa</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-web</artifactId>
+    </dependency>
+
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-devtools</artifactId>
+      <scope>runtime</scope>
+      <optional>true</optional>
+    </dependency>
+
+    <dependency>
+      <groupId>org.mapstruct</groupId>
+      <artifactId>mapstruct</artifactId>
+      <version>${org.mapstruct.version}</version>
+    </dependency>
+
+    <dependency>
+      <groupId>com.h2database</groupId>
+      <artifactId>h2</artifactId>
+      <scope>runtime</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.projectlombok</groupId>
+      <artifactId>lombok</artifactId>
+      <optional>true</optional>
+    </dependency>
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-test</artifactId>
+      <scope>test</scope>
+      <exclusions>
+        <exclusion>
+          <groupId>org.junit.vintage</groupId>
+          <artifactId>junit-vintage-engine</artifactId>
+        </exclusion>
+      </exclusions>
+    </dependency>
+  </dependencies>
+
+  <build>
+    <plugins>
+      <plugin>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-maven-plugin</artifactId>
+      </plugin>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-compiler-plugin</artifactId>
+        <version>3.5.1</version>
+        <configuration>
+          <source>11</source>
+          <target>11</target>
+          <annotationProcessorPaths>
+            <path>
+              <groupId>org.mapstruct</groupId>
+              <artifactId>mapstruct-processor</artifactId>
+              <version>${org.mapstruct.version}</version>
+            </path>
+            <path>
+              <groupId>org.projectlombok</groupId>
+              <artifactId>lombok</artifactId>
+              <version>${lombok.version}</version>
+            </path>
+          </annotationProcessorPaths>
+          <compilerArgs>
+            <compilerArg>
+                -Amapstruct.defaultComponentModel=spring
+            </compilerArg>
+          </compilerArgs>
+        </configuration>
+      </plugin>
+    </plugins>
+  </build>
+
+</project> 4. 코드 생성 예제 4-1 아래처럼 Category Domain 클래스를 아래의 DTO로 매핑한다. package pe.pilseong.restdemo.domain;
+
+import javax.persistence.Entity;
+import javax.persistence.GeneratedValue;
+import javax.persistence.GenerationType;
+import javax.persistence.Id;
+
+import lombok.Data;
+
+@Data
+@Entity
+public class Category {
+
+  @Id
+  @GeneratedValue(strategy =GenerationType.IDENTITY)
+  private Long id;
+
+  private String name;
+
+  private String category_url;
+}
+
+
+
+package pe.pilseong.restdemo.api.v1.model;
+
+import lombok.Data;
+
+@Data
+public class CategoryDTO {
+  private Long id;
+
+  private String name;
+} 4-2 아래처럼 4-2-1 매핑 설정은 interface로 하고 컴파일시에 구현 클래스가 자동생성된다. package pe.pilseong.restdemo.api.v1.mapper;
+
+import org.mapstruct.Mapper;
+import org.mapstruct.factory.Mappers;
+
+import pe.pilseong.restdemo.api.v1.model.CategoryDTO;
+import pe.pilseong.restdemo.domain.Category;
+
+@Mapper
+public interface CategoryMapper {
+  CategoryMapper INSTANCE = Mappers.getMapper(CategoryMapper.class);
+
+  CategoryDTO categoryToCateotryDTO(Category category);
+  
+  Category categoryDTOToCategory(CategoryDTO categoryDTO);
+} 4-2-2 자동생성 클래스 4-2-2-1 결과 소스 파일에 @Component가 붙은 것은 4-2-2-2 pom에 compilerArg 옵션 -Amapstruct.defaultComponentModel=spring 이 지정되었기 때문이다. 4-2-2-3 즉, 자동으로 스프링에 의해 컴포넌트가 생성되고 autowired 된다. package pe.pilseong.restdemo.api.v1.mapper;
+
+import javax.annotation.processing.Generated;
+import org.springframework.stereotype.Component;
+import pe.pilseong.restdemo.api.v1.model.CategoryDTO;
+import pe.pilseong.restdemo.domain.Category;
+
+@Generated(
+    value = "org.mapstruct.ap.MappingProcessor",
+    date = "2020-09-02T19:58:59+0900",
+    comments = "version: 1.3.1.Final, compiler: javac, environment: Java 11.0.2 (Oracle Corporation)"
+)
+@Component
+public class CategoryMapperImpl implements CategoryMapper {
+
+    @Override
+    public CategoryDTO categoryToCateotryDTO(Category category) {
+        if ( category == null ) {
+            return null;
+        }
+
+        CategoryDTO categoryDTO = new CategoryDTO();
+
+        categoryDTO.setId( category.getId() );
+        categoryDTO.setName( category.getName() );
+
+        return categoryDTO;
+    }
+
+    @Override
+    public Category categoryDTOToCategory(CategoryDTO categoryDTO) {
+        if ( categoryDTO == null ) {
+            return null;
+        }
+
+        Category category = new Category();
+
+        category.setId( categoryDTO.getId() );
+        category.setName( categoryDTO.getName() );
+
+        return category;
+    }
+} 5. 테스트 하기 package pe.pilseong.restdemo.api.v1.mapper;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+
+import pe.pilseong.restdemo.api.v1.model.CategoryDTO;
+import pe.pilseong.restdemo.domain.Category;
+
+public class CategoryMapperTest {
+
+  @BeforeEach
+  public void setup() {
+
+  }
+
+  @Test
+  public void categoryToCategoryDTO() {
+    Category category = new Category();
+    category.setId(1L);
+    category.setName("Ebook");
+
+    CategoryDTO categoryDto = CategoryMapper.INSTANCE.categoryToCateotryDTO(category);
+
+    assertEquals(1L, categoryDto.getId());
+    assertEquals("Ebook", categoryDto.getName());
+  }
+}

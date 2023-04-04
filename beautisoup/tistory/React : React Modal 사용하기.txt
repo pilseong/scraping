@@ -1,0 +1,116 @@
+1. React Modal은 리액트에서 Modal을 사용하기 편리하도록 기능을 제공한다. 1-1 Modal을 사실 index.html의 독립적인 요소에 붙어 메인 프로그램과 병열적으로 작동해야 한다. 1-2 이런 개별적인 작업을 개발자가 쉽게 할 수 있도록 도와 주는 것이 React Modal 라이브러리이다. 2. 설치한다. npm install react-modal로 설치한다. 3. React Modal은 Modal이라는 객체를 제공하여 Modal기능을 제공한다. 3-1 Modal을 사용하기 위해서는 import으로 Modal을 가지고 와야 한다. 3-2 Modal은 Children으로 내부 template을 전달하는 형식으로 동작한다. 3-2-1 아래처럼 template을 <Modal></Modal>사이에 넣는다. h3에 제목이 바로 아래 내용과 버튼이 붙여져 있다. 3-3 별도의 Modal을 관리하는 컴포넌트를 만들어서 사용하는 것이 편리하다. 3-3-1 이 컴포넌트 내에서 어떤 형식으로 Modal을 그릴지, 어떻게 동작할지에 대해서 정의한다. 3-3-2 아래의 Modal 객체의 isOpen, contentLabel, onRequestClose는 이 객체의 동작을 정의한 내장 속성이다. 3-3-3 아래의 링크에서 Modal이 지원하는 다양한 기능들을 확인 할 수 있다. react-modal documentation react-modal Accessible modal dialog component for React.JS We maintain that accessibility is a key component of any modern web application. As such, we have created this modal in such a way that it fulfills the accessibility requirements of the modern web. reactcommunity.org 3-3-4  아래에 몇개의 Modal 속성에 대해서 설명하면, 3-3-4-1 isOpen은 modal이 화면에 보일지 여부에 대한 설정이다. 3-3-4-2 contentLabel은 시각장애인용 스크린리더에서 어떻게 modal 창을 부를지를 정의한다. 3-3-4-3 onRequestClose는 ESC키를 누르거나 창 밖의 공간을 클릭할 때 종료시키는데 필요한 함수를 정의한다. 3-3-4-4 Children으로 들어간 곳에 button이 정의되어 있다. 종료 버튼으로 동작한다. 3-3-4-4-1 onModalClose 함수를 속성을 통해 부모로 부터 받아야 한다. import React from 'react'
+import Modal from 'react-modal'
+
+Modal.setAppElement('#app')
+
+const TodoModal = (props) => (
+  <Modal
+    isOpen={!!props.selectedTodo}
+    contentLabel="Selected Todo"
+    onRequestClose={props.onModalClose}
+  >
+    <h3>Selected Option</h3>
+    {props.selectedTodo && <p>{props.selectedTodo}</p>}
+    <button onClick={props.onModalClose}>Okay</button>
+  </Modal>
+)
+
+export default TodoModal 4. 이제 TodoApp에서 이 Modal 컴포넌트를 사용하는 부분을 작성해야 한다 4-1 이 메인 컴포넌트에서 Modal의 표출여부를 관리해야 하므로 state에 selectedTodo라는 속성을 추가한다. 4-1-1 이 속성은 랜덤으로 선택된 Next Todo 버튼을 눌렀을 때 선택된 그 Todo text가 들어가게 된다. 4-1-2 초기값은 undefined로 설정해 준다. 나중에 !! 붙여 연산 후 undefined 값을 false로 가지고 올 수 있다. 4-2 Modal의 표출상태를 닫음으로 변경을 위한 함수를 하나 작성한다. 이 함수는 Modal 컴포넌트에서 호출한다. 4-2-1 onModalClose를 보면 선택된 todo를 undefined로 변경해 주고 있음을 알 수 있다. 4-2-2 이 함수를 TodoModal의 속성으로 넘겨 주고 있다. 그리고 선택된 값도 속성으로 같이 넘겨주고 있다. import React from 'react'
+
+import Header from './Header'
+import Action from './Action'
+import TodoList from './TodoList'
+import AddTodo from './AddTodo'
+import TodoModal from './TodoModal'
+
+export default class TodoApp extends React.Component {
+
+  state = {
+    todos: [
+      "Take your mask",
+      "Wash your hands",
+      "Drink more water"
+    ],
+    selectedTodo: undefined
+  }
+
+  componentDidMount() {
+    try {
+      const todos = localStorage.getItem("todos")
+      if (todos) {
+        console.log(todos)
+        this.setState(() => ({ todos: JSON.parse(todos) }))
+      }
+    } catch (e) {
+    }
+  }
+
+  componentDidUpdate(prevProps, prevState) {
+    if (prevState.todos.length !== this.state.todos.length) {
+      localStorage.setItem("todos", JSON.stringify(this.state.todos))
+    }
+  }
+
+  onRemoveAllClicked = () => {
+    this.setState(() => {
+      return {
+        todos: []
+      }
+    })
+  }
+
+  onNextTodoClicked = () => {
+    const index = Math.floor(Math.random() * this.state.todos.length)
+    // alert(this.state.todos[index])
+    const option = this.state.todos[index]
+    this.setState(() => (
+      {
+        selectedTodo: option
+      }
+    ))
+  }
+
+  onModalClose = () => {
+    console.log('clicked')
+    this.setState(() => (
+      {
+        selectedTodo: undefined
+      }
+    ))
+  }
+
+  handleAddTodo = (todo) => {
+    if (!todo) {
+      return 'Please type vaild item'
+    } else if (this.state.todos.indexOf(todo) > -1) {
+      return 'Duplicated item typed'
+    }
+
+    this.setState((prevState) => {
+      return {
+        todos: prevState.todos.concat(todo)
+      }
+    })
+  }
+
+  render() {
+    return (
+      <div>
+        <Header />
+        <Action 
+          hasTodos={this.state.todos.length > 0} 
+          onNextTodoClicked={this.onNextTodoClicked}
+        />
+        <TodoList 
+          hasTodos={this.state.todos.length > 0}
+          todos={this.state.todos}
+          onRemoveAllClicked={this.onRemoveAllClicked}
+        />
+        <AddTodo handleAddTodo={this.handleAddTodo} />
+        <TodoModal 
+          onModalClose={this.onModalClose} 
+          selectedTodo={this.state.selectedTodo} />
+      </div>
+    )
+  }
+} 5. 결과화면 5-1 Next Todo? 버튼을 눌렀을 때 아래와 같이 Modal이 표출되고 선택된 내용이 화면에 나오게 된다. 5-2 Okay 버튼과 Modal 밖의 공간을 클릭하면 화면에서 사라지게 된다.

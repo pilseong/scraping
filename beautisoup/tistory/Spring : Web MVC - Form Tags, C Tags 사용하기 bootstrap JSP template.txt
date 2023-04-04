@@ -1,0 +1,90 @@
+1. 스프링은 view와 model 바인딩을 위한 form tag를 지원한다. 1-1 form tag를 사용하기 위해서는 jsp 페이지의 헤더부분에 테그 선언이 필요하다 <%@ taglib prefix="form" uri="http://www.springframework.org/tags/form"%> 1-2 form 바인딩을 이용하기 위해서는 form:form 테그에 modelAttribute 속성에 바인딩할 객체 이름를 지정한다. 1-2-1 바인딩할 객체는Controller에서 model에 추가되어 제공되어야 한다. 1-3 form 구성요소마다 사용할 바인딩 객체 속성을 path 속성을 통하여 지정한다. 1-4 form:options에 데이터를 연결할 떄 2가지 방법이 있는데 value를 사용하는 것과 items를 사용하는 것이다. 1-4-1 form:options 테그 등의 items 속성을 사용하면 Map에 저장한 데이터를 iteration없이 표출할 수 있다. 1-4-2 items속성을 사용하면 편리하지만 세부적인 설정이 힘들어지는 경우가 있다. 소스를 참조한다. 1-4-1 checkbox, radio를 활용할 때 label과 control의 css 속성을 각각 지정할 수가 없다. 1-4-2 보통 c taglib를 사용하여 iteration을 사용하는 것이 ui구현에 유리하다. 1-5 아래의 코드는 Radio 버튼, CheckBox, 리스트 등을 이용한 간략한 예시다. 1-6 간단한 jsp 페이지 예시이다. <%@ taglib prefix="form" uri="http://www.springframework.org/tags/form"%>
+<%@ page language="java" contentType="text/html; charset=UTF-8"
+  pageEncoding="UTF-8"%>
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<link rel="stylesheet"
+  href="https://stackpath.bootstrapcdn.com/bootstrap/4.4.1/css/bootstrap.min.css"
+  integrity="sha384-Vkoo8x4CGsO3+Hhxv8T/Q5PaXtkKtu6ug5TOeNV6gBiFeWPGFN9MuhOf23Q9Ifjh"
+  crossorigin="anonymous">
+<title>Spring Web MVC Student Home</title>
+</head>
+<body>
+
+  <div class="container">
+    <h1 class="display-4">Student Name Form</h1>
+    <form:form method="GET" modelAttribute="student"
+      action="processForm">
+      <div class="form-group">
+        <label for="firstName">First Name</label>
+        <form:input class="form-control" path="firstName" id="firstName" />
+      </div>
+      <div class="form-group">
+        <label for="lastName">Last Name</label>
+        <form:input class="form-control" path="lastName" id="lastName" />
+      </div>
+      <div class="form-group">
+        <label for="country">Country</label>
+        <form:select path="country" class="form-control">
+          <form:options items="${ countries }" />
+
+          <%-- <form:options items="${ student.countryOptions }" />
+
+          <form:option value="CH" label="CHINA" />
+          <form:option value="HK" label="HONG KONG" />
+          <form:option value="NZ" label="NEW ZEALAND" /> --%>
+
+        </form:select>
+      </div>
+      <div class="form-group">
+        <label for="languages">Favorite Programming Languages</label>
+        <form:radiobuttons class="form-check" path="language" items="${ languages }" />
+        
+        <!-- 
+        <div class="form-check">
+          <form:radiobutton class="form-check-input" path="language" value="Java" />
+          <label class="form-check-label">Java</label>
+        </div>
+        <div class="form-check">
+          <form:radiobutton class="form-check-input" path="language"  value="C#" />
+          <label class="form-check-label">C#</label>
+        </div>
+        <div class="form-check">
+          <form:radiobutton class="form-check-input" path="language"  value="PHP" />
+          <label class="form-check-label">PHP</label>
+        </div>
+        <div class="form-check">
+          <form:radiobutton class="form-check-input" path="language"  value="Ruby" />
+          <label class="form-check-label">Ruby</label>
+        </div>
+        --> 
+      </div>
+      <div class="form-group">
+        <label>Operating Systems</label>
+        <form:checkboxes class="form-check" items="${ operatingSystems }" path="operatingSystems"/>
+      </div>
+      <input class="btn btn-outline-primary" type="submit"
+        value="Submit"></input>
+    </form:form>
+  </div>
+
+
+  <script src="https://code.jquery.com/jquery-3.4.1.slim.min.js"
+    integrity="sha384-J6qa4849blE2+poT4WnyKhv5vZF5SrPo0iEjwBvKU7imGFAV0wwj1yYfoRSJoZ+n"
+    crossorigin="anonymous"></script>
+  <script
+    src="https://cdn.jsdelivr.net/npm/popper.js@1.16.0/dist/umd/popper.min.js"
+    integrity="sha384-Q6E9RHvbIyZFJoft+2mJbHaEWldlvI9IOYy5n3zV9zzTtmI3UksdQRVvoxMfooAo"
+    crossorigin="anonymous"></script>
+  <script
+    src="https://stackpath.bootstrapcdn.com/bootstrap/4.4.1/js/bootstrap.min.js"
+    integrity="sha384-wfSDF2E50Y2D1uUdj0O3uMBJnjuUD4Ih7YwaYd1iqfktj0Uod8GCExl3Og8ifwB6"
+    crossorigin="anonymous"></script>
+</body>
+</html> 2. c taglib를 추가하려면 2-1 먼저 기능을 사용할 jsp파일의 최상단에 아래 코드를 추가한다. <%@ taglib prefix="c" uri="http://java.sun.com/jsp/jstl/core" %> 2-2 위의 테그 라이브러리를 사용하려면 jstl 모듈이 maven에 포함되어야 한다. <dependency>
+	<groupId>javax.servlet</groupId>
+	<artifactId>jstl</artifactId>
+	<version>1.2</version>
+</dependency> 3. 주제와 약간 벗어난 이야기이지만 View에서 UI를 만들 때, properties파일에서 읽어오는 방법 사용시 주의할 점 3-1 key값이 form control의 value 속성으로 들어가고 value가 label에 들어갈 경우가 발생한다. 3-2 물론 이렇게 읽은 key로 DB를 조회하거나 해서 다시 value를 가져오는 식이면 상관없다.

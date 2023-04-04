@@ -1,0 +1,1 @@
+1. sudo apt install openjdk-11-jdk 형식으로 원하는 자바버전을 모두 설치한다. 2. update-alternatives --config java 명령어로 원하는 자바 버전을 선택 가능하다. 3. .bashrc 에 export JAVA_HOME=$(dirname $(dirname $(readlink -f $(which java)))) 를 추가한다.  자바 버전을 바꿀 때 마다. source .bashrc를 실행해줘야 한다. 이 명령라인은 단순히 현재 설정된 자바의 버전을 JAVA_HOME에 할당한다.

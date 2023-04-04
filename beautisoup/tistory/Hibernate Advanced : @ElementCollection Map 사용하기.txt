@@ -1,0 +1,96 @@
+1. 이 포스트는 HIbernate에서 Map을 사용하는 방법에 대한 내용이다. 1-0 Map은 키와 값을 매핑하는 테이블 구조이다. 1-1 Map는 순서가 의미가 없고 키는 중복을 허용하지 않지만 값은 중복을 허용한다. 1-2 용도는 1-2-1 에러코드와 에러메시지의 테이블 1-2-2 주소와 페이지 경로를 매핑하는 라우팅 테이블 1-2-3 국가 코드와 국가 이름 1-2-4 이미지 파일이름과 이미지 설명 2. Map의 경우는 Collection에 2가지 field가 저장되어야 하고 key값이 될 field는 중복을 허용하지 않는다. 3. Annotation 설명 3-1 @MapKeyColumn 3-1-1 key로 사용될 컬럼의 이름을 지정한다. 3-1-2 기본값은 속성이름 + _KEY가 된다. 4. Student Entity 4-1 MapKeyColumn이 설정되어 있고 속성 값이 없으므로 courses_KEY라는 field에 키값이 들어간다. package pe.pilseong.hibernatemap.entity;
+
+import java.util.HashMap;
+import java.util.Map;
+
+import javax.persistence.CollectionTable;
+import javax.persistence.Column;
+import javax.persistence.ElementCollection;
+import javax.persistence.Entity;
+import javax.persistence.GeneratedValue;
+import javax.persistence.GenerationType;
+import javax.persistence.Id;
+import javax.persistence.JoinColumn;
+import javax.persistence.MapKeyColumn;
+import javax.persistence.Table;
+
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+@Entity
+@Table(name = "student")
+@NoArgsConstructor
+@Data
+public class Student {
+  
+  public Student(String firstName, String lastName, String email) {
+    this.firstName = firstName;
+    this.lastName = lastName;
+    this.email = email;
+  }
+
+  @Id
+  @GeneratedValue(strategy = GenerationType.IDENTITY)
+  private Long id;
+  
+  @Column(name = "first_name")
+  private String firstName;
+  
+  @Column(name = "last_name")
+  private String lastName;
+  
+  @Column(name = "email")
+  private String email;
+  
+  @ElementCollection
+  @CollectionTable(
+      name = "course",
+      joinColumns = @JoinColumn(name = "student_id")
+  )
+  @MapKeyColumn
+  @Column(name = "course_name")
+  private Map<String, String> courses = new HashMap<>();
+} 4-2 결과 화면 4-2-0 실행 코드 4-2-0-1 아래의 코드는 데이터를 저장하는 코드이다. 4-2-0-2 저장 후 테스트하고 싶으면 저장하는 부분을 comment하고 comment된 부분을 해제하면 된다. package pe.pilseong.hibernatemap;
+
+import java.util.Map;
+
+import org.hibernate.Session;
+import org.hibernate.SessionFactory;
+import org.hibernate.cfg.Configuration;
+
+import pe.pilseong.hibernatemap.entity.Student;
+
+public class App {
+  public static void main(String[] args) {
+    
+    SessionFactory factory = new Configuration().configure()
+        .addAnnotatedClass(Student.class)
+        .buildSessionFactory();
+    
+    Session session = factory.getCurrentSession();
+    
+    session.beginTransaction();
+    
+    Student student = new Student("Pilseong", "Heo", "heops79@gmail.com");
+    Map<String, String> courses = student.getCourses();
+    
+    courses.put("MT","Math");
+    courses.put("SC", "Science");
+    courses.put("EC", "Economics");
+    courses.put("LG1", "Language");
+    courses.put("LG2", "Language");    
+    
+    session.persist(student);
+    
+//    Student student = session.get(Student.class, 1L);
+//    System.out.println("Student :: " + student.toString());
+//    
+//    for (String st : student.getCourses().keySet()) {
+//      System.out.println("Course :: " + student.getCourses().get(st));
+//    }
+    
+    session.getTransaction().commit();
+    
+    factory.close();
+  }
+} 4-2-1 키의 중복은 허용이 안되지만 값의 중복은 허용하고 있다. 4-3 생성된 테이블 구조 4-3-1 courses_KEY가 생겼다.

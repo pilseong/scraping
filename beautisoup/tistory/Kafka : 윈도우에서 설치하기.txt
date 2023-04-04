@@ -1,0 +1,15 @@
+1. 난 무조건 윈도우만 쓴다. 최고의 운영체제이다. 2. 카프카도 도커를 사용할 수 있는데, 여기서는 그냥 바이너리 설치를 적는다. 3. 순서 3-1 jdk 설치 3-2 카프카 다운로드 (http://kafka.apache.org) 3-3 압축 풀고 적절한 위치에 복사 (나는 이런 압축 풀어 사용하는 것은 c:\에 사용한다. 3-4 카프카의 bin 폴더를 path에 추가한다. 3-5 카프카 홈에 data 폴더를 만들고 그 안에 kafka, zookeeper 폴더를 만든다. 3-6 카프카 홈에 있는 config 폴더 안에 있는 zookeeper.properties에 위에 생성한 주키퍼 데이터 폴더를 설정한다. 3-6-1 dataDir=C:/kafka_2.13-2.6.0/data/zookeeper -> 이 부분을 수정한다. dataDir 부분이다. 3-7 카프카 홈에 있는 config 폴더 안에 있는 server.properties에 위에 생성한 kafka 데이터 폴더를 설정한다. 3-7-1 중간 부분에 log.dirs=C:/kafka_2.13-2.6.0/data/kafka 를 수정한다. 4. 포트는 주키퍼는 2181, kafka는 9092를 사용한다. 4-1 2181은 도커가 설치된 경우 도커가 관리하다고 접근권한이 없는 경우가 있다. 4-1-1 이럴 경우 // 현재 사용불가한 포드 정보를 보여준다.
+netsh int ipv4 show excludedportrange protocol=tcp
+
+// 하이퍼V를 disable 한다. 재부팅해야 할 거다.
+dism.exe /Online /Disable-Feature:Microsoft-Hyper-V
+
+// 포트 이제 열어준다.
+netsh int ipv4 add excludedportrange protocol=tcp startport=2181 numberofports=1
+
+// 다시 하이퍼V를 기동한다. 재부팅해야 할 거다.
+dism.exe /Online /Enable-Feature:Microsoft-Hyper-V /All 5. 기동방법 5-1 윈도우에는 Windows Terminal이라는 것이 새로 생겨 콘솔관리가 정말 편해졌다. // 주키퍼 기동
+zookeeper-server-start.bat C:\kafka_2.13-2.6.0\config\zookeeper.properties
+
+// 카프카 기동
+kafka-server-start.bat C:\kafka_2.13-2.6.0\config\server.properties

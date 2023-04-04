@@ -1,0 +1,229 @@
+0. 스프링 MVC 기본적으로 request 헤더에 설정되어 있는 accept-language라는 항목을 보고 어떤 언어인지를 판단한다. 0-1 ko-KR은 한국 en-US는 미국 같은 식이다. 이건 ISO 639에 언어, ISO 3166에 국가 코드가 설정되어 있다. 1. 지역 설정은 사용자의 시스템의 설정을 따르는 방식, 쿠키를 사용하는 방식, 사용자가 임의로 설정하는 방식이 있다. 1-1 사용자에게 설정가능하도록 하려면 Custome Parameter를 사용할 수 있다. 1-2 스프링 MVC는 LocaleChangeInterceptor를 제공하여 지역변경할 수 있도록 custom parameter를 설정할 수 있다. 2. 스프링에서 기본적으로 사용하는 지역 설정자는 AcceptHeaderLocaleResolver이다. 2-1 이것은 request 지정된 accept-language를 사용한다. 3. FixedLocaleResolver는 jvm에 설정된 지역설정을 따르는데 application.properties에서 활성화할 수 있다. 3-1 일반적으로 jvm 지역설정은 system parameter를 통하여 지정할 수 있다. 4. 아래는 자동설정을 지정하는 WebMvcAutoConfiguration.class 파일의 코드의 일부분이다. 4-1 LocaleResolver를 생성하는 부분인데 @ConditionalOnMissingBean은 Bean이 정의되어 있지 않는 경우 실행하고 4-2 application.properties 파일에 spring.mvc.local 설정이 없는 경우 AcceptHeaderLocaleResolver를 생성한다. 4-2-1 spring.mvc.locale-resolver= fixed 가 지정되면 FixedLocaleResolver를 생성한다. @Bean
+	@ConditionalOnMissingBean
+	@ConditionalOnProperty(prefix = "spring.mvc", name = "locale")
+	public LocaleResolver localeResolver() {
+		if (this.mvcProperties.getLocaleResolver() == WebMvcProperties.LocaleResolver.FIXED) {
+			return new FixedLocaleResolver(this.mvcProperties.getLocale());
+		}
+		AcceptHeaderLocaleResolver localeResolver = new AcceptHeaderLocaleResolver();
+		localeResolver.setDefaultLocale(this.mvcProperties.getLocale());
+		return localeResolver;
+	} 5. CookieLocaleResolver, SessionLocaleResolver 방식도 지원하고 있다. 6. 이런 설정들은 Recource Bundle이라는 message.properties 파일을 통하여 지정할 수 있다. 6-1 한국의 경우는 messages_ko_KO.properties로 지정하면 스프링에서 인식하는 지역과 일치할 경우 사용한다. 6-2 지역과 일치하는 파일이 없는 경우 언어가 일치하는 지 확인한다. 영어는 message_en.properties를 검색하게 된다. 6-3 없으면 messages.propertes를 사용한다. 7. 간단한 예제로 아래와 같은 한글용 messages_ko_KO.properties를 만들었다. 7-1 이 파일을 resources 폴더 아래 생성한다. recipe.description= 레시피 설명
+recipe.categories=분류
+recipe.prepTime=준비시간
+recipe.cookTime=요리시간
+recipe.difficulty=난이도
+recipe.servings=몇인분
+recipe.source=소스
+recipe.url=웹링크
+
+NotBlank.recipe.description=값이 있어야 한다
+Size.recipe.description={0}은 {2} 보다 크고 {1} 작아야 한다
+Max.recipe.cookTime={0}은 {1} 보다 작아야 한다
+Min.recipe.prepTime={0}은 {1} 보다 커야 한다
+URL.recipe.url=제대로 된 거 좀 넣어라
+Max.recipe.servings={0}은 {1} 보다 작아야 해 7-1-1 validation 메시지 설정에 대한 부분은 아래 링크 참조 Spring Advanced : Web MVC + Form Validation - Custom message 설정 (spring boot 포함) 0. 이 포스트는 Spring : Web MVC + Form Validation - with InitBinder의 연속이다. Spring : Form Validation with @InitBinder -1. Form Validation은 시스템에서 원하는 값이 입력되도록 제한하고 검증하는 기.. kogle.tistory.com 7-2 이 Resource Bundle을 사용한 결과 7-3 messages_ko_KR.properties가 없는 경우 결과 7-3 template은 아래와 같다. 7-3-1 messages.properties의 값을 사용하려면 th:text = "#{recipe.description}" 형식의 spEL을 사용하면 된다. <!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+
+<head>
+  <!-- Required meta tags -->
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+
+  <!-- Bootstrap CSS -->
+  <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.0/css/bootstrap.min.css"
+    integrity="sha384-9aIt2nRpC12Uk9gS9baDl411NQApFmC26EwAOH8WgZl5MYYxFfc+NcPb1dKGj7Sk" crossorigin="anonymous"
+    th:href="@{/webjars/bootstrap/4.5.0/css/bootstrap.min.css}">
+
+  <title>Recipe Homer</title>
+</head>
+
+<body>
+  <!--/*@thymesVar id="recipe" type="guru.springframework.domain.Recipe"*/-->
+  <div class="container-fluid" style="margin-top: 20px">
+    <div class="row">
+      <div class="col-md-6 offset-md-3">
+        <form th:object="${recipe}" th:action="@{/recipe/}" method="post">
+          <div th:if="${#fields.hasErrors('*')}" class="alert alert-danger pb-0">
+            <p>Please Correct Errors Below</p>
+          </div>
+          <input type="hidden" th:field="*{id}" />
+          <div class="card text-white bg-primary">
+            <div class="card-body p-0">
+              <div class="card-title">
+                <p class="m-2 font-weight-bold">Edit Recipe Information</p>
+              </div>
+              <div class="card-text bg-white text-dark m-0 p-2">
+                <div class="row form-group" 
+                  th:class="${#fields.hasErrors('description')} ? 'row form-group text-danger' : 'row form-group'">
+                  <label th:text="#{recipe.description}" class="col-lg-4 col-xl-3 mx-0 pr-0 col-form-label">Recipe Description:</label>
+                  <div class="col-lg-8 col-xl-9">
+                    <input type="text" class="form-control" th:field="*{description}" th:errorclass="is-invalid" />
+                    <span  class="small form-text text-muted invalid-feedback" th:if="${#fields.hasErrors('description')}">
+                      <ul>
+                        <li th:each="err : ${#fields.errors('description')}" th:text="${err}"></li>
+                      </ul>
+                    </span>
+                  </div>
+                </div>
+                <div class="row form-group">
+                  <div class="col-form-label col-md-3">
+                    <label th:text="#{recipe.categories}">Categories:</label>
+                  </div>
+                  <div class="col-md-9">
+                    <div class="form-check">
+                      <input class="form-check-input" type="checkbox" value="" />
+                      <label class="form-check-label">
+                        Cat 1
+                      </label>
+                    </div>
+                    <div class="form-check" th:remove="all">
+                      <input class="form-check-input" type="checkbox" value="" />
+                      <label class="form-check-label">
+                        Cat 2
+                      </label>
+                    </div>
+                  </div>
+                </div>
+                <div class="row">
+                  <div class="col-md-4 form-group" 
+                  th:class="${#fields.hasErrors('prepTime')} ? 'col-md-4 form-group text-danger' : 'col-md-4 form-group'">
+                    <label th:text="#{recipe.prepTime}" class="col-form-label">Prep Time:</label>
+                    <input type="text" class="form-control" th:field="*{prepTime}" th:errorclass="is-invalid" />
+                    <span  class="small form-text text-muted invalid-feedback" th:if="${#fields.hasErrors('prepTime')}">
+                      <ul>
+                        <li th:each="err : ${#fields.errors('prepTime')}" th:text="${err}"></li>
+                      </ul>
+                    </span>
+                  </div>
+                  <div class="col-md-4 form-group"
+                  th:class="${#fields.hasErrors('cookTime')} ? 'col-md-4 form-group text-danger' : 'col-md-4 form-group'">
+                    <label th:text="#{recipe.cookTime}" class="col-form-label">Cooktime:</label>
+                    <input type="text" class="form-control" th:field="*{cookTime}" th:errorclass="is-invalid" />
+                    <span  class="small form-text text-muted invalid-feedback" th:if="${#fields.hasErrors('cookTime')}">
+                      <ul>
+                        <li th:each="err : ${#fields.errors('cookTime')}" th:text="${err}"></li>
+                      </ul>
+                    </span>
+                  </div>
+                  <div class="col-md-4 form-group">
+                    <label th:text="#{recipe.difficulty}" class="col-form-label">Difficulty:</label>
+                    <select class="form-control" th:field="*{difficulty}">
+                      <option th:each="difficultyValue : ${T(pe.pilseong.recipe.domain.Difficulty).values()}"
+                        th:value="${difficultyValue.name()}"
+                        th:text="${difficultyValue.name()}">
+                        val
+                      </option>
+                    </select>
+                  </div>
+                </div>
+                <div class="row">
+                  <div class="col-md-4 form-group"
+                  th:class="${#fields.hasErrors('servings')} ? 'col-md-4 form-group text-danger' : 'col-md-4 form-group'">
+                    <label th:text="#{recipe.servings}" class="col-form-label">Servings:</label>
+                    <input type="text" class="form-control" th:field="*{servings}" th:errorclass="is-invalid" />
+                    <span  class="small form-text text-muted invalid-feedback" th:if="${#fields.hasErrors('servings')}">
+                      <ul>
+                        <li th:each="err : ${#fields.errors('servings')}" th:text="${err}"></li>
+                      </ul>
+                    </span>
+                  </div>
+                  <div class="col-md-4 form-group">
+                    <label th:text="#{recipe.source}" class="col-form-label">Source:</label>
+                    <input type="text" class="form-control" th:field="*{source}" />
+                  </div>
+                  <div class="col-md-4 form-group"
+                  th:class="${#fields.hasErrors('url')} ? 'col-md-4 form-group text-danger' : 'col-md-4 form-group'">
+                    <label th:text="#{recipe.url}" class="col-form-label">URL:</label>
+                    <input type="text" class="form-control" th:field="*{url}" th:errorclass="is-invalid" />
+                    <span  class="small form-text text-muted invalid-feedback" th:if="${#fields.hasErrors('url')}">
+                      <ul>
+                        <li th:each="err : ${#fields.errors('url')}" th:text="${err}"></li>
+                      </ul>
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="card-body p-0">
+              <div class="card-title mb-0">
+                <div class="row m-0">
+                  <div class="col-md-10 p-0">
+                    <p class="m-2 font-weight-bold">Ingredients</p>
+                  </div>
+                  <div class="col-md-2">
+                    <a class="btn btn-success font-weight-bold" href="#" role="button">View</a>
+                  </div>
+                </div>
+              </div>
+              <div class="card-text bg-white text-dark m-0 p-2">
+                <div class="row">
+                  <div class="col-md-12">
+                    <ul th:if="${not #lists.isEmpty(recipe.ingredients)}">
+                      <li th:remove="all">1 Cup of milk</li>
+                      <li th:remove="all">1 Teaspoon of chocolate</li>
+                      <li th:remove="all">1 Doggy of SAXU</li>
+                      <li th:each="ingredient : ${recipe.ingredients}" th:text="${(ingredient.getAmount() +
+                                        ' ' + ingredient.uom.getDescription() +
+                                        ' - ' + ingredient.getDescription())}">1 Teaspoon of Sugar
+                      </li>
+                    </ul>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+
+            <div class="card text-white bg-primary">
+              <div class="card-body p-0">
+                <div class="card-title">
+                  <p class="m-2 font-weight-bold">Directions</p>
+                </div>
+                <div class="card-text bg-white text-dark m-0 p-2">
+                  <div class="row">
+                    <div class="col-md-12 form-group">
+                      <textarea class="form-control" rows="3" th:field="*{directions}"></textarea>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="card text-white bg-primary">
+              <div class="card-body p-0">
+                <div class="card-title">
+                  <p class="m-2 font-weight-bold">Notes</p>
+                </div>
+                <div class="card-text bg-white text-dark m-0 p-2">
+                  <div class="row">
+                    <div class="col-md-12 form-group">
+                      <textarea class="form-control" rows="3" th:field="*{note.recipeNote}"></textarea>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <button type="submit" class="btn btn-primary">Submit</button>
+        </form>
+      </div>
+    </div>
+  </div>
+  <!-- Optional JavaScript -->
+  <!-- jQuery first, then Popper.js, then Bootstrap JS -->
+  <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"
+    integrity="sha384-DfXdz2htPH0lsSSs5nCTpuj/zy4C+OGpamoFVy38MVBnE+IbbVYUew+OrCXaRkfj" crossorigin="anonymous"
+    th:src="@{/webjars/jquery/3.5.1/jquery.min.js}">
+  </script>
+  <script src="https://cdn.jsdelivr.net/npm/popper.js@1.16.0/dist/umd/popper.min.js"
+    integrity="sha384-Q6E9RHvbIyZFJoft+2mJbHaEWldlvI9IOYy5n3zV9zzTtmI3UksdQRVvoxMfooAo" crossorigin="anonymous"
+    th:src="@{/webjars/popper.js/1.16.0/popper.min.js}">
+  </script>
+  <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.0/js/bootstrap.min.js"
+    integrity="sha384-OgVRvuATP1z7JjHLkuOU7Xw704+h835Lr+6QL9UvYjZE3Ipu6Tp75j7Bh/kR0JKI" crossorigin="anonymous"
+    th:src="@{/webjars/bootstrap/4.5.0/js/bootstrap.min.js}">
+  </script>
+
+</body>
+
+</html>

@@ -1,0 +1,221 @@
+parentElement: element 속성으로 자신의 부모를 리턴 className: element속성으로 class를 가지고 있음 preventDefault(): 함수로 이벤트의 기본 동작을 제거함. react에서 많이 사용하는데 똑같다. querySelector(): css selector 방식 element를 검색. 가장 많이 쓰긴한데 여기 쓴 이유는 element를 기준으로 하위 검색 innerText: 속성으로 element text를 가지고 있다. innerHTML과는 다르게 text만 변경할 때 편리 remove(): 메소드로 동적으로 생성한 DOM element를 지우기에 편리하다. removeChild 같은 거 보다 훨 낫다. esc 키는 27번이다. click 이벤트를 걸어 줄 때 하나 하나에 같은 이벤트를 걸어주어야 할 경우에는 querySelectorAll 대신 상위 컴포넌트 하나에 걸어주는 것이 편리하다. DOM element를 읽어와서 arrary처럼 사용하고 싶을 경우에는 아래 처럼 ... spread 기능을 사용하면 편리하다. 물론 객체에서도 사용이 가능하다. 하나의 배열을 분할해서 파라메터로 넣어 주거나 다른 배열에 추가하는데 사용한다. 자바스크립트에는 보통 string으로 사용한다. 종종 number로 변환이 필요할 때는 Number()를 사용할 수 있지만 문자앞에 +만 넣어주어도 number로 변환된다. 아래 코드 중에 $movieSelect.value 앞에 +가 있다. // change -> update status -> render
+const $container = document.querySelector('.container');
+const $seats = document.querySelectorAll('.row .seat:not(.occupied)');
+const $count = document.getElementById('count');
+const $total = document.getElementById('total');
+const $movieSelect = document.getElementById('movie');
+
+function updateStatus() {
+  const $selectedSeats = document.querySelectorAll('.row .seat.selected');
+  const seatsIndex = [...$selectedSeats].map(seat => [...$seats].indexOf(seat));
+  const ticketPrice = +$movieSelect.value;
+
+  localStorage.setItem('selectedSeats', JSON.stringify(seatsIndex));
+
+  const selectedSeatsCount = $selectedSeats.length;
+
+  $count.innerHTML = selectedSeatsCount;
+  $total.innerHTML = selectedSeatsCount * ticketPrice;
+} 자바스크립트 event를 처리할 경우가 많다. 자주 안쓰면 어떤 속성이 유용한지 해석하기 어렵다. e.target.classList -> 현재 이벤트가 발생한 element의 class를 반환한다. e . target . selectedIndex -> select을 사용할 경우 선택된 option의 번호를 가져온다. e.target.value -> 선택된 element의 값을 가져온다. select의 경우 선택된 option의 value값을 읽어온다. e . type -> 이벤트 타입을 string로 돌려준다. click, keyup 같은 거다 e.keycode -> 키보드가 눌러졌을 때 어떤 키가 눌러진지 숫자가 들어있다. 아래는 프로그래머스 웹사이트에 있는 디렉토리 보여주는 프로그램을 vanilla로 작성한 코드인데, 제대로 설계하지 않고 작성한 거라 허접하다. 결국 event -> update state -> render의 모든 client UI 프레임워크의 기본동작 구현이다. // it is not easy to write code without framework like react, angular and vue
+// but I enjoyed a lot. This is not a good code and I need more practice. I admit it.
+// Good luck to all the people who read this code :)
+
+class App {
+  constructor($app) {
+    this.state = {
+      path: [],
+      nodes: [],
+      process: false
+    };
+    this.breadcrumb = new Breadcrumb(this, $app);
+    this.nodes = new Nodes(this, $app);
+    this.init();
+  }
+
+  init() {
+    this.setPath("root");
+  }
+
+  setPath(div, item) {
+    console.log(this.state.process);
+    if (!this.state.process) {
+      this.state.process = true;
+
+      let id = '';
+      if (div === 'root') {
+        this.state.path.push({
+          id: "root",
+          name: "root"
+        })
+      } else if (div === 'deep') {
+        this.state.path.push(item);
+        id = item.id;
+      } else if (div === 'upper') {
+        const removed = this.state.path.pop();
+        id = removed.parent !== null ? removed.parent.id : '';
+      } else if (div === 'breadcrumb') {
+        let targetIndex = this.state.path.findIndex((route) => route.id === item.id);
+
+        // if the breadcrumb is the same of the current directory, 
+        // just return and set the process to false
+        if (targetIndex === this.state.path.length-1) {
+          this.state.process = false;
+          return;
+        }
+
+        id = this.state.path[targetIndex].id !== 'root' ? this.state.path[targetIndex].id : '';
+        console.log(id)
+        this.state.path.splice(targetIndex+1);
+      }
+
+      this.getData(id).then(json => {
+        console.log(json)
+        this.setState({
+          path: this.state.path,
+          nodes: json,
+          process: false
+        });
+      }).catch(e => {
+        console.log(`${e.message} in catch`)
+        this.state.process = false;
+      })
+    }
+  }
+
+  setState(next_state) {
+    this.state = next_state;
+    this.breadcrumb.setState(this.state.path);
+    this.nodes.setState({
+      root: this.state.path.length === 1,
+      nodes: this.state.nodes
+    });
+  }
+
+  handleClick(node) {
+    if (node === 'upper') {
+      this.setPath('upper');
+    } else {
+      this.setPath('deep', node);
+    }
+  }
+
+  handleBreadCrumb(node) {
+    this.setPath('breadcrumb', node);
+  }
+
+  getData = async (id) => {
+    const res = await fetch_data(id);
+    if (res.ok) {
+      return await res.json();
+    }
+  }
+}
+
+class Breadcrumb {
+  constructor(parent, $app) {
+    this.parent = parent;
+    this.$target = document.createElement('nav');
+    this.$target.className = "Breadcrumb";
+    $app.appendChild(this.$target);
+    this.state = {
+      path: []
+    }
+  }
+
+  setState(next_state) {
+    this.state.path = next_state;
+    this.render();
+  }
+
+  render() {
+    this.$target.innerHTML = this.state.path.map(item =>
+      `<div>${item === 'root' ? item : item.name}</div>`).join('');
+
+    this.$target.querySelectorAll('nav div').forEach(element => {
+      element.addEventListener('click', (e) => {
+        const clicked_path = this.state.path.find(path => path.name === e.target.innerText);
+        console.log(clicked_path);
+        this.parent.handleBreadCrumb(clicked_path);
+      })
+    })
+  }
+}
+
+class Nodes {
+  constructor(parent, $app) {
+    this.parent = parent;
+    this.$app = $app;
+    this.state = {
+      root: true,
+      nodes: []
+    }
+
+    this.$target = document.createElement('div');
+    this.$target.className = "Nodes";
+    $app.appendChild(this.$target);
+  }
+
+  setState(next_state) {
+    this.state = next_state;
+    this.render();
+  }
+
+  onHandleOnClick(node) {
+    console.log("clicked " + JSON.stringify(node))
+    if (node === 'upper' || node.type === 'DIRECTORY') {
+      this.parent.handleClick(node);
+    } else {
+      const $body = document.querySelector('body');
+      let $viewer = document.createElement('div');
+      $viewer.className = "Modal ImageViewer";
+      $body.appendChild($viewer);
+      $viewer.innerHTML = `
+            <div class="content">
+              <img src="https://someurl/public${node.filePath}" >
+            </div>
+          `;
+
+      const removeModal = function (e) {
+        if ((e.type === "keyup" && e.keyCode === 27) || e.type === "click") {
+          $viewer.remove();
+        }
+      }
+
+      $body.addEventListener("keyup", removeModal);
+      $viewer.addEventListener("click", removeModal);
+    }
+  }
+
+  render() {
+    this.$target.innerHTML = !this.state.root ? 
+    `<div class="Node"><img src="./assets/prev.png" id="upper" /></div>` : '';
+    this.$target.innerHTML += this.state.nodes.map(node => {
+      const typeImage = node.type === 'DIRECTORY' ? 
+      	'./assets/directory.png' : './assets/file.png';
+      return `
+        <div class="Node">
+          <img src="${typeImage}" id="${node.id}"/>
+          <div>${node.name}</div>
+        </div>
+      `;
+    }).join('');
+
+    this.$target.querySelectorAll('.Node').forEach(node => {
+      node.addEventListener('click', (e) => {
+        const clicked_node = this.state.nodes.find(state_node => state_node.id === e.target.id);
+        if (e.target.id === 'upper') {
+          this.onHandleOnClick('upper');
+        } else {
+          this.onHandleOnClick(clicked_node);
+        }
+      })
+    });
+  }
+}
+
+const $app = document.querySelector('.App');
+const app = new App($app); const url = 'https://someurl/dev';
+
+const fetch_data = (id) => {
+    return fetch(`${url}/${id ? id : ''}`);
+}

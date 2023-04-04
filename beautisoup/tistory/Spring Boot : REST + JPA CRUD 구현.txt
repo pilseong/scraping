@@ -1,0 +1,45 @@
+1. 이 포스트는 Spring Boot : REST + Hibernate CRUD 구현의 연속이다. Spring Boot : REST + Hibernate CRUD 구현 1. 지난 Spring : REST + Hibernate with Java Config - CRUD 포스트와 동일한 기능을 Spring Boot으로 구현한다. 1-1 데이터베이스와 전반적인 내용은 아래 링크를 참조한다. Spring : REST + Hibernate with Jav.. kogle.tistory.com 2. 위 포스트 내용과 다른 부분은 CustomerDAO 인터페이스의 구현 뿐이다. 2-1 Hibernate의 get -> find 2-2 Hibernate의 save -> persist 2-3 Hibernate의 saveOrUpdate -> merge 2-4 Hibernate의 delete -> remove 2-5 Hibernate의 createQuery -> createQuery package pe.pilseong.bootcustomer.dao;
+
+import java.util.List;
+
+import javax.persistence.EntityManager;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Repository;
+
+import pe.pilseong.bootcustomer.entity.Customer;
+
+@Repository
+public class CustomerJPADAOImpl implements CustomerDAO {
+
+  @Autowired
+  private EntityManager entityManager;
+  
+  @Override
+  public List<Customer> getCustomers() {
+    return entityManager.createQuery("from Customer", Customer.class).getResultList();
+  }
+
+  @Override
+  public Customer getCustomer(Long id) {
+    Customer customer = entityManager.find(Customer.class, id);
+    if (customer == null) {
+      throw new RuntimeException("not found");
+    }
+    
+    return customer;
+  }
+
+  @Override
+  public void saveCustomer(Customer customer) {
+    Customer savedCustomer = entityManager.merge(customer);
+    
+    customer.setId(savedCustomer.getId());
+  }
+
+  @Override
+  public void deleteCustomer(Customer customer) {
+    entityManager.remove(customer);
+  }
+
+}

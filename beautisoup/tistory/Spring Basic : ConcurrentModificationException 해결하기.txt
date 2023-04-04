@@ -1,0 +1,35 @@
+1. 이 포스트는 ConcurrentModificationException 문제에 대한 내용이다. 2. 이 에러는 하나의 스레드가 처리하고 있는 collection 데이터를 다른 스레드가 정보를 변환했을 때 발생한다. 2-1 삭제, 추가 모두 발생한다. 보통은 삭제만 언급되는 경우가 많은데 추가할 때도 발생한다. 3. 쉽게 말하면 collection 데이터를 순회하는 반복구문 실행 중에 그 collection에 데이터가 추가되거나 삭제된 경우다. 4. 해결책 상황에 따라 몇가지가 있는데 공통적으로 적용할 수 있는 방법은 collection 객체의 복제하여 순회에 사용한다. 4-1 아래는 BMI를 계산하는 static 메소드이다. public class BMICalculator {
+  public static void calculateBMI(List<ClinicalData> clinicalData, ClinicalData entry) {
+    if (entry.getComponentName().equals("hw")) {
+      String[] heightAndWeight = entry.getComponentValue().split("/");
+      if (heightAndWeight != null && heightAndWeight.length > 1) {
+        double heigtInMeters = Double.parseDouble(heightAndWeight[0]);
+        double bmi = Double.parseDouble(heightAndWeight[1]) / (heigtInMeters * heigtInMeters / 10000);
+        ClinicalData bmiData = new ClinicalData();
+        bmiData.setComponentName("bmi");
+        bmiData.setComponentValue(Double.toString(bmi));
+        clinicalData.add(bmiData);
+      }
+    }
+    System.out.println("\nEntry info is " + entry.toString());
+  }
+} 4-2 아래는 이 메소드를 사용하는 Controller의 메소드이다. 4-2-1 원래 데이터는 clinicalData에 들어 있는데 여기에 새로운 데이터를 추가해야 한다. 4-2-2 for each에 새로운 리스트를 생성하여 순회에 사용하고 생성된 데이터는 실제 데이터에 추가한다. @GetMapping("/analyze/{id}")
+  public Patient analyze(@PathVariable Long id) {
+    Patient patient = this.patientRepository.findById(id).get();
+
+    Map<String, String> filter = new HashMap<>();
+
+    List<ClinicalData> clinicalData = patient.getData();
+
+    for (ClinicalData entry : new ArrayList<>(clinicalData)) {
+      if (filter.containsKey(entry.getComponentName())) {
+        continue;
+      } else {
+        filter.put(entry.getComponentName(), null);
+      }
+
+      BMICalculator.calculateBMI(clinicalData, entry);
+    }
+
+    return patient;
+  } 5. 삭제할 경우는 이렇 할 필요없이 5-1 collection내장 removeIf를 사용하거나 5-2 stream filter를 사용하여 필요한 정보만 collection으로 생성하면 간편하다. 5-3 추가의 경우는 이런 방법이 통하지 않는다.

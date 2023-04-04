@@ -1,0 +1,39 @@
+1. 이 문제는 알고리즘에 관한 내용으로 깊은 생각을 요구한다. Share A string S of lowercase English letters is given. We want to partition this string into as many parts as possible so that each letter appears in at most one part, and return a list of integers representing the size of these parts. Example 1: Input: S = "ababcbacadefegdehijhklij" Output: [9,7,8] Explanation: The partition is "ababcbaca", "defegde", "hijhklij". This is a partition so that each letter appears in at most one part. A partition like "ababcbacadefegde", "hijhklij" is incorrect, because it splits S into less parts. Note: S will have length in range [1, 500]. S will consist of lowercase English letters ('a' to 'z') only. 2. 주어진 문자열을 최대한 많이 자르는데 각 잘라진 문자열은 그 안에만 사용되는 문자로만 존재해야 한다. 2-1 A에 들어 있는 문자는 B에나 다른 잘라진 조각에는 들어 있으면 안된다. 3. 해법은 3-1 a to z 까지 각 문자가 문자열에서 나타나는 마지막 위치를 파악한 후, 즉 한번 끝까지 다 스캔하여 map을 만든 후 3-2 가장 늦게 나타나는 문자의 위치와 현재 체크하는 index가 같을 때까지 스캔한다. 3-2-1 이 말의 의미는 해당 인덱스 뒤에는 지금까지 나온 문자들이 나오지 않는다는 의미가 된다. 3-2-2 이 부분이 잘라내는 위치가 되고 그 후에 동일한 것을 반복한다. import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
+
+public class App {
+  public static void main(String[] args) throws Exception {
+    Solution sol = new Solution();
+    sol.partitionLabels("ababcbacadefegdehijhklij");
+  }
+}
+
+class Solution {
+  public List<Integer> partitionLabels(String S) {
+
+        int[] lastIndex = new int[26];
+        
+        for (int i=0; i<S.length(); i++) {
+          lastIndex[S.charAt(i)-'a'] = i;
+        }
+        
+        int start = 0;
+        int max = 0;
+
+        List<Integer> result = new ArrayList<>();
+
+        for (int i=0; i<S.length(); i++) {
+          max = Math.max(max, lastIndex[S.charAt(i)-'a']);
+          if (i == max) {
+            result.add(i-start+1);
+            start = i+1;
+          }
+        }
+        System.out.println("Last occurance index of each character");
+        Arrays.stream(lastIndex).forEach(i -> System.out.print("" + i + ", "));
+        System.out.println("\n\nLength of Chucks :: " + result.toString());
+
+        return result;
+    }
+} 4. 결과 캡처

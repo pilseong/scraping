@@ -1,0 +1,16 @@
+이 내용은 그렇게 어렵거나 복잡한 내용이 없다. AWS 권한에 대한 것만 알고 있으면 문제를 수초내에 파악하고 인터넷 검색을 통해 해결할 수 있다. 하지만, 검색물들이 가독성이 그렇게 좋지 않아서 여기 적어 놓는다. 특히 아마존 기술문서에서 해당 부분을 찾기가 쉽지 않다. 1. Beanstalk를 설정할 때 Load Balance 로그를 S3에 저장하도록 설정하는 부분이 있다. 아래처럼 해당 설정을 하고 Environment를 생성하면 2. 생성시 아래와 같이 빈스토크 환경이 제대로 생성되지 않는다. ALB 생성이 실패했는데 보면 S3 버킷에 대한 권한이 없기 때문이다. 3. 해당 버킷에 가서 bucket policy를 설정한다. 위의 설정은 아마존 docs에 나와 있다. {
+	"Version": "2012-10-17",
+	"Statement": [
+		{
+			"Effect": "Allow",
+			"Principal": {
+				"AWS": "arn:aws:iam::elb-account-id:root"
+			},
+			"Action": "s3:PutObject",
+			"Resource": "arn:aws:s3:::버킷이름/prefix/AWSLogs/aws account/*"
+		}
+	]
+}
+
+# 600734575887 elb-account-id -> 이 내용은 아래 링크에 가면 Zone마다 id가 나와 있다. 찾아서 넣으면 된다.
+# https://docs.aws.amazon.com/ko_kr/elasticloadbalancing/latest/application/enable-access-logging.html 참고페이지 4. 다시 환경을 재생성하면 잘 생성되는 것을 확인할 수 있다.

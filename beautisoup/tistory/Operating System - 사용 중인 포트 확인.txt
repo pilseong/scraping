@@ -1,0 +1,1 @@
+리눅스 sudo lsof -i -P -n | grep LISTEN sudo netstat -tulpn | grep LISTEN sudo ss -tulpn | grep LISTEN sudo lsof -i:22 ## see a specific port such as 22 ## sudo nmap -sTU -O IP-address-Here 윈도우 netstat -aon | find /i "listening" | findstr 5000 리눅스 사용 정리 https://www.cyberciti.biz/faq/unix-linux-check-if-port-is-in-use-command/

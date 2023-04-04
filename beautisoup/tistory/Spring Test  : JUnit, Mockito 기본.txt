@@ -1,0 +1,207 @@
+1. 스프링 개발의 기본 중에 하나가 테스트이다. 간단하게 몇 가지 메모해 준다. 2. junit 테스트 2-0 maven archetype quickstart 1.4로 생성하니 junit 4.11로 dependency가 생성된다. <dependencies>
+    <dependency>
+      <groupId>junit</groupId>
+      <artifactId>junit</artifactId>
+      <version>4.11</version>
+      <scope>test</scope>
+    </dependency>
+  </dependencies> 2-1 대상 클래스 package pe.pilseong;
+
+/**
+ * Hello world!
+ *
+ */
+public class MyMath {
+
+  int sum(int[] numbers) {
+    int sum = 0;
+
+    for (int i : numbers) {
+      sum += i;
+    }
+
+    return sum;
+  }
+} 2-2 테스트 클래스 2-2-1 일반적인 테스트는 기대값과 결과 값의 단순 비교이다. 2-2-2 아래 같이 assert를 기본으로 사용한다. package pe.pilseong;
+
+import static org.junit.Assert.assertArrayEquals;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertTrue;
+
+import org.junit.Test;
+
+public class AssertTest {
+
+  @Test
+  public void test() {
+    assertEquals(1, 1);
+    assertTrue(true);
+    assertFalse(false);
+    assertNull(null);
+    assertNotNull("a");
+    assertArrayEquals(new int[]{1,2,3}, new int[]{1,2,3});
+  }
+  
+} 2-2-3 2-1의 대상 클래스를 테스트 하는 클래스이다. 2-2-3-1 @Before, @After는 각 메소드 테스트 마다 앞뒤로 실행된다. 2-2-3-2 @BeforeClass, @AfterClass는 전체 메소드 테스트 전과 후에 실행된다. package pe.pilseong;
+
+import static org.junit.Assert.assertEquals;
+
+import org.junit.After;
+import org.junit.AfterClass;
+import org.junit.Before;
+import org.junit.BeforeClass;
+import org.junit.Test;
+
+/**
+ * Unit test for simple App.
+ */
+public class MyMathTest {
+    MyMath myMath = new MyMath();
+
+    @Before
+    public void before() {
+        System.out.println("Before");
+    }
+
+    @After
+    public void after() {
+        System.out.println("After");
+    }
+
+    @BeforeClass
+    public static void beforeClass() {
+        System.out.println("BeforeClass");
+    }
+
+    @AfterClass
+    public static void afterClass() {
+        System.out.println("AfterClass");
+    }
+
+    @Test
+    public void sum_with3Numbers() {
+        System.out.println("sum_with3Numbers");
+        int result = myMath.sum(new int[]{1,2,3});
+
+        assertEquals(6, result);
+    }
+
+    @Test
+    public void sum_with1Numbers() {
+        System.out.println("sum_with1Numbers");
+        MyMath myMath = new MyMath();
+        int result = myMath.sum(new int[]{3});
+
+        assertEquals(3, result);
+    }
+} 3. Mokito 테스트 - 아래 코드는 JUnit5로 작성한 코드들이다. 3-1 Mockito의 기본적인 기능은 기능을 모방하여 자동으로 값을 생성해주는 역활을 한다. 3-2 아래는 테스트 대상 클래스이다. 이 클래스는 서비스를 주입받는데, 그 서비스를 통해 정수값 배열을 받는다. 3-2-1 대상 클래스의 주요 기능은 받은 배열값 중 가장 큰 값을 찾아 주는 클래스이다. 3-2-2 이 클래스를 테스트 하는데 Service는 의미가 없다. 기능인 제대로 값을 찾는지 여부가 중요하다. package pe.pilseong.mockitotest;
+
+public class SomeBusinessImpl {
+  private DataService dataService;
+
+  int findTheGreatestFromAllData() {
+    int[] data = dataService.retrieveAllData();
+    int greatest = Integer.MIN_VALUE;
+
+    for (int value: data) {
+      if (value > greatest) {
+        greatest = value;
+      }
+    }
+
+    return greatest;
+  }
+
+  public SomeBusinessImpl(DataService dataService) {
+    this.dataService = dataService;
+  }
+}
+
+// 위의 클래스에서 사용하는 서비스의 interface이다.
+
+package pe.pilseong.mockitotest;
+
+public interface DataService {
+  int[] retrieveAllData();
+} 3-3 테스트 클래스 3-3-1 코드로 생성하여 값을 가지고 오는 방식이다. 3-3-2 데이터 서비스를 mock으로 생성하여 받아오고 있다. 3-3-2-1 값은 when으로 case를 만들고 thenReturn으로 값을 반환하는 방식이다. 3-3-2-2 아래는 DataService 객체의 retrieveAllData를 호출하면 정수 배열을 반환한다. package pe.pilseong.mockitotest;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
+
+import org.junit.jupiter.api.Test;
+
+public class SomeBusinessMockTest {
+  
+  @Test
+  public void testFindTheGreatestFromAllData() {
+    DataService dataServiceMock = mock(DataService.class);
+    when(dataServiceMock.retrieveAllData()).thenReturn(new int[] {12,35,36, 23});
+
+    final SomeBusinessImpl businessImpl = new SomeBusinessImpl(dataServiceMock);
+
+    final int greatest = businessImpl.findTheGreatestFromAllData();
+
+    assertEquals(36, greatest);
+
+  }
+} 3-3-3 annotation 사용하여 작성하기 3-3-3-1 @ExtendWith(MockitoExtension.class)을 지정해야지만 동작한다. 3-3-3-2 @Mock은 autowired같이 자동으로 수식 타입을 구현하는 객체를 만들어 반환한다. 3-3-3-3 @InjectMocks은 Injection이 발생하는 타겟을 지정한다. 3-3-3-3-1 이것이 없으면 아래 comment한 injection을 수동으로 실행해야 한다. package pe.pilseong.mockitotest;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.mockito.Mockito.when;
+
+
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+
+@ExtendWith(MockitoExtension.class)
+public class SomeBusinessMockAnnotationsTest {
+  
+  @Mock
+  DataService dataService;
+
+  @InjectMocks
+  SomeBusinessImpl businessImpl;
+
+  @Test
+  public void testFindTheGreatestFromAllData() {
+    // DataService dataServiceMock = mock(DataService.class);
+    when(dataService.retrieveAllData()).thenReturn(new int[] {12,35,36, 23});
+
+    //final SomeBusinessImpl businessImpl = new SomeBusinessImpl(dataService);
+
+    final int greatest = businessImpl.findTheGreatestFromAllData();
+
+    assertEquals(36, greatest);
+  }
+
+  @Test
+  public void testFindTheGreatestFromAllData_forOneValue() {
+    // DataService dataServiceMock = mock(DataService.class);
+    when(dataService.retrieveAllData()).thenReturn(new int[] {12});
+
+    //final SomeBusinessImpl businessImpl = new SomeBusinessImpl(dataService);
+
+    final int greatest = businessImpl.findTheGreatestFromAllData();
+
+    assertEquals(12, greatest);
+  }
+
+  @Test
+  public void testFindTheGreatestFromAllData_forNoValue() {
+    // DataService dataServiceMock = mock(DataService.class);
+    when(dataService.retrieveAllData()).thenReturn(new int[] {});
+
+    //final SomeBusinessImpl businessImpl = new SomeBusinessImpl(dataService);
+
+    final int greatest = businessImpl.findTheGreatestFromAllData();
+
+    assertEquals(Integer.MIN_VALUE, greatest);
+  }
+}

@@ -1,0 +1,194 @@
+0 javax . validation 가 2.3.1에서 빠져 먹지를 않는다. 2.2.7 버전은 동작하니 예전버전을 사용을 권장한다. 0-1 아니면 그냥 maven에서 javax.validation를 찾아서 라이브러리를 추가하면 된다. 1. 이 포스트는 축구 클럽 관리를 위한 테스트 프로젝트로 다양한 스프링 기능을 데모하기 위해 만들었다. 1-1 내장 H2 사용방법과 syntax 1-2 schema.sql, data.sql을 이용한 데이터베이스 초기화 1-3 Entity에 내장으로 사용하는 속성 객체의 검증 방법 1-4 @NotBlank, @NotEmpty 사용 방법 2. 프로젝트는 가장 단순하게 작성한다. 2-1 Spring Web은 spring MVC, REST를 포함한다. 2-2 View로 타임리프를 사용한다. 2-3 데이터베이스는 내장 H2를 사용한다. 2-4 이 데이터베이스 접근을 위해  JDBC도 추가한다. 3. 데이터베이스를 설계한다. 3개의 기본 테이블과 2개의 연계테이블이다. 3-0 연계테이블은 선수-기술, 팀-선수의 many to many 관계 때문이다. 3-0-1 한 선수가 여려 팀에서 소속되는 것이 가능하다고 가정했다. 3-0-2 각 종 H2 타입은 아래 링크를 참조한다. 3-0-2-1 identity 타입은 auto increment 속성을 가지고 있다. 자바의 Long 과 매핑된다. Data Types Data Types Index INT BOOLEAN TINYINT SMALLINT BIGINT IDENTITY DECIMAL DOUBLE REAL TIME TIME WITH TIME ZONE DATE TIMESTAMP TIMESTAMP WITH TIME ZONE BINARY OTHER VARCHAR VARCHAR_IGNORECASE CHAR BLOB CLOB UUID ARRAY ENUM GEOMETRY JSON INTERVAL Details Clic www.h2database.com 3-1 schema.sql create table if not exists player(
+  id identity not null primary key,
+  first_name varchar(50) not null,
+  last_name varchar(50) not null,
+  salary decimal(10,2) not null,
+  created_at timestamp not null
+);
+
+create table if not exists skill(
+  id identity  not null primary key,
+  name varchar(50) not null,
+  type varchar(10) not null
+);
+
+create table if not exists players_skills (
+  player_id bigint not null,
+  skill_id bigint not null,
+  foreign key(player_id) references player(id),
+  foreign key(skill_id) references skill(id)
+);
+
+create table if not exists team (
+  id identity not null primary key,
+  name varchar(50) not null,
+  street varchar(50) not null,
+  city varchar(50),
+  state varchar(50),
+  country varchar(50),
+  created_at timestamp not null
+);
+
+create table if not exists teams_players (
+  team_id bigint not null,
+  player_id bigint not null,
+  foreign key(team_id) references team(id),
+  foreign key(player_id) references player(id)
+) 3-2 data.sql 3-2-1 선수의 기술을 슈팅, 패스, 수비, 신체적 강도로 구분했다. (피파 참고했다.) delete from player;
+
+delete from skill;
+
+delete from players_skills;
+
+delete from team;
+
+delete from teams_players;
+
+insert into skill(name, type) values('Finsihing', 'SHOOTING');
+insert into skill(name, type) values('Positioning', 'SHOOTING');
+insert into skill(name, type) values('Shot Power', 'SHOOTING');
+insert into skill(name, type) values('Penalties', 'SHOOTING');
+insert into skill(name, type) values('Vision', 'PASSING');
+insert into skill(name, type) values('Crossing', 'PASSING');
+insert into skill(name, type) values('Free Kick', 'PASSING');
+insert into skill(name, type) values('Short Passing', 'PASSING');
+insert into skill(name, type) values('Interceptions', 'DEFENSING');
+insert into skill(name, type) values('Heading', 'DEFENSING');
+insert into skill(name, type) values('Marking', 'DEFENSING');
+insert into skill(name, type) values('Tackle', 'DEFENSING');
+insert into skill(name, type) values('Jumping', 'PHYSICAL');
+insert into skill(name, type) values('Stamina', 'PHYSICAL');
+insert into skill(name, type) values('Strenth', 'PHYSICAL');
+insert into skill(name, type) values('Aggression', 'PHYSICAL'); 3-3 schema.sql, data.sql은 classpath에 있으면 스프링이 자동으로 읽어서 로드한다. 3-3-1 스프링부트에서의 classpath는 src\main\resources 에도 설정되어 보통 여기에 둔다. 3-3-2 이름을 바꾸고 싶으면 spring.datasource.schema와 spring.datasource.data 속성으로 변경가능하다. 3-4 H2 데이터베이스는 H2 데이터베이스와 JDBC가 경로 설정되어 있으면 자동으로 로딩된다. 3-4-1 기본 데이터베이스 이름은 testdb이지만 어떤 경우는 랜덤으로 생성된 이름으로 지정될 수도 있다. 3-4-2 이런 경우 application.properties에서 다음과 같이 데이터베이스 이름을 명시하면 된다. spring.datasource.url=jdbc:h2:mem:testdb 3-5 데이터베이스의 접근은 http://localhost:8080/h2-console 로 접근 가능하다. 4. 선수, 기술, 팀이라는 entity를 만든다. 4-1 선수 Entity 4-1-1 @NotBlank는 아주 편리한 검증자이다. Null도 빈공백도 허용하지 않는다. 그리고 공백은 다 제거해 준다. 4-1-2 @NotEmpty를 Collection속성에 사용하면 하나라도 데이터가 있어야 통과한다. 4-1-2-1 @Size도 비슷한 역활을 하지만, Size의 경우 기본값이 0인데 하나도 없어도 검증을 통과한다. 4-1-3 선수는 기술 리스트를 속성으로 가지고 있는데 초기화를 해 주었다. 4-1-3-1 collection들은 단순히 초기화하는 게 좋다. 조금의 메모리가 소모되겠지만 null 예외를 방지할 수 있다. package pe.pilseong.fooball.entity;
+
+import java.util.ArrayList;
+import java.util.Date;
+import java.util.List;
+
+import javax.validation.constraints.NotBlank;
+import javax.validation.constraints.NotEmpty;
+
+import lombok.Data;
+
+@Data
+public class Player {
+
+  private Long id;
+
+  @NotBlank
+  private String firstName;
+
+  @NotBlank
+  private String lastName;
+
+  @NotBlank
+  private String salary;
+
+  private Date createdAt;
+
+  @NotEmpty(message = "must choose at l east one item")
+  private List<Skill> skills = new ArrayList<>();
+} 4-2 기술 Entity package pe.pilseong.fooball.entity;
+
+import lombok.AllArgsConstructor;
+import lombok.Data;
+
+@Data
+@AllArgsConstructor
+public class Skill {
+  
+  private Long  id;
+
+  private String name;
+
+  private Type type;
+
+  public static enum Type {
+    SHOOTING, PASSING, DEFENSING, PHYSICAL
+  }
+} 4-3 팀 Entity 4-3-1 팀은 주소라는 클래스를 내장하고 있다. 주소클래스를 재활용하기 위해서 작성하였다. 4-3-2 이럴 경우 검증이 문제가 되는데 검증이 필요한 객체에 @Valid를 사용하고 그 객체 내에 검증자를 설정한다. package pe.pilseong.fooball.entity;
+
+import java.util.Date;
+import java.util.HashSet;
+import java.util.Set;
+
+import javax.validation.Valid;
+import javax.validation.constraints.NotBlank;
+
+import lombok.Data;
+
+@Data
+public class Team {
+  private Long id;
+
+  @NotBlank
+  private String name;
+
+  @Valid
+  private Address address = new Address();
+
+  private Date createdAt;
+
+  private Set<Player> players = new HashSet<>();
+
+  public void addPlayer(Player player) {
+    this.players.add(player);
+  }
+} 4-4 팀에서 사용한 주소 클래스 4-4-1 Entity는 아니지만 Entity에서 사용하기 때문에 검증자를 붙였다. package pe.pilseong.fooball.entity;
+
+import javax.validation.constraints.NotBlank;
+
+import lombok.Data;
+
+@Data
+public class Address {
+  @NotBlank
+  private String street;
+
+  @NotBlank
+  private String city;
+
+  @NotBlank
+  private String state;
+
+  @NotBlank
+  private String country;
+} 5. 실행하는 메인클래스를 작성한다. 5-1 View Controller를 작성하여 첫화면을 지정하였다. package pe.pilseong.fooball;
+
+import org.springframework.boot.SpringApplication;
+import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.web.servlet.config.annotation.ViewControllerRegistry;
+import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
+
+@SpringBootApplication
+public class DemoApplication implements WebMvcConfigurer {
+
+	public static void main(String[] args) {
+		SpringApplication.run(DemoApplication.class, args);
+	}
+
+	@Override
+	public void addViewControllers(ViewControllerRegistry registry) {
+		registry.addViewController("/").setViewName("home");
+	}
+} 5-2 첫화면용 home.html을 작성한다. 5-2-1 기본적으로 bootstrap을 사용한다. <!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+  <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.4.1/css/bootstrap.min.css"
+    integrity="sha384-Vkoo8x4CGsO3+Hhxv8T/Q5PaXtkKtu6ug5TOeNV6gBiFeWPGFN9MuhOf23Q9Ifjh" crossorigin="anonymous">
+  <title>Welcome to FootBall Club</title>
+</head>
+
+<body>
+  <div class="container">
+    <img class="img-fluid" th:src="@{ /images/football-ground.jpg }">
+
+    <h1 class="mt-2 mb-3">Welcome to FootBall Club</h1>
+    <a class="link" href="/players">Push this button to get started</a>
+  </div>
+</body>
+
+</html> 6. 시작 페이지 화면 캡처 6-1 unsplash의 무료 이미지를 활용하였다. 6-2 데이터베이스 로딩화면

@@ -1,0 +1,109 @@
+1.  JUnit 5가 되면 @RunWith 대신 @ExtendWith를 가지고 특정 기능만 활성화하여 테스트 할 수 있다. 2. Controller 테스트 방법은 MockMvc을 사용하면 좀 더 편리하다. 2-0 Mock fixture의 초기화는 MockitoAnnotations . initMocks ( this ), @ExtendWith 둘 중 하나를 쓸 수 있다. 2-0-1 아래는 initMocks을 사용하였다. @ExtendWith를 사용하면 자동으로 initMocks 호출을 포함한다. 2-1 물론 MockMvc를 사용하지 않고도 테스트는 가능하다. 2-2 MockMvc를 사용하게 되면 특정 url의 호출을 시뮬레이션할 수 있고 결과를 한번에 체크 가능하다. 2-3 아래의 listOwners 메소드는 MockMvc없이 작성한 테스트 코드이다. 2-4 listOwnersWithMock, listOwnersWithMockByIndex, findOwner는 MockMvc를 사용한 코드이다. 2-5 findOwner의 verifyNoInteractions는 예전의 verifyZeroInteractions을 대체하는 메소드이다. package pe.pilseong.petclinic.controller;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.when;
+
+import java.util.HashSet;
+import java.util.Set;
+
+import org.hamcrest.Matchers;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.MockitoAnnotations;
+import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.request.MockMvcRequestBuilders;
+import org.springframework.test.web.servlet.result.MockMvcResultMatchers;
+import org.springframework.test.web.servlet.setup.MockMvcBuilders;
+import org.springframework.ui.Model;
+
+import pe.pilseong.petclinic.domain.Owner;
+import pe.pilseong.petclinic.service.OwnerService;
+
+// @ExtendWith(MockitoExtension.class)
+public class OwnerControllerTest {
+
+  @InjectMocks
+  OwnerController ownerController;
+
+  @Mock
+  OwnerService ownerService;
+
+  @Mock
+  Model model;
+
+  MockMvc mockMvc;
+
+  Owner owner;
+  Set<Owner> returnOwners ;
+  
+
+  @BeforeEach
+  public void setup() {
+
+    MockitoAnnotations.initMocks(this);
+
+    returnOwners = new HashSet<>();
+    returnOwners.add(Owner.builder().id(1L).lastName("Heo").build());
+    returnOwners.add(Owner.builder().id(2L).lastName("Choi").build());
+
+    owner = Owner.builder().id(1L).lastName("Heo").build();
+
+    mockMvc = MockMvcBuilders.standaloneSetup(ownerController).build();
+  }
+
+  @Test
+  void listOwners() {
+
+    when(ownerService.findAll()).thenReturn(returnOwners);
+
+    String viewName = ownerController.listOwners(model);
+
+    assertEquals("owners/index", viewName);
+
+    verify(model).addAttribute(anyString(), any());
+  }
+
+  @Test
+  void listOwnersWithMock() throws Exception {
+
+    when(ownerService.findAll()).thenReturn(returnOwners);
+
+    mockMvc.perform(MockMvcRequestBuilders.get("/owners"))
+      .andExpect(MockMvcResultMatchers.status().isOk())
+      .andExpect(MockMvcResultMatchers.view().name("owners/index"))
+      .andExpect(MockMvcResultMatchers.model().attribute("owners", Matchers.hasSize(2)));
+
+  }
+
+  @Test
+  void listOwnersWithMockByIndex() throws Exception {
+
+    when(ownerService.findAll()).thenReturn(returnOwners);
+
+    mockMvc.perform(MockMvcRequestBuilders.get("/owners/index"))
+      .andExpect(MockMvcResultMatchers.status().isOk())
+      .andExpect(MockMvcResultMatchers.view().name("owners/index"))
+      .andExpect(MockMvcResultMatchers.model().attribute("owners", Matchers.hasSize(2)));
+
+  }
+
+  @Test
+  void findOwner() throws Exception {
+    mockMvc.perform(MockMvcRequestBuilders.get("/owners/find"))
+      .andExpect(MockMvcResultMatchers.status().isOk())
+      .andExpect(MockMvcResultMatchers.view().name("notimplemented"));
+
+      verifyNoInteractions(ownerService);
+  }
+
+  @Test
+  public void test() {
+
+  }
+}

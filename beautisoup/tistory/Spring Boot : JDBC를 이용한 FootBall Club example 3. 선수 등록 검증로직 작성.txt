@@ -1,0 +1,245 @@
+1. 이 포스트는 축구 클럽 관리를 위한 테스트 프로젝트로 다양한 스프링 기능을 데모하기 위해 만들었다. 1-1 @Valid로 Model 객체 검증하기 1-2 체크 박스를 검증하는 방법 1-3 체크 박스의 에러 이전 데이터를 그대로 유지 하는 방법 1-4 메뉴 표출을 외부 메소드로 빼기 1-5 Entity 내부의 내장 객체가 있는 경우 View에서 받은 데이터로 그 내장 객체를 생성하는 방법 1-5-1 Converter 클래스를 작성하는 방법 1-6 #list.contains 같은 thymleaf 내장 객체 사용 방법 2. 선수 정보를 작성하고 저장을 했을 때 데이터를 받을 POST 메소드를 작성한다. 2-0 이 메소드는 검증로직이 있어 데이터가 정상적이지 않을 경우 다시 이전 페이지로 돌아가고 에러를 표시한다. 2-0-1 player 객체는 @Valid와 @ModelAttribute로 수식되어 검증객체임을 지정해야 한다. 2-0-2 검증객체의 에러여부는 다음인자로 Errors클래스를 상속한 BindingResult 객체로 받아온다. package pe.pilseong.fooball.controller;
+
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
+import java.util.stream.Collectors;
+
+import javax.validation.Valid;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.core.convert.converter.Converter;
+import org.springframework.stereotype.Component;
+import org.springframework.stereotype.Controller;
+import org.springframework.ui.Model;
+import org.springframework.validation.BindingResult;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.ModelAttribute;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.SessionAttributes;
+
+import lombok.extern.slf4j.Slf4j;
+import pe.pilseong.fooball.entity.Player;
+import pe.pilseong.fooball.entity.Skill;
+import pe.pilseong.fooball.entity.Team;
+import pe.pilseong.fooball.repository.PlayerRepository;
+import pe.pilseong.fooball.repository.SkillRepository;
+
+@Slf4j
+@Controller
+@RequestMapping("/players")
+@SessionAttributes("team")
+public class PlayerSkillController {
+
+  @Autowired
+  private SkillRepository skillRepository;
+
+  @Autowired
+  private PlayerRepository playerRepository;
+
+  @ModelAttribute(name = "player")
+  public Player player() {
+    return new Player();
+  }
+
+  @ModelAttribute(name = "team")
+  public Team team() {
+    return new Team();
+  }
+
+  @GetMapping
+  public String showPlayerSkill(Model model) {
+
+    setMenu(model);
+
+    model.addAttribute("checked", new ArrayList<>());
+    return "player-setting";
+  }
+
+  private void setMenu(Model model) {
+    List<Skill> skills = this.skillRepository.findAll();
+
+    Arrays.asList(Skill.Type.values()).stream().forEach(skill -> {
+      model.addAttribute(skill.toString().toLowerCase(),
+          skills.stream().filter(fetchedSkill -> 
+          	fetchedSkill.getType().toString().equals(skill.toString()))
+              .collect(Collectors.toList()));
+    });
+  }
+
+  @PostMapping
+  public String processPlayerSkill(@Valid @ModelAttribute Player player, BindingResult errors, Model model,
+    @ModelAttribute Team team) {
+
+    if (errors.hasErrors()) {
+
+      log.info("processPlayerSKill error info :::" + errors.toString());
+
+      log.info(player.toString());
+
+      setMenu(model);
+
+      // when errors occur, we have to make a list of selected skills before getting back to the view
+      model.addAttribute("checked", 
+        player.getSkills().stream().map(skill-> 
+          skill.getId()
+        ).collect(Collectors.toList())
+      );
+      return "player-setting";
+    }
+
+    log.info(player.toString());
+
+    team.addPlayer(player);
+
+    this.playerRepository.save(player);
+
+    log.info(team.toString());
+    return "redirect:/teams";
+  }
+  
+}
+
+@Component
+class LongToSkillConverter implements Converter<String, Skill> {
+
+  @Autowired
+  private SkillRepository skillRepository;
+
+  @Override
+  public Skill convert(String id) {
+    return this.skillRepository.findOne(Long.valueOf(id));
+  }
+} 2-1 이전 페이지로 돌아갈 때 다시 메뉴를 받아서 구성해야 한다. 그래서 별도의 메소드로 작성하였다. (setMenu) 2-2 이 때 체크했던 항목들이 초기화되면 안된다. 따라서 별도의 체크리스트를 만들어서 제공해야 한다. 2-3 선수 Entity는 기술 List를 가지고 있는데, 2-3-1 View에서는 체크박스를 체크 시에 단순히 ID의 배열만 반환하기 때문에 Conversion이 필요하다. 2-3-2 컨버전 클래스를 따로 만들어야 하는데, 이 컨트롤러만 사용하기 때문에 이 파일에서 작성하였다. 2-3-3 이 컨버터는 스프링 코어의 Converter를 구현하고 프로그램에서 원하는 ID를 받아 Skill을 반환하고 있다. 2-3-4 ID로 데이터를 가져오는 부분은 SkillRepository를 사용하고 있다. 2-3-5 컨버터 소스는 위의 LongToSkillConverter 클래스를 참조한다. 2-3-6 Converter로 구현하기 싫을 때는 그냥 @InitBinder를 사용해도 된다. 아래는 소스코드이다. Spring Basic : @InitBinder와 fmt jstl 1. InitBinder는 스프링 MVC가 나오면서 부터 지원한 오래된 기술이다. 2. 현재는 나중에 나온 Converter를 많이 사용하기는 하지만 여전히 유용한 기술이다. 3. @InitBinder의 목적은 View에서 입력한 Form에 � kogle.tistory.com @InitBinder
+  public void initBinder(WebDataBinder binder) {
+    binder.registerCustomEditor(List.class, "skills", new CustomCollectionEditor(List.class) {
+
+      protected Object convertElement(Object element) {
+        if (element != null) {
+          Long skillId = Long.parseLong(element.toString());
+          Skill skill = skillRepository.findById(skillId).get();
+
+          log.info("convertElement in CustomCollectionEditor :: " + skill);
+          return skill;
+        }
+        return element;
+      }
+    });
+  } 2-4 문제가 없을 때는 PlayerRepository를 통해서 저장하고 있는데 이 부분은 다음에 다룬다. 3. 이 컨트롤러에서 지정해 준 checked를 사용하여 기존의 checked 정보를 보여주는 부분을 view에 추가한다. 3-1 check box를 보면 th:checked="${  }" 가 있는데 이 부분은 ${ } 가 true가 되면 check box가 checked로 표시된다. 3-1-1 로직을 보면 #lists.contains(checked, skill.id)가 있는데, 3-1-2 #lists.contains는 thymleaf 함수로 첫번째인자로 List 두 번째인자는 검증 값이 들어 있다. 3-1-3 즉 checked라는 이름의 List안에 skill.id에 들어 있는 값과 일치하는 값이 있으면 true가 반환된다. <!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+  <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.4.1/css/bootstrap.min.css"
+    integrity="sha384-Vkoo8x4CGsO3+Hhxv8T/Q5PaXtkKtu6ug5TOeNV6gBiFeWPGFN9MuhOf23Q9Ifjh" crossorigin="anonymous">
+  <title>Setting a player</title>
+</head>
+
+<body>
+  <div class="container">
+    <img class="img-fluid" th:src="@{ /images/football-ground.png }">
+
+    <h1 class="mt-2 mb-3">Setting a Player</h1>
+
+    <form method="POST" th:object="${player}">
+      <div th:if="${#fields.hasErrors()}">
+        <div class="py-1 alert alert-warning text-muted">Please correct the problems below and resubmit</div>
+      </div>
+      <div class="row">
+        <div class="card col-6">
+          <div class="card-body">
+            <h5 class="card-title">Shooting skills:</h5>
+            <p class="card-text">
+              <div class="form-check" th:each="skill : ${shooting}">
+                <input type="checkbox" class="form-check-input" name="skills" 
+                  th:checked="${#lists.contains(checked, skill.id)}" 
+                  th:value="${ skill.id }">
+                <span th:text="${ skill.name }" class="form-check-lable"></span>
+              </div>
+            </p>
+          </div>
+        </div>
+        <div class="card col-6">
+          <div class="card-body">
+            <h5 class="card-title">Passing skills:</h5>
+            <p class="card-text">
+              <div class="form-check" th:each="skill : ${passing}">
+                <input type="checkbox" class="form-check-input" name="skills"
+                  th:checked="${#lists.contains(checked, skill.id)}"
+                  th:value="${ skill.id }">
+                <span th:text="${ skill.name }" class="form-check-lable"></span>
+              </div>
+            </p>
+          </div>
+        </div>
+      </div>
+      <div class="row">
+        <div class="card col-6">
+          <div class="card-body">
+            <h5 class="card-title">Defensing skills:</h5>
+            <p class="card-text">
+              <div class="form-check" th:each="skill : ${defensing}">
+                <input type="checkbox" class="form-check-input" name="skills" 
+                  th:checked="${#lists.contains(checked, skill.id)}"
+                  th:value="${ skill.id }">
+                <span th:text="${ skill.name }" class="form-check-lable"></span>
+              </div>
+            </p>
+          </div>
+        </div>
+        <div class="card col-6">
+          <div class="card-body">
+            <h5 class="card-title">Physical elements:</h5>
+            <p class="card-text">
+              <div class="form-check" th:each="skill : ${physical}">
+                <input type="checkbox" class="form-check-input" name="skills" 
+                  th:checked="${#lists.contains(checked, skill.id)}"
+                  th:value="${ skill.id }">
+                <span th:text="${ skill.name }" class="form-check-lable"></span>
+              </div>
+            </p>
+          </div>
+        </div>
+      </div>
+      <div class="alert alert-danger text-muted mt-1 py-1 small" 
+      	th:if="${ #fields.hasErrors('skills') }"
+      	th:errors="*{skills}"></div>
+      <div class="row">
+        <div class="card col-12">
+          <h3 class="my-3">Name your football player:</h3>
+          <div class="form-row">
+            <div class="form-group col-md-6">
+              <label for="firstname">First Name</label>
+              <input type="text" id="firstname" class="form-control mb-1" 
+              	th:field="*{firstName}" />
+              <span class="alert alert-secondary text-muted py-1 small" 
+              	th:if="${#fields.hasErrors('firstName')}"
+                th:errors="*{firstName}"></span>
+            </div>
+            <div class="form-group  col-md-6">
+              <label for="lastname">Last Name</label>
+              <input type="text" id="lastname" class="form-control mb-1" 
+              	th:field="*{lastName}" />
+              <span class="alert alert-secondary text-muted py-1 small" 
+              	th:if="${#fields.hasErrors('lastName')}"
+                th:errors="*{lastName}"></span>
+            </div>
+          </div>
+          <div class="form-group">
+            <label for="salary">Salary</label>
+            <input type="text" id="salary" class="form-control mb-1" 
+            	th:field="*{salary}" />
+            <span class="alert alert-secondary text-muted py-1 small" 
+            	th:if="${#fields.hasErrors('salary')}"
+                th:errors="*{salary}"></span>
+          </div>
+          <button class="btn btn-primary mb-3">Player Submit</button>
+        </div>
+      </div>
+    </form>
+  </div>
+</body>
+
+</html> 4. 결과화면 - 최근에 MS의 신형 브라우저를 깔아서 썼는데 별로다 크롬이 최고다. 4-1 빈공백으로 Submit을 눌렀을 때 나오는 에러 안내 구문들이다. 4-2 일부 필드만 에러가 발생하도록 비우고 Submit 했다. 4-2-1 에러가 발생하여 이전 페이지로 돌아갔는데 체크한 내용이 그대로 유지된다.

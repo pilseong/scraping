@@ -1,0 +1,94 @@
+1. 아래 링크는 같은 기능을 xml로 설정하는 내용이다. Spring : Web MVC with XML Configuration - Static 파일 사용하기 1. web.xml의 dispatcherServlet 세팅에 사용된 Spring MVC config 파일에 설정을 추가한다. 1-0 xml은 기본적으로 디버깅이 짜증나므로 웬만하면 아래 beans 테그까지는 복사하는 게 좋다. 1-1 기본적으로 WEB-IN.. kogle.tistory.com 2. Web MVC에서 static 파일을 사용하는 방법은 다음과 같다. 2-1 WebMvc 설정 클래스에 WebMvcConfigurer를 implements 한다. 2-1-1 스프링 5.0 이후 부터 WebConfig의 기본적인 구현은 WebMvcConfigurerAdapter 클래스 대신 2-1-2 default implementation을 이용한 WebMvcConfigurer 인터페이스를 사용한다. 2-2 아래는 예시는 WebMvcConfigurer를 사용하고 있고, 이 인터페이스에 리소스 관련 설정 부분이 있다. 2-2-0 resource handler는 프로그램상의 접근 위치이고, resource locations가 실제 파일시스템 상 경로이다. 2-2-1 따라서 이 인터페이스를 implementation하지 않으면 설정할 수가 없다. 2-2-2 간단하게 말하면 인터페이스를 Override하여 원하는 위치를 지정하면 된다. 2-2-3 다시 말하지만, location뒤의 '/' 빠뜨리면 제대로 동작하지 않는다. @Override
+  public void addResourceHandlers(ResourceHandlerRegistry registry) {
+    registry.addResourceHandler("/resources/**").addResourceLocations("/resources/");
+  } 2-2-3 기본적으로 web루트 /resources 폴더 아래에 저장하는 것을 가정한다. 3. 일반적인 Web MVC, Security, Hibernate의 Web 설정 파일 예시이다. package pe.pilseong.customermanagement.config;
+
+import java.beans.PropertyVetoException;
+import java.util.Properties;
+
+import javax.sql.DataSource;
+
+import org.hibernate.SessionFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.ComponentScan;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.PropertySource;
+import org.springframework.core.env.Environment;
+import org.springframework.orm.hibernate5.HibernateTransactionManager;
+import org.springframework.orm.hibernate5.LocalSessionFactoryBean;
+import org.springframework.transaction.annotation.EnableTransactionManagement;
+import org.springframework.web.servlet.ViewResolver;
+import org.springframework.web.servlet.config.annotation.EnableWebMvc;
+import org.springframework.web.servlet.config.annotation.ResourceHandlerRegistry;
+import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
+import org.springframework.web.servlet.view.InternalResourceViewResolver;
+
+import com.mchange.v2.c3p0.ComboPooledDataSource;
+
+@Configuration
+@EnableWebMvc
+@EnableTransactionManagement
+@PropertySource("classpath:persistence-mysql.properties")
+@ComponentScan(basePackages = "pe.pilseong.customermanagement")
+public class WebConfig implements WebMvcConfigurer {
+  
+  @Autowired
+  private Environment env;
+  
+  @Bean
+  public ViewResolver viewResolver() {
+    return new InternalResourceViewResolver("/WEB-INF/view/", ".jsp");
+  }
+  
+  @Bean
+  public DataSource dataSource() {
+    ComboPooledDataSource dataSource = new ComboPooledDataSource();
+    
+    try {
+      dataSource.setDriverClass(env.getProperty("jdbc.driver"));
+    } catch (PropertyVetoException e) {
+      throw new RuntimeException(e);
+    }
+    
+    dataSource.setJdbcUrl(env.getProperty("jdbc.url"));
+    dataSource.setUser(env.getProperty("jdbc.username"));
+    dataSource.setPassword(env.getProperty("jdbc.password"));
+    
+    dataSource.setInitialPoolSize(Integer.parseInt(env.getProperty("connection.pool.initialPoolSize")));
+    dataSource.setMinPoolSize(Integer.parseInt(env.getProperty("connection.pool.minPoolSize")));
+    dataSource.setMaxPoolSize(Integer.parseInt(env.getProperty("connection.pool.maxPoolSize")));
+    dataSource.setMaxIdleTime(Integer.parseInt(env.getProperty("connection.pool.maxIdleTime")));
+    
+    return dataSource;
+  }
+  
+  @Bean
+  public LocalSessionFactoryBean sessionFactory() {
+    LocalSessionFactoryBean sessionFactoryBean = new LocalSessionFactoryBean();
+    sessionFactoryBean.setDataSource(dataSource());
+    sessionFactoryBean.setPackagesToScan(env.getProperty("hibernate.packagesToScan"));
+    
+    Properties properties = new Properties();
+    properties.setProperty("hibernate.dialect", env.getProperty("hibernate.dialect"));
+    properties.setProperty("hibernate.show_sql", env.getProperty("hibernate.show_sql"));
+    
+    sessionFactoryBean.setHibernateProperties(properties);
+    
+    return sessionFactoryBean;
+  }
+  
+  @Bean
+  @Autowired
+  public HibernateTransactionManager transactionManager(SessionFactory sessionFactory) {
+    HibernateTransactionManager txManager = new HibernateTransactionManager();
+    txManager.setSessionFactory(sessionFactory);
+    
+    return txManager;
+  }
+  
+  @Override
+  public void addResourceHandlers(ResourceHandlerRegistry registry) {
+    registry.addResourceHandler("/resources/**").addResourceLocations("/resources/");
+  }
+}

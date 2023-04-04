@@ -1,0 +1,1 @@
+달력(월) 열기 : cal 달력 연도 : cal 연도 달력(연) 열기 : cal -y 달력 앞 or 뒤 월까지 보여주기 : cal -A or -B 숫자 월 년 (ex cal -A 1 -B 1 8 2020) 명령어 이력 보기 : history 명령어 이력 지우기 : history -c 명령어 이력 번호로 실행 하기 : !번호 실행명령어의 경로 보기 : which 명령어 clear : ctrl + l terminal 열기 : ctrl + alt + t terminal 닫기 : ctrl + d zoom out : ctrl + + zoom in : ctrl + -

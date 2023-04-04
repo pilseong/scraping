@@ -1,0 +1,533 @@
+1. 앞의 포스트 내용을 기반으로 CRUD를 수행하는 서비스를 구현한다. 1-1 데이터베이스 구조가 동일한 이 포스트를 참조한다. Spring : Web MVC + Hibernate - 설정하기 -1. 예제를 위해 Customer 테이블을 생성한다. -1-0 사용자 springstudent를 만들고 암호도 springstudent를 생성한다. -1-1 web_customer_tracker라는 데이터베이스를 생성한다. -1-2 Customer 테이블을 생성한다.. kogle.tistory.com 2. webapp archetype 1.4를 사용하여 프로젝트를 생성한다. 2-1 web.xml 삭제 하고 index.jsp삭제한다. 2-2 .settings 폴더의 xml에 servlet 4.0을 설정한다. 2-3 pom.xml에 사용할 자바버전을 맞춰준다. 2-4 elicpse 재기동한다. 3. Dependency 추가한다. 3-1 웹기능지원 및 REST 서비스 지원 Spring webmvc, servlet 4.0, jackson databind 3-2 데이터베이스 지원 mysql connector j, hibernate core, spring tx, spring orm, c3p0 3-3 편의성 lombok <!-- Spring REST -->
+	<dependency>
+		<groupId>org.springframework</groupId>
+		<artifactId>spring-webmvc</artifactId>
+		<version>${springframework.version}</version>
+	</dependency>
+
+	<dependency>
+		<groupId>com.fasterxml.jackson.core</groupId>
+		<artifactId>jackson-databind</artifactId>
+		<version>2.11.0</version>
+	</dependency>
+
+	<dependency>
+		<groupId>javax.servlet</groupId>
+		<artifactId>javax.servlet-api</artifactId>
+		<version>4.0.1</version>
+		<scope>provided</scope>
+	</dependency>
+
+	<!-- DB Support -->
+	<dependency>
+		<groupId>org.hibernate</groupId>
+		<artifactId>hibernate-core</artifactId>
+		<version>5.4.16.Final</version>
+	</dependency>
+	<dependency>
+		<groupId>org.springframework</groupId>
+		<artifactId>spring-tx</artifactId>
+		<version>${springframework.version}</version>
+	</dependency>
+	<dependency>
+		<groupId>org.springframework</groupId>
+		<artifactId>spring-orm</artifactId>
+		<version>${springframework.version}</version>
+	</dependency>
+	<dependency>
+		<groupId>com.mchange</groupId>
+		<artifactId>c3p0</artifactId>
+		<version>0.9.5.5</version>
+	</dependency>
+	<dependency>
+		<groupId>mysql</groupId>
+		<artifactId>mysql-connector-java</artifactId>
+		<version>8.0.20</version>
+	</dependency>
+       
+	<!-- for convenience -->        
+	<dependency>
+		<groupId>org.projectlombok</groupId>
+		<artifactId>lombok</artifactId>
+		<version>1.18.12</version>
+		<scope>provided</scope>
+	</dependency> 4. WebConfig와 DispatcherInitializer 설정한다. 4-1 데이터베이스는 외부파일에서 불러 온다. classpath root에 persistence-mysql.properties를 작성한다. jdbc.driver=com.mysql.cj.jdbc.Driver
+jdbc.url=jdbc:mysql://localhost:3306/web_customer_tracker?serverTimezone=Asia/Seoul
+jdbc.username=springstudent
+jdbc.password=springstudent
+
+conneciton.pool.initialPoolSize=5
+connection.pool.minPoolSize=5
+connection.pool.maxPoolSize=20
+connection.pool.maxIdleTime=3000
+
+hibernate.show_sql=true
+hibernate.packagesToScan=pe.pilseong.restcrud
+hibernate.dialect=org.hibernate.dialect.MySQLDialect 4-2 WebConfig를 작성한다. 4-2-1 해왔던 것과 동일하다. 차이점이 있다면 jsp설정이 없다는 것과 static 파일을 사용하지 않는 것 정도이다. package pe.pilseong.restcrud;
+
+import java.beans.PropertyVetoException;
+import java.util.Properties;
+
+import javax.sql.DataSource;
+
+import org.hibernate.SessionFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.ComponentScan;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.PropertySource;
+import org.springframework.core.env.Environment;
+import org.springframework.orm.hibernate5.HibernateTransactionManager;
+import org.springframework.orm.hibernate5.LocalSessionFactoryBean;
+import org.springframework.transaction.annotation.EnableTransactionManagement;
+import org.springframework.web.servlet.config.annotation.EnableWebMvc;
+import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
+
+import com.mchange.v2.c3p0.ComboPooledDataSource;
+
+@EnableWebMvc
+@EnableTransactionManagement
+@Configuration
+@ComponentScan(basePackages = "pe.pilseong.restcrud")
+@PropertySource(value = "classpath:persistence-mysql.properties")
+public class WebConfig implements WebMvcConfigurer {
+  
+  @Autowired
+  private Environment env;
+  
+  @Bean
+  public DataSource dataSource() {
+    ComboPooledDataSource dataSource = new ComboPooledDataSource();
+    try {
+      dataSource.setDriverClass(env.getProperty("jdbc.driver"));
+    } catch (PropertyVetoException e) {
+      throw new RuntimeException(e);
+    }
+    dataSource.setJdbcUrl(env.getProperty("jdbc.url"));
+    dataSource.setUser(env.getProperty("jdbc.username"));
+    dataSource.setPassword(env.getProperty("jdbc.password"));
+    dataSource.setInitialPoolSize(Integer.parseInt(env.getProperty("conneciton.pool.initialPoolSize")));
+    dataSource.setMinPoolSize(Integer.parseInt(env.getProperty("connection.pool.minPoolSize")));
+    dataSource.setMaxPoolSize(Integer.parseInt(env.getProperty("connection.pool.maxPoolSize")));
+    dataSource.setMaxIdleTime(Integer.parseInt(env.getProperty("connection.pool.maxIdleTime")));
+        
+    return dataSource;
+  }
+  
+  @Bean
+  public LocalSessionFactoryBean sessionFactory() {
+    LocalSessionFactoryBean sessionFactoryBean = new LocalSessionFactoryBean();
+    
+    sessionFactoryBean.setDataSource(dataSource());
+    sessionFactoryBean.setPackagesToScan(env.getProperty("hibernate.packagesToScan"));
+    
+    Properties properties = new Properties();
+    properties.setProperty("hibernate.show_sql", env.getProperty("hibernate.show_sql"));
+    properties.setProperty("hibernate.dialect", env.getProperty("hibernate.dialect"));
+    
+    sessionFactoryBean.setHibernateProperties(properties);
+    
+    return sessionFactoryBean;
+  }
+  
+  @Bean
+  @Autowired
+  public HibernateTransactionManager transactionManager(SessionFactory sessionFactory) {
+    HibernateTransactionManager txManager = new HibernateTransactionManager();
+    txManager.setSessionFactory(sessionFactory);
+    return txManager;
+  }
+} 4-3 DispatcherInitializer 설정 4-3-1 해왔던 것과 완전 동일하다. package pe.pilseong.restcrud;
+
+import org.springframework.web.servlet.support.AbstractAnnotationConfigDispatcherServletInitializer;
+
+public class WebDispatcherServletInitializer extends AbstractAnnotationConfigDispatcherServletInitializer {
+
+  @Override
+  protected Class<?>[] getRootConfigClasses() {
+    return null;
+  }
+
+  @Override
+  protected Class<?>[] getServletConfigClasses() {
+    return new Class[] { WebConfig.class };
+  }
+
+  @Override
+  protected String[] getServletMappings() {
+    return new String[] { "/" };
+  }
+} 5. Entity정의하기 5-1 단독 테이블이므로 별로 설명할 것이 없다. package pe.pilseong.restcrud.entity;
+
+import javax.persistence.Column;
+import javax.persistence.Entity;
+import javax.persistence.GeneratedValue;
+import javax.persistence.GenerationType;
+import javax.persistence.Id;
+import javax.persistence.Table;
+
+import lombok.Data;
+
+@Entity
+@Table(name = "customer")
+@Data
+public class Customer {
+
+  @Id
+  @GeneratedValue(strategy = GenerationType.IDENTITY )
+  private Long id;
+  
+  @Column(name = "first_name")
+  private String firstName;
+  
+  @Column(name = "last_name")
+  private String lastName;
+  
+  @Column(name = "email")
+  private String email;
+} 6. 서버스와 DAO를 정의한다. 6-1 서비스 인터페이스이다. package pe.pilseong.restcrud.service;
+
+import java.util.List;
+
+import pe.pilseong.restcrud.entity.Customer;
+
+public interface CustomerService {
+
+  List<Customer> getCutomers();
+  
+  Customer getCustomer(Long id);
+  
+  void saveCustomer(Customer customer);
+  
+  void deletCustomer(Long id);
+} 6-2 서비스 구현 클래스이다. 6-2-1 아래의 클래스에서 특별한 점은 삭제 부분이다. 6-2-2 삭제 시 id로 조회하여 삭제할 대상이 없는 경우는 404에러를 처리해야 한다. 6-2-3 그래서 삭제대상이 없는 경우 RuntimeException을 사용하여 예외를 발생키고 6-2-3-1 찾은 경우만 정상적으로 삭제한다. 6-2-4 DAO의 삭제는 객체를 가지고 삭제를 하는 반면 Service에서는 id를 가지고 삭제를 수행하여 복잡성을 줄인다. package pe.pilseong.restcrud.service;
+
+import java.util.List;
+
+import javax.transaction.Transactional;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+
+import pe.pilseong.restcrm.dao.CustomerDAO;
+import pe.pilseong.restcrud.entity.Customer;
+
+@Service
+public class CustomerServiceImpl implements CustomerService {
+
+  @Autowired
+  private CustomerDAO customerDAO;
+  
+  @Override
+  @Transactional
+  public List<Customer> getCutomers() {
+    return this.customerDAO.getCustomers();
+  }
+
+  @Override
+  @Transactional
+  public Customer getCustomer(Long id) {
+
+    return this.customerDAO.getCustomer(id);
+  }
+
+  @Override
+  @Transactional
+  public void saveCustomer(Customer customer) {
+    this.customerDAO.saveCustomer(customer);
+    
+  }
+
+  @Override
+  @Transactional
+  public void deletCustomer(Long id) {
+    
+    Customer customer = this.customerDAO.getCustomer(id);
+    if (customer == null) {
+      throw new RuntimeException("Customer not found");
+    }
+    
+    this.customerDAO.deleteCustomer(customer);    
+  }
+} 6-3 DAO 인터페이스이다. package pe.pilseong.restcrud.dao;
+
+import java.util.List;
+
+import pe.pilseong.restcrud.entity.Customer;
+
+public interface CustomerDAO {
+  
+  List<Customer> getCustomers();
+  
+  Customer getCustomer(Long id);
+  
+  void saveCustomer(Customer customer);
+  
+  void deleteCustomer(Customer customer);
+} 6-4 DAO 구현 클래스 6-4-1 특별한 부분이 없다. package pe.pilseong.restcrud.dao;
+
+import java.util.List;
+
+import org.hibernate.Session;
+import org.hibernate.SessionFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Repository;
+
+import pe.pilseong.restcrud.entity.Customer;
+
+@Repository
+public class CustomerDAOImpl implements CustomerDAO {
+
+  @Autowired
+  private SessionFactory sessionFactory;
+  
+  @Override
+  public List<Customer> getCustomers() {
+    Session session = this.sessionFactory.getCurrentSession();
+    
+    return session.createQuery("from Customer", Customer.class).getResultList();
+  }
+
+  @Override
+  public Customer getCustomer(Long id) {
+    Session session = this.sessionFactory.getCurrentSession();
+    
+    return session.get(Customer.class, id);
+    
+  }
+
+  @Override
+  public void saveCustomer(Customer customer) {
+    
+    Session session = this.sessionFactory.getCurrentSession();
+    
+    session.saveOrUpdate(customer);
+    
+  }
+
+  @Override
+  public void deleteCustomer(Customer customer) {
+    
+    Session session = this.sessionFactory.getCurrentSession();
+    
+    session.delete(customer);
+    
+  }
+} 7. Rest Controller 구현하기 7-1 getCustomer 메소드에서 찾는 데이터가 없는 경우 예외를 처리해야 한다. 7-2 예외처리를 위해 RuntimeExceptioh을 만들었지만 여기보다는 삭제처럼 Service에 로직이 위치하는 게 나아보인다. package pe.pilseong.restcrud.rest;
+
+@RestController
+@RequestMapping("/api")
+public class CustomerController {
+
+  @Autowired
+  private CustomerService customerService;
+  
+  @GetMapping("/customers")
+  public List<Customer> getCustomers() {
+    return this.customerService.getCutomers();
+  }
+  
+  @GetMapping("/customers/{id}")
+  public Customer getcustomer(@PathVariable("id") Long id) {
+    
+    Customer customer = this.customerService.getCustomer(id); 
+    
+    if (customer == null) {
+      throw new RuntimeException("customer is not found");
+    }
+    
+    return customer; 
+  }
+  
+  @PostMapping("/customers")
+  public Customer createCustomer(@RequestBody Customer customer) {
+    System.out.println(customer.toString());
+    this.customerService.saveCustomer(customer);
+    return customer;
+  }
+  
+  @PutMapping("/customers")
+  public Customer updateCustomer(@RequestBody Customer customer) {
+    System.out.println("update :: " + customer.toString());
+    this.customerService.saveCustomer(customer);
+    return customer;
+  }
+  
+  @DeleteMapping("/customers/{id}")
+  public void deleteCustomer(@PathVariable("id") Long id) {
+    System.out.println("deletion id " + id);
+    this.customerService.deletCustomer(id);
+  }
+} 8. 예외 처리 8-1 에러 데이터를 담고 있는 POJO클래스를 생성한다. package pe.pilseong.restcrud.rest;
+
+import lombok.Data;
+
+@Data
+public class CustomerErrorResponse {
+
+  private int statusCode;
+  
+  private String message;
+  
+  private long timestamp;
+} 8-2 예외처리를 전역을 처리한다. 8-2-1 MethodArgumentTypeMismatchException는 숫자 이외의 값을 입력한 경우 발생한다. 8-2-2 이 경우는 이 경우는 BAD_REQUEST 400번 에러가 발생한다. 8-2-3 다른 경우는 묶어서 NOT_FOUND로 처리하고 Runtime Exception 메시지를 그대로 사용한다. package pe.pilseong.restcrud.rest;
+
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.ControllerAdvice;
+import org.springframework.web.bind.annotation.ExceptionHandler;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
+
+@ControllerAdvice
+public class CustomerExceptionHandler {
+
+  @ExceptionHandler
+  public ResponseEntity<CustomerErrorResponse> processError(Exception e) {
+    CustomerErrorResponse response = new CustomerErrorResponse();
+    HttpStatus status = HttpStatus.NOT_FOUND;
+    
+    if (e instanceof MethodArgumentTypeMismatchException) {
+      status = HttpStatus.BAD_REQUEST;
+      response.setStatusCode(status.value());
+      response.setMessage("Only number is allowed");
+    } else {
+      status = HttpStatus.NOT_FOUND;
+      response.setStatusCode(status.value());
+      response.setMessage(e.getMessage());
+    }
+    
+    response.setTimestamp(System.currentTimeMillis());    
+    return new ResponseEntity<>(response, status); 
+  }
+} 9. 검색 기능 추가 + 리팩토링 9-1 http://localhost:8080/restcrud/api/customers?q=s 이런 방식으로 q parameter에 검색 키워드를 명시하여 요청 9-2 controller는 최대한 단순하게 하고 service으로 예외발생로직을 옮긴다. 9-3 검색기능을 살펴보면 9-3-1 getCustomers를 보면 request parameter로 q를 받고 있다. 9-3-2 q parameter는 선택이므로 required는 false이다. 없는 경우는 예외 대신 keyword에 null이 들어온다. 9-3-3 이 부분을 예외를 발생시켜 처리하는 것이 더 편한 측면이 있지만, 이 프로그램에서는 9-3-3-1 null이 들어오는 경우, 전체 리스트를 반환해야 하는 정상적인 기능이라 예외방식은 적합하지 않다. 9-3-4  Controller에서 예외를 던지는 부분이 다 삭제되어 있다. 그 부분은 service로 다 옮겨 갓다. package pe.pilseong.restcrud.rest;
+
+import java.util.List;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
+
+import pe.pilseong.restcrud.entity.Customer;
+import pe.pilseong.restcrud.service.CustomerService;
+
+@RestController
+@RequestMapping("/api")
+public class CustomerController {
+
+  @Autowired
+  private CustomerService customerService;
+  
+  @GetMapping("/customers")
+  public List<Customer> getCustomers(@RequestParam(name = "q", required = false) String keyword) {
+
+    return this.customerService.getCutomers(keyword);
+  }
+  
+  @GetMapping("/customers/{id}")
+  public Customer getcustomer(@PathVariable("id") Long id) {
+    
+    return this.customerService.getCustomer(id);  
+  }
+  
+  @PostMapping("/customers")
+  public Customer createCustomer(@RequestBody Customer customer) {
+
+    this.customerService.saveCustomer(customer);
+    return customer;
+  }
+  
+  @PutMapping("/customers")
+  public Customer updateCustomer(@RequestBody Customer customer) {
+
+    this.customerService.saveCustomer(customer);
+    return customer;
+  }
+  
+  @DeleteMapping("/customers/{id}")
+  public void deleteCustomer(@PathVariable("id") Long id) {
+
+    this.customerService.deletCustomer(id);
+  }
+} 9-3-5 서비스와 수정 사항이다. 9-3-5-1 서비스는 String 파라메터를 수신하여 검색기능을 지원한다. 공백이 오면 전체를 검색한다. public interface CustomerService {
+
+  List<Customer> getCutomers(String keyword);
+  
+  ... 9-3-5-2 서비스 구현체이다. 9-3-5-2-1 검색기능은 단순히 키워드를 DAO에 넘겨주는 것으로 충분하다. DAO에서 처리한다. 9-3-5-2-2 검색 키워드가 null이면 공백으로 변환하는 부분이 필요하다. 9-3-5-2-3 Controller에서 예외 처리 부분을 모두 서비스로 옮겨와 좀 더 cohesive한 코드를 작성할 수 있다. 9-3-5-2-4 읽기나 삭제 시에 id에 해당하는 값이 없는 경우에 예외처리 부분이 들어간다. package pe.pilseong.restcrud.service;
+
+import java.util.List;
+
+import javax.transaction.Transactional;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+
+import pe.pilseong.restcrud.dao.CustomerDAO;
+import pe.pilseong.restcrud.entity.Customer;
+
+@Service
+public class CustomerServiceImpl implements CustomerService {
+
+  @Autowired
+  private CustomerDAO customerDAO;
+  
+  @Override
+  @Transactional
+  public List<Customer> getCutomers(String keyword) {
+    if (keyword == null) {
+      keyword = "";
+    }
+    return this.customerDAO.getCustomers(keyword);
+  }
+
+  @Override
+  @Transactional
+  public Customer getCustomer(Long id) {
+
+    Customer customer = this.customerDAO.getCustomer(id);
+    if (customer == null) {
+      throw new RuntimeException("customer is not found");
+    }
+    return customer;
+  }
+
+  @Override
+  @Transactional
+  public void saveCustomer(Customer customer) {
+    this.customerDAO.saveCustomer(customer);
+  }
+
+  @Override
+  @Transactional
+  public void deletCustomer(Long id) {
+    
+    Customer customer = this.customerDAO.getCustomer(id);
+    if (customer == null) {
+      throw new RuntimeException("Customer not found");
+    }
+    
+    this.customerDAO.deleteCustomer(customer);    
+  }
+} 9-3-6 DAO 수정 부분이다. 9-3-6-1 서비스와 동일하게 keyword를 받는 부분이 추가 되었다. public interface CustomerDAO {
+  
+  List<Customer> getCustomers(String keyword);
+  
+  ... 9-3-7 DAO 구현 부분이다. 9-3-7-1 키워드를 받아서 like를 사용하여 데이터베이스 필터를 하는 부분이 추가되었다. @Repository
+public class CustomerDAOImpl implements CustomerDAO {
+
+  @Autowired
+  private SessionFactory sessionFactory;
+  
+  @Override
+  public List<Customer> getCustomers(String keyword) {
+    Session session = this.sessionFactory.getCurrentSession();
+    
+    return session.createQuery("from Customer where firstName like :keyword", Customer.class)
+        .setParameter("keyword", "%"+ keyword  +"%").getResultList();
+  }

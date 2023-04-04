@@ -1,0 +1,343 @@
+1. 이 포스트는 지난 포스트에서 작성한 CRUD REST서버에 데이터를 요청하는 Client를 작성한다. 1-1 일반 WEB MVC개발과 다를 게 하나도 없다. 1-2 차이점이 있다면 데이터베이스 관리를 하지 않기 때문에 DAO와 DB설정이 없고 1-3 서비스에서 DAO 대신 RestTemplate을 사용할 뿐이다. 2. 이 내용의 Spring WebMVC + HIbernate with xml configuration 버전은 아래의 링크 시리즈를 참고한다. Spring : Web MVC + Hibernate with XML config- 설정하기 -1. 예제를 위해 Customer 테이블을 생성한다. -1-0 사용자 springstudent를 만들고 암호도 springstudent를 생성한다. -1-1 web_customer_tracker라는 데이터베이스를 생성한다. -1-2 Customer 테이블을 생성한다.. kogle.tistory.com 3. org.apache.maven archetype webapp 1.4로 프로젝트를 생성한다. 4. 의존성을 추가한다. 4-1 Dispatcher Servlet를 사용하기 때문에 WebMvc와 servlet 의존성이 필요하다. 4-2 이 예제에서는 기존처럼 jsp를 사용하기 때문에 jstl, jsp-api가 필요하다. 4-3 Rest 서비스를 사용하기 때문에 jackson databind가 필요하다. 4-4 개발 편의성을 위해 lombok을 추가하였다. <!-- spring rest, servlet, jsp 지원  -->
+<dependency>
+	<groupId>org.springframework</groupId>
+	<artifactId>spring-webmvc</artifactId>
+	<version>${springframework.version}</version>
+</dependency>
+
+<dependency>
+	<groupId>javax.servlet.jsp</groupId>
+	<artifactId>javax.servlet.jsp-api</artifactId>
+	<version>2.3.3</version>
+	<scope>provided</scope>
+</dependency>
+
+<dependency>
+	<groupId>javax.servlet</groupId>
+	<artifactId>jstl</artifactId>
+	<version>1.2</version>
+</dependency>
+
+<dependency>
+	<groupId>javax.servlet</groupId>
+	<artifactId>javax.servlet-api</artifactId>
+	<version>4.0.1</version>
+	<scope>provided</scope>
+</dependency>
+
+<dependency>
+	<groupId>com.fasterxml.jackson.core</groupId>
+	<artifactId>jackson-databind</artifactId>
+	<version>2.11.0</version>
+</dependency>
+
+<!-- 개발편의성 지원  -->
+<dependency>
+	<groupId>org.projectlombok</groupId>
+	<artifactId>lombok</artifactId>
+	<version>1.18.12</version>
+	<scope>provided</scope>
+</dependency> 5. WebConfig와 DispatcherServletInitializer 설정 5-1 DispatcherServletInitializer 설정 5-1-1 Client 프로그램도 어차피 MVC를 사용하기 때문에 일반적인 MVC와 동일하다. DB접근만 없다. package pe.pilseong.restclient.config;
+
+import org.springframework.web.servlet.support.AbstractAnnotationConfigDispatcherServletInitializer;
+
+public class WebServletDispatcherInitializer extends AbstractAnnotationConfigDispatcherServletInitializer {
+
+  @Override
+  protected Class<?>[] getRootConfigClasses() {
+    return null;
+  }
+
+  @Override
+  protected Class<?>[] getServletConfigClasses() {
+    return new Class[] { WebConfig.class };
+  }
+
+  @Override
+  protected String[] getServletMappings() {
+    return new String[] { "/" };
+  }
+} 5-2 WebConfig 설정 5-2-1 설정파일을 application.properties에서 읽어와서 사용한다. 5-2-2 중요한 부분은 RestTemplate 객체를 생성하는 부분인데, 이 객체를 통하여 서버에 데이터 요청을 보낸다. package pe.pilseong.restclient.config;
+
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.ComponentScan;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.PropertySource;
+import org.springframework.web.client.RestTemplate;
+import org.springframework.web.servlet.config.annotation.EnableWebMvc;
+import org.springframework.web.servlet.config.annotation.ResourceHandlerRegistry;
+import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
+import org.springframework.web.servlet.view.InternalResourceViewResolver;
+
+@EnableWebMvc
+@Configuration
+@ComponentScan(basePackages = "pe.pilseong.restclient")
+@PropertySource(value = "classpath:application.properties")
+public class WebConfig implements WebMvcConfigurer {
+  
+  @Bean
+  public InternalResourceViewResolver viewResolver() {
+    return new InternalResourceViewResolver("/WEB-INF/view/", ".jsp");
+  }
+  
+  @Bean
+  public RestTemplate restTemplate() {
+    return new RestTemplate();
+  }
+    
+  @Override
+  public void addResourceHandlers(ResourceHandlerRegistry registry) {
+    registry.addResourceHandler("/resources/**").addResourceLocations("/resources/");
+  }
+} 6. Customer 객체 작성하기 6-1 서버에서 사용하는 Entity와 동일한 구조의 객체를 사용하였다. Annotation만 제거되었다. 6-2 서버에서 받은 데이터를 다시 객체로 저장한다. package pe.pilseong.restclient.entity;
+
+import lombok.Data;
+
+@Data
+public class Customer {
+  
+  private Long id;
+  
+  private String firstName;
+  
+  private String lastName;
+  
+  private String email;
+} 7. 서비스 클래스를 작성한다. 서버의 서비스 클래스 인터페이스와 보통 동일하다. 7-1 서버 주소는 외부 application.properties에서 가져온다. @Value를 통하여 연결하였다. crud.server.url=http://localhost:8080/restcrud/api/customers 7-2 getCustomers 메서드는  keyword의 유무에 따라서 검색인지 전체리스트인지 결정한다. 7-3 exchange는 Collection을 받을 때 유용하게 사용할 수 있다. 7-3-1 인자가 서버주소, HTTP 메소드, 전송할 객체, 수신할 객체타입 으로 구성되어 있다. 7-3-2 반환 값은 ResponseEntity이다. 7-4 getForObject, postForObject, postForEntity, put, delete같은 메소드를 사용했다. 7-4-1 반환형식에 따라 Object, Entity로 나누어지고 아래 save같은 경우 두 차이가 없다. 7-4-2 put은 HTTP PUT메소드를 사용하고 delete역시 DELETE 메소드이며 단순한 형식의 인자를 요구한다. package pe.pilseong.restclient.service;
+
+import java.util.List;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.ParameterizedTypeReference;
+import org.springframework.http.HttpMethod;
+import org.springframework.http.ResponseEntity;
+import org.springframework.stereotype.Service;
+import org.springframework.web.client.RestTemplate;
+
+import pe.pilseong.restclient.entity.Customer;
+
+@Service
+public class CustomerServiceImpl implements CustomerService {
+
+  @Autowired
+  private RestTemplate restTemplate;
+  
+  @Value("${crud.server.url}")
+  private String serverURL;
+  
+  @Override
+  public List<Customer> getCustomers(String keyword) {
+    if (keyword == null || keyword.length() == 0) {
+      keyword = "";
+    } else {
+      keyword = "?q=" + keyword;
+    }
+    
+    System.out.println(serverURL + keyword);
+    ResponseEntity<List<Customer>> customers = this.restTemplate.exchange(serverURL + keyword, HttpMethod.GET, 
+        null, new ParameterizedTypeReference<List<Customer>>() {}
+    );
+    
+    return customers.getBody();
+  }
+
+  @Override
+  public Customer getCustomer(Long id) {
+    return this.restTemplate.getForObject(serverURL + "/" + id, Customer.class);
+  }
+
+  @Override
+  public void saveCustomer(Customer customer) {
+    Long id = customer.getId();
+    if (id == null) {
+      this.restTemplate.postForEntity(serverURL, customer, String.class);
+    } else {
+      this.restTemplate.put(serverURL, customer);
+    }
+  }
+
+  @Override
+  public void deletCustomer(Long id) {
+    this.restTemplate.delete(serverURL + "/" + id);
+  }
+
+} 8. view를 처리할 controller 부분이다. 이전에 WebMVC 버전의 코드와 완전히 동일하다. package pe.pilseong.restclient.controller;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Controller;
+import org.springframework.ui.Model;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.ModelAttribute;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+
+import pe.pilseong.restclient.entity.Customer;
+import pe.pilseong.restclient.service.CustomerService;
+
+@Controller
+@RequestMapping("/customers")
+public class CustomerController {
+  
+  @Autowired
+  private CustomerService customerService;
+  
+  @GetMapping("/list")
+  public String getCustomers(Model model) {
+    model.addAttribute("customers", this.customerService.getCustomers(""));
+    
+    return "list-customers";
+  }
+  
+  @GetMapping("/search")
+  public String search(@RequestParam("search") String keyword, Model model) {
+    model.addAttribute("customers", this.customerService.getCustomers(keyword));
+    
+    return "list-customers";
+  }
+  
+  @GetMapping("/showUpdateCustomerForm")
+  public String showUpdateCustomerForm(@RequestParam("id") Long id, Model model) {
+    model.addAttribute("customer", this.customerService.getCustomer(id));
+    
+    return "customer-form";
+  }
+  
+  @PostMapping("/saveCustomer")
+  public String saveCustomer(@ModelAttribute("customer") Customer customer) {
+    
+    this.customerService.saveCustomer(customer);
+    
+    return "redirect:list";
+  }
+  
+  @GetMapping("/showAddCustomerForm")
+  public String showAddCustomerForm(Model model) {
+    model.addAttribute("customer", new Customer());
+    
+    return "customer-form";
+  }
+} 9. view jsp 코드이다. 역시 예전 Web버전과 완전 동일하다. 9-2 Customer리스트를 보여주는 customers-list.jsp <%@ taglib prefix="c" uri="http://java.sun.com/jsp/jstl/core"%>
+<%@ page language="java" contentType="text/html; charset=UTF-8"
+  pageEncoding="UTF-8"%>
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<link rel="stylesheet"
+  href="https://stackpath.bootstrapcdn.com/bootstrap/4.4.1/css/bootstrap.min.css"
+  integrity="sha384-Vkoo8x4CGsO3+Hhxv8T/Q5PaXtkKtu6ug5TOeNV6gBiFeWPGFN9MuhOf23Q9Ifjh"
+  crossorigin="anonymous">
+<link rel="stylesheet" href="${pageContext.request.contextPath}/resources/css/sytle.css"/>
+<title>List of Customers</title>
+</head>
+<body>
+  <div class="container">
+    <h2 class="mb-5 mt-5">CRM - Customer Relationship Manager</h2>
+    <a href="showAddCustomerForm" class="btn btn-secondary mb-3">Add Customer</a>
+    <div>
+      <form method="GET" action="search" class="form-inline">
+        <div class="input-group mb-3">
+          <input type="text" class="form-control" placeholder="search first name" aria-label="search" name="search">
+          <div class="input-group-append">
+            <button class="btn btn-outline-secondary" type="submit">Search</button>
+          </div>
+        </div>       
+      </form>
+    </div>
+    <table class="table table-striped table-hover">
+      <thead>
+        <tr class="thead-dark">
+          <th>First Name</th>
+          <th>Last Name</th>
+          <th>Email</th>
+          <th>Action</th>
+        </tr>
+      </thead>
+      <tbody>
+        <c:forEach var="customer" items="${ customers }">
+          <c:url var="updateLink" value="showUpdateCustomerForm">
+            <c:param name="id" value="${ customer.id }"></c:param>
+          </c:url>
+          <c:url var="deleteLink" value="deleteCustomer">
+            <c:param name="id" value="${ customer.id }"></c:param>
+          </c:url>
+          
+          <tr>
+            <td>${ customer.firstName }</td>
+            <td>${ customer.lastName }</td>
+            <td>${ customer.email }</td>
+            <td>
+              <a href="${ updateLink }">Update</a> | 
+              <a href="${ deleteLink }" onclick="if (!confirm('Do you really want to delete?')) return false">Delete</a>
+            </td>
+          </tr>
+        </c:forEach>
+      </tbody>
+    </table>
+  </div>
+  <script src="https://code.jquery.com/jquery-3.4.1.slim.min.js"
+    integrity="sha384-J6qa4849blE2+poT4WnyKhv5vZF5SrPo0iEjwBvKU7imGFAV0wwj1yYfoRSJoZ+n"
+    crossorigin="anonymous"></script>
+  <script
+    src="https://cdn.jsdelivr.net/npm/popper.js@1.16.0/dist/umd/popper.min.js"
+    integrity="sha384-Q6E9RHvbIyZFJoft+2mJbHaEWldlvI9IOYy5n3zV9zzTtmI3UksdQRVvoxMfooAo"
+    crossorigin="anonymous"></script>
+  <script
+    src="https://stackpath.bootstrapcdn.com/bootstrap/4.4.1/js/bootstrap.min.js"
+    integrity="sha384-wfSDF2E50Y2D1uUdj0O3uMBJnjuUD4Ih7YwaYd1iqfktj0Uod8GCExl3Og8ifwB6"
+    crossorigin="anonymous"></script>
+</body>
+</html> 9-2 사용자 등록을 위한 form을 포함하는 customer-form.jsp <%@ taglib prefix="c" uri="http://java.sun.com/jsp/jstl/core"%>
+<%@ taglib prefix="form" uri="http://www.springframework.org/tags/form" %>
+<%@ page language="java" contentType="text/html; charset=UTF-8"
+  pageEncoding="UTF-8"%>
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<link rel="stylesheet"
+  href="https://stackpath.bootstrapcdn.com/bootstrap/4.4.1/css/bootstrap.min.css"
+  integrity="sha384-Vkoo8x4CGsO3+Hhxv8T/Q5PaXtkKtu6ug5TOeNV6gBiFeWPGFN9MuhOf23Q9Ifjh"
+  crossorigin="anonymous">
+<link rel="stylesheet" href="${pageContext.request.contextPath}/resources/css/sytle.css"/>
+<title>Add Customer</title>
+</head>
+<body>
+  <div class="container">
+    <h2 class="mb-3 mt-5">CRM - Customer Relationship Manager</h2>
+    <h3>Save Customer</h3>
+    <form:form modelAttribute="customer" method="POST" action="saveCustomer">
+      <form:input type="hidden" value="${ customer.id }" path="id" />
+      <div class="form-group">
+        <label for="firstname">First Name:</label>
+        <form:input class="form-control" path="firstName" id="firstname"/>
+      </div>
+      <div class="form-group">
+        <label for="lastname">Last Name:</label>
+        <form:input class="form-control" path="lastName" id="lastname"/>
+      </div>
+      <div class="form-group">
+        <label for="email">Email:</label>
+        <form:input class="form-control" path="email" id="email"/>
+      </div>
+      <button type="submit" class="btn btn-secondary">Save</button>
+    </form:form>
+    <p class="lead mt-4">
+      <a href="${ pageContext.request.contextPath }/customers/list">Back To List</a>
+    </p>
+  </div>
+  <script src="https://code.jquery.com/jquery-3.4.1.slim.min.js"
+    integrity="sha384-J6qa4849blE2+poT4WnyKhv5vZF5SrPo0iEjwBvKU7imGFAV0wwj1yYfoRSJoZ+n"
+    crossorigin="anonymous"></script>
+  <script
+    src="https://cdn.jsdelivr.net/npm/popper.js@1.16.0/dist/umd/popper.min.js"
+    integrity="sha384-Q6E9RHvbIyZFJoft+2mJbHaEWldlvI9IOYy5n3zV9zzTtmI3UksdQRVvoxMfooAo"
+    crossorigin="anonymous"></script>
+  <script
+    src="https://stackpath.bootstrapcdn.com/bootstrap/4.4.1/js/bootstrap.min.js"
+    integrity="sha384-wfSDF2E50Y2D1uUdj0O3uMBJnjuUD4Ih7YwaYd1iqfktj0Uod8GCExl3Og8ifwB6"
+    crossorigin="anonymous"></script>
+</body>
+</html> 10. 정리하면 클라이언트 부분을 따로 분리하면, 10-1 view, controller, service interface는 완전히 동일한 코드를 재사용할 수 있다. 10-2 설정에서 RestTemplate을 지정하고 10-3 Service 구현체에서 RestTemplate을 사용하여 데이터를 요청하는 것만 차이가 있다.

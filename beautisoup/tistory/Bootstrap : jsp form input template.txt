@@ -1,0 +1,163 @@
+1. 개발용으로 귀찮아서 붙여 놓는다. 1-1 form:form을 사용 1-2 input text와 radio를 사용 <%@ taglib prefix="form" uri="http://www.springframework.org/tags/form"%>
+<%@ taglib prefix="c" uri="http://java.sun.com/jsp/jstl/core" %>
+<%@ page language="java" contentType="text/html; charset=UTF-8" pageEncoding="UTF-8"%>
+<!DOCTYPE html>
+<html>
+
+<head>
+  <meta charset="UTF-8">
+  <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.4.1/css/bootstrap.min.css"
+    integrity="sha384-Vkoo8x4CGsO3+Hhxv8T/Q5PaXtkKtu6ug5TOeNV6gBiFeWPGFN9MuhOf23Q9Ifjh" crossorigin="anonymous">
+  <title>Spring Web MVC Student Home</title>
+</head>
+
+<body>
+  <div class="container">
+    <h1 class="display-4 text-center">Locations</h1>
+    <div class="row mt-4">
+      <div class="col-4"></div>
+      <div class="col-4">
+        <form:form action="${ pageContext.request.contextPath }/saveLocation" 
+            method="POST" modelAttribute="location">
+          <form:input type="hidden" path="id"></form:input>
+          <div class="form-group row">
+            <label for="code" class="col-sm-2 col-form-label">Code</label>
+            <div class="col-sm-10">
+              <form:input type="text" class="form-control" id="code" path="code" />
+            </div>
+          </div>
+          <div class="form-group row">
+            <label for="name" class="col-sm-2 col-form-label">Name</label>
+            <div class="col-sm-10">
+              <form:input type="text" class="form-control" id="name" path="name" />
+            </div>
+          </div>
+          <fieldset class="form-group">
+            <div class="row">
+              <legend class="col-form-label col-sm-2 pt-0">Type</legend>
+              <div class="col-sm-10">
+                <div class="form-check">
+                  <form:radiobutton class="form-check-input" path="type" id="urban" value="urban" checked="true" />
+                  <label class="form-check-label" for="urban">
+                    Urban
+                  </label>
+                </div>
+                <div class="form-check">
+                  <form:radiobutton class="form-check-input" path="type" id="rural" value="rural" />
+                  <label class="form-check-label" for="rural">
+                    Rural
+                  </label>
+                </div>
+              </div>
+            </div>
+          </fieldset>
+          <div class="form-group row">
+            <div class="col-sm-10">
+              <button type="submit" class="btn btn-primary">
+                <c:if test="${ location.id == null }">
+                  Add Location
+                </c:if>
+                <c:if test="${ location.id != null }">
+                  Edit Location
+                </c:if>
+              </button>
+            </div>
+          </div>
+        </form:form>
+        <a href="${ pageContext.request.contextPath }/displayLocations">View all locations</a>
+      </div>
+      <div class="col-4"></div>
+    </div>
+  </div>
+
+
+  <script src="https://code.jquery.com/jquery-3.4.1.slim.min.js"
+    integrity="sha384-J6qa4849blE2+poT4WnyKhv5vZF5SrPo0iEjwBvKU7imGFAV0wwj1yYfoRSJoZ+n" crossorigin="anonymous">
+  </script>
+  <script src="https://cdn.jsdelivr.net/npm/popper.js@1.16.0/dist/umd/popper.min.js"
+    integrity="sha384-Q6E9RHvbIyZFJoft+2mJbHaEWldlvI9IOYy5n3zV9zzTtmI3UksdQRVvoxMfooAo" crossorigin="anonymous">
+  </script>
+  <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.4.1/js/bootstrap.min.js"
+    integrity="sha384-wfSDF2E50Y2D1uUdj0O3uMBJnjuUD4Ih7YwaYd1iqfktj0Uod8GCExl3Og8ifwB6" crossorigin="anonymous">
+  </script>
+</body>
+
+</html> 2. 사용자 등록화면 2-1 패스워드 검증 때문에 붙어 놓음 <%@ taglib prefix="form" uri="http://www.springframework.org/tags/form"%>
+<%@ taglib prefix="c" uri="http://java.sun.com/jsp/jstl/core" %>
+<%@ page language="java" contentType="text/html; charset=UTF-8" pageEncoding="UTF-8"%>
+
+<!doctype html>
+<html lang="en">
+
+<head>
+  <!-- Required meta tags -->
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+
+  <!-- Bootstrap CSS -->
+  <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.0/css/bootstrap.min.css"
+    integrity="sha384-9aIt2nRpC12Uk9gS9baDl411NQApFmC26EwAOH8WgZl5MYYxFfc+NcPb1dKGj7Sk" crossorigin="anonymous">
+
+  <title>User Registration</title>
+</head>
+
+<body>
+  <div class="container">
+    <h3 class="mt-5 mb-5 text-center">User Registration</h3>
+    <div class="row">
+      <div class="col-4"></div>
+      <div class="col-4">
+        <form:form action="${ pageContext.request.contextPath }/registerUser" method="POST" modelAttribute="user">
+          <form:input type="hidden" path="id"></form:input>
+          <div class="form-group row">
+            <label for="firstName" class="col-sm-3 col-form-label">FirstName</label>
+            <div class="col-sm-9">
+              <form:input type="text" class="form-control" id="firstName" path="firstName" />
+            </div>
+          </div>
+          <div class="form-group row">
+            <label for="lastName" class="col-sm-3 col-form-label">LastName</label>
+            <div class="col-sm-9">
+              <form:input type="text" class="form-control" id="lastName" path="lastName" />
+            </div>
+          </div>
+          <div class="form-group row">
+            <label for="email" class="col-sm-3 col-form-label">Email</label>
+            <div class="col-sm-9">
+              <form:input type="text" class="form-control" id="email" path="email" />
+            </div>
+          </div>
+          <div class="form-group row">
+            <label for="password" class="col-sm-3 col-form-label">Password</label>
+            <div class="col-sm-9">
+              <form:input type="password" class="form-control" id="password" path="password" />
+            </div>
+          </div>
+          <div class="form-group row">
+            <label for="confirmPassword" class="col-sm-3 col-form-label">Confirm Password</label>
+            <div class="col-sm-9">
+              <form:input type="password" class="form-control" id="confirmPassword" path="confirmPassword" />
+            </div>
+          </div>
+          <input type="submit" value="Register" class="btn btn-primary" />
+        </form:form>
+      </div>
+      <div class="col-4"></div>
+
+    </div>
+  </div>
+
+  <!-- Optional JavaScript -->
+  <!-- jQuery first, then Popper.js, then Bootstrap JS -->
+  <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"
+    integrity="sha384-DfXdz2htPH0lsSSs5nCTpuj/zy4C+OGpamoFVy38MVBnE+IbbVYUew+OrCXaRkfj" crossorigin="anonymous">
+  </script>
+  <script src="https://cdn.jsdelivr.net/npm/popper.js@1.16.0/dist/umd/popper.min.js"
+    integrity="sha384-Q6E9RHvbIyZFJoft+2mJbHaEWldlvI9IOYy5n3zV9zzTtmI3UksdQRVvoxMfooAo" crossorigin="anonymous">
+  </script>
+  <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.0/js/bootstrap.min.js"
+    integrity="sha384-OgVRvuATP1z7JjHLkuOU7Xw704+h835Lr+6QL9UvYjZE3Ipu6Tp75j7Bh/kR0JKI" crossorigin="anonymous">
+  </script>
+</body>
+
+</html>

@@ -1,0 +1,83 @@
+0. 이 포스트는 Spring : AOP With Java Config 의 연속이다. 1. 타겟 메소드를 정상적으로 실행완료 후 @AfterReturning advice에서 결과값을 수정하는 예제이다. 2. @AfterReturning annotation에 몇 가지 property를 설정할 수 있다. 2-1 pointcut은 어떤 @Before의 value와 같이 pointcut expression을 지정할 수 있다. 2-1-1 아래 소스코드에서 지정한 point cut은 정확히 AccountDAO의 findAccounts 메소드를 지정하고 있다. 2-2 returning은 advice 메소드의 두 번째 인자값의 이름으로 타겟 메소드의 반환 값을 받는다. 2-2-1 아래 소스에서 AccountDAO findAccounts()를 실행 후 List<Account> 형식의 반환값을 받아온다. 3. 아래 코드에서 @AfterReturning returning 속성의 이름으로 advice의 두번째 인자로 List<Account>를 받아온다. 3-1 이 advice는 받아온 데이터를 대문자 형식으로 변환하여 실제 호출한 App 클래스로 반환한다. // 더미 DAO 클래스
+package pe.pilseong.aop_after_returning.dao;
+
+import java.util.ArrayList;
+import java.util.List;
+
+import org.springframework.stereotype.Component;
+
+import pe.pilseong.aop_after_returning.Account;
+
+@Component
+public class AccountDAO {
+  private static List<Account> accounts;
+  
+  static {
+    accounts = new ArrayList<>();
+    
+    accounts.add(new Account("Pilseong", "Admin"));
+    accounts.add(new Account("Suel", "Admin"));
+    accounts.add(new Account("Noel", "Staff"));
+  }
+
+  public List<Account> findAccounts() {
+    System.out.println(getClass() + " in findAccounts is executed");
+    
+    return AccountDAO.accounts;
+  }
+}
+
+// Aspect 클래스
+package pe.pilseong.aop_after_returning.aspect;
+
+import java.util.List;
+import java.util.stream.Collectors;
+
+import org.aspectj.lang.JoinPoint;
+import org.aspectj.lang.annotation.AfterReturning;
+import org.aspectj.lang.annotation.Aspect;
+import org.springframework.stereotype.Component;
+
+import pe.pilseong.aop_after_returning.Account;
+
+@Aspect
+@Component
+public class LoggingAspect {
+  @AfterReturning(
+      pointcut = "execution(* pe.pilseong.aop_after_returning.dao.AccountDAO.findAccounts(..))", 
+      returning = "results"
+  )
+  public void afterReturningFindAccountsAdvice(JoinPoint joinPoint, List<Account> results) {
+    System.out.println("Aspect(@AfterReturning) :: afterReturningFindAccountsAdvice is executed after " + joinPoint.getSignature().toShortString());
+    System.out.println(results.toString());
+    
+    
+    results = results.stream().map(result-> {
+      result.setName(result.getName().toUpperCase());
+      result.setLevel(result.getLevel().toUpperCase());
+      return result;
+    }).collect(Collectors.toList());
+  }
+}
+
+// 실행 클래스
+public class App {
+  public static void main(String[] args) {
+    AnnotationConfigApplicationContext context 
+      = new AnnotationConfigApplicationContext(JavaConfig.class);
+    
+    AccountDAO accountDAO = context.getBean("accountDAO", AccountDAO.class);
+    List<Account> accounts = accountDAO.findAccounts();
+    
+    System.out.println("\nMain App class");
+    System.out.println(accounts.toString());
+  }
+}
+
+// 실행 결과
+class pe.pilseong.aop_after_returning.dao.AccountDAO in findAccounts is executed
+Aspect(@AfterReturning) :: afterReturningFindAccountsAdvice is executed after AccountDAO.findAccounts()
+[Account [name=Pilseong, level=Admin], Account [name=Suel, level=Admin], Account [name=Noel, level=Staff]]
+
+Main App class
+[Account [name=PILSEONG, level=ADMIN], Account [name=SUEL, level=ADMIN], Account [name=NOEL, level=STAFF]]

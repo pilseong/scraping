@@ -1,0 +1,42 @@
+1. Responsive breakpoint는 부트스트랩에서 반응형 웹을 구현하기 위한 기본적인 도구이다. 1-1 5가지의 단계로 나누어져 있으며 xs, sm, md, lg, xl로 표현된다. 1-1-1 xs는 기본값이고 xs라고 쓰지 않는다. - 즉 0px이고 모든 경우에 다 적용된다. 1-1-2 sm은 576px 이상 1-1-3 md은 768px 이상 1-1-4 lg는 992px 이상 1-1-5 xl은 1200px 이상 1-2 위의 값은 언제 각 단계가 적용될지에 대한 min-width값이다. 즉 최소의 값들이다. 1-2-1 아래 값들은 모두 오버라이딩이되어 적용된다. 즉 현재 화면크기와 가장 가까운 미디어쿼리가 적용된다. body {
+    background: red;
+}
+
+@media (min-width: 576px) {
+    body {
+        background: orange;
+    }
+}
+@media (min-width: 768px) {
+    body {
+        background: yellow;
+    }
+}
+@media (min-width: 992px) {
+    body {
+        background: green;
+    }
+}
+@media (min-width: 1200px) {
+    body {
+        background: blue;
+    }
+} 2. Display는 각 테그의 표현 방식을 지정한다. 2-1 none -화면에서 사라짐, inline, inline-block, block, flex 정도가 많이 사용된다. 2-2 아래 첫 번째 덩어리는 d-inline, d-none이 동작하는 형태를 보여 주고 있고 2-3 두 번째 덩어리는 각 breakpoint에 따른 메시지 표출을 어떻게 하는지 보여준다. 2-4 중요한 것은 어떤 breakpoint 단계든 최소크기 이후에 추가적인 class가 없는 한 모든 width에 적용된다. <div class="container">
+        <h1 class="bg-dark text-white">This is an h1 block</h1>
+        <h1 class="bg-dark text-white d-inline">This is an h1 inline</h1>
+        <h1 class="bg-dark text-white d-none">This is an h1 display: none</h1>
+        <span class="bg-info text-white">I AM A REGULAR SPAN</span>
+        <span class="bg-info text-white d-block">I AM A BLOCK SPAN</span>
+        <h1 class="d-none d-sm-block">HIDDEN ON XS</h1>
+        <h1 class="d-none d-md-block">HIDDEN ON XS and SM</h1>
+    </div>
+
+    <div class="container">
+        <h2>Current breakpoint is: 
+            <span class="d-inline d-sm-none text-danger">XS</span>
+            <span class="d-none d-sm-inline d-md-none text-warning">SM</span>
+            <span class="d-none d-md-inline d-lg-none text-success">MD</span>
+            <span class="d-none d-lg-inline d-xl-none text-info">LG</span>
+            <span class="d-none d-xl-inline text-primary">XL</span>
+        </h2>
+    </div>

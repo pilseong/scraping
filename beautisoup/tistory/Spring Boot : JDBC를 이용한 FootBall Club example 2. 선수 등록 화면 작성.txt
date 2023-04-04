@@ -1,0 +1,216 @@
+1. 이 포스트는 축구 클럽 관리를 위한 테스트 프로젝트로 다양한 스프링 기능을 데모하기 위해 만들었다. 1-1 JdbcTemplate으로 데이터베이스를 조회하는 방법 1-2 타임리프로 model 객체 매핑하고 에러처리는 하는 코드 1-3 SessionAttributes 사용하는 방법 1-4 @ModalAttribute를 메소드 단위로 사용하는 방법 2. 데이터베이스 Data Access Object 작성 2-1 화면에 보여주기 위한 Skill 데이터를 데이터베이스에서 가져와야 한다. 2-2 Skill 객체를 다루기 때문에 SkillRepository와 SkillRespositoryImpl 을 작성한다. 2-2-1 SkillRepository 2-2-1-1 기술의 경우는 한번 저장하면 더 이상 변경하거나 추가할일이 거의 없다. 2-2-1-2 검색용 클래스를 주로 작성한다. package pe.pilseong.fooball.repository;
+
+import java.util.List;
+
+import pe.pilseong.fooball.entity.Skill;
+
+public interface SkillRepository {
+
+  List<Skill> findAll();
+
+  Skill findOne(Long id);
+
+  Skill save(Skill skill);
+  
+} 2-2-2 SkillRespositoryImpl 2-2-2-1 JdbcTemplate은 JDBC와 데이터베이스만 추가되어 있으면 스프링에서 자동으로 생성해 준다. 2-2-2-2 query는 sql구문과 mapper를 인자로 제공하고 리스트를 반환한다. 2-2-2-2-0 이 때 ResultSet에 반환된 row 갯수 만큼 반복해서 rowMapper callback 실행한다. 2-2-2-2-1 아래 코드에서는 각 하나의 row를 받아 skill 객체를 만들어 반환하고 있다. 2-2-2-3 queryForObject는 sql구문 mapper와 parameter를 받는 구조로 단 하나의 객체를 반환한다. package pe.pilseong.fooball.repository;
+
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.util.List;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.stereotype.Repository;
+
+import pe.pilseong.fooball.entity.Skill;
+
+@Repository
+public class SkillRepositoryImpl implements SkillRepository {
+
+  @Autowired
+  private JdbcTemplate jdbc;
+
+  @Override
+  public List<Skill> findAll() {
+    return jdbc.query("select id, name, type from skill", this::rowMapper);
+  }
+
+  private Skill rowMapper(ResultSet resultSet, int rowNum) throws SQLException {
+    return new Skill(
+      resultSet.getLong("id"), 
+      resultSet.getString("name"), 
+      Skill.Type.valueOf(resultSet.getString("type")));
+  }
+
+  @Override
+  public Skill findOne(Long id) {
+    return jdbc.queryForObject("select id, name, type from skill where id=?",  
+      this::rowMapper , id);
+  }
+
+  @Override
+  public Skill save(Skill skill) {
+    jdbc.update("insert into skill(name, type values(?, ?", 
+      skill.getName(), skill.getType().toString());
+
+    return skill;
+  }
+
+} 3. Skill을 받아와 화면에 보여주는 Controller 작성 3-1 @ModelAttribute로 수식된 메소드는 자동으로 빈 객체를 생성하여 modal에 넣어준다. 3-1-1 받을 때는 메소드 인자의 @ModelAttribute로 받을 수 있다 3-2 @SessionAttributes는 세션 단위로 객체를 관리한다. 3-2-1 이 Controller는 프로그램의 도입 부이기 때문에 team라는 객체를 생성하는데 3-2-2 이 team라는 객체는 Session범위에서 공유되고 SessionStatus가 complete 될 때까지 유지된다. 3-3 중요한 부분은 Skill을 받아와 각 기술 분류로 나누어 model에 저장하고 있다. 3-3-1 슛팅, 패스, 방어, 신체의 카데코리 별로 나누어 List에 저장하여 model에 저장하고 있다. package pe.pilseong.fooball.controller;
+
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
+import java.util.stream.Collectors;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Controller;
+import org.springframework.ui.Model;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.ModelAttribute;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.SessionAttributes;
+
+import pe.pilseong.fooball.entity.Player;
+import pe.pilseong.fooball.entity.Skill;
+import pe.pilseong.fooball.entity.Team;
+import pe.pilseong.fooball.repository.SkillRepository;
+
+@Controller
+@RequestMapping("/players")
+@SessionAttributes("team")
+public class PlayerSkillController {
+
+  @Autowired
+  private SkillRepository skillRepository;
+
+  @ModelAttribute(name = "player")
+  public Player player() {
+    return new Player();
+  }
+
+  @ModelAttribute(name = "team")
+  public Team team() {
+    return new Team();
+  }
+
+  @GetMapping
+  public String showPlayerSkill(Model model) {
+
+    List<Skill> skills = this.skillRepository.findAll();
+
+    Arrays.asList(Skill.Type.values()).stream().forEach(skill -> {
+      model.addAttribute(skill.toString().toLowerCase(),
+          skills.stream().filter(fetchedSkill -> 
+          	fetchedSkill.getType().toString().equals(skill.toString()))
+              .collect(Collectors.toList()));
+    });
+
+    model.addAttribute("checked", new ArrayList<>());
+    return "player-setting";
+  } 4. Thymleaf 클라이언트 화면작성 4-1 부트스트랩을 사용하고 있고, 기본적인 에러처리 코드가 추가되어 있다. <!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+  <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.4.1/css/bootstrap.min.css"
+    integrity="sha384-Vkoo8x4CGsO3+Hhxv8T/Q5PaXtkKtu6ug5TOeNV6gBiFeWPGFN9MuhOf23Q9Ifjh" crossorigin="anonymous">
+  <title>Setting a player</title>
+</head>
+
+<body>
+  <div class="container">
+    <img class="img-fluid" th:src="@{ /images/football-ground.png }">
+
+    <h1 class="mt-2 mb-3">Setting a Player</h1>
+
+    <form method="POST" th:object="${player}">
+      <div th:if="${#fields.hasErrors()}">
+        <div class="py-1 alert alert-warning text-muted">Please correct the problems below and resubmit</div>
+      </div>
+      <div class="row">
+        <div class="card col-6">
+          <div class="card-body">
+            <h5 class="card-title">Shooting skills:</h5>
+            <p class="card-text">
+              <div class="form-check" th:each="skill : ${shooting}">
+                <input type="checkbox" class="form-check-input" name="skills" 
+                  th:value="${ skill.id }">
+                <span th:text="${ skill.name }" class="form-check-lable"></span>
+              </div>
+            </p>
+          </div>
+        </div>
+        <div class="card col-6">
+          <div class="card-body">
+            <h5 class="card-title">Passing skills:</h5>
+            <p class="card-text">
+              <div class="form-check" th:each="skill : ${passing}">
+                <input type="checkbox" class="form-check-input" name="skills"
+                  th:value="${ skill.id }">
+                <span th:text="${ skill.name }" class="form-check-lable"></span>
+              </div>
+            </p>
+          </div>
+        </div>
+      </div>
+      <div class="row">
+        <div class="card col-6">
+          <div class="card-body">
+            <h5 class="card-title">Defensing skills:</h5>
+            <p class="card-text">
+              <div class="form-check" th:each="skill : ${defensing}">
+                <input type="checkbox" class="form-check-input" name="skills" 
+                  th:value="${ skill.id }">
+                <span th:text="${ skill.name }" class="form-check-lable"></span>
+              </div>
+            </p>
+          </div>
+        </div>
+        <div class="card col-6">
+          <div class="card-body">
+            <h5 class="card-title">Physical elements:</h5>
+            <p class="card-text">
+              <div class="form-check" th:each="skill : ${physical}">
+                <input type="checkbox" class="form-check-input" name="skills" 
+                  th:value="${ skill.id }">
+                <span th:text="${ skill.name }" class="form-check-lable"></span>
+              </div>
+            </p>
+          </div>
+        </div>
+      </div>
+      <div class="alert alert-danger text-muted mt-1 py-1 small" th:if="${ #fields.hasErrors('skills') }"
+      th:errors="*{skills}"></div>
+      <div class="row">
+        <div class="card col-12">
+          <h3 class="my-3">Name your football player:</h3>
+          <div class="form-row">
+            <div class="form-group col-md-6">
+              <label for="firstname">First Name</label>
+              <input type="text" id="firstname" class="form-control mb-1" th:field="*{firstName}" />
+              <span class="alert alert-secondary text-muted py-1 small" th:if="${#fields.hasErrors('firstName')}"
+                th:errors="*{firstName}"></span>
+            </div>
+            <div class="form-group  col-md-6">
+              <label for="lastname">Last Name</label>
+              <input type="text" id="lastname" class="form-control mb-1" th:field="*{lastName}" />
+              <span class="alert alert-secondary text-muted py-1 small" th:if="${#fields.hasErrors('lastName')}"
+                th:errors="*{lastName}"></span>
+            </div>
+          </div>
+          <div class="form-group">
+            <label for="salary">Salary</label>
+            <input type="text" id="salary" class="form-control mb-1" th:field="*{salary}" />
+            <span class="alert alert-secondary text-muted py-1 small" th:if="${#fields.hasErrors('salary')}"
+                th:errors="*{salary}"></span>
+          </div>
+          <button class="btn btn-primary mb-3">Player Submit</button>
+        </div>
+      </div>
+    </form>
+  </div>
+</body>
+
+</html> 5. 실행화면

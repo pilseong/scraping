@@ -1,0 +1,195 @@
+0. 이 포스트의 내용은 0-1 이 포스트는 WebMVC, Hibernate 기반의 프로젝트 기반 코드에서 0-2 특정 패키지 클래스의 메소드 호출시 로그를 남는 것을 AOP를 사용하여 추가한다. 1. 이 포스트는 Spring : Web MVC + Hibernate 시리즈의 연속이다. Spring : Web MVC + Hibernate - 설정하기 -1. 예제를 위해 Customer 테이블을 생성한다. -1-0 사용자 springstudent를 만들고 암호도 springstudent를 생성한다. -1-1 web_customer_tracker라는 데이터베이스를 생성한다. -1-2 Customer 테이블을 생성한다.. kogle.tistory.com 2. org.apache.maven.archetypes maven-archetype-webapp 1.4 버전으로 프로젝트 생성 3. pom.xml에 source와 target을 1.7에서 사용하고 있는 JDK버전으로 바꾼다. 나의 경우는 11 버전 <properties>
+  <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+  <maven.compiler.source>11</maven.compiler.source>
+  <maven.compiler.target>11</maven.compiler.target>
+</properties> 4. 의존성 설정을 한다. 4-1 스프링 기본에 필요한 spring core, spring context 4-2 스프링 web mvc을 지원하는 spring webmvc 4-3 ORM Hibernate 데이터베이스 사용을 위해 4-3-1 스프링 데이터베이스와 트랜젝션 처리를 위해 spring orm, spring tx 4-3-2 hibernate기능 추가 hibernate core 4-3-3 DataSource pooling을 위한 c3p0 4-3-4 MySql jdbc연결을 위해 mysql connector java 4-4 AOP 지원을 위해 4-4-1 Spring aop 지원을 위한 spring aop 4-4-2 Spring AOP의 aspectj 라이브러리와 annotation지원을 위해 aspectj weaver 4-5 View 기술지원을 위한 4-5-1 jstl, jsp처리를 위해 jstl, servlet-api, jsp-api 4-6 개발 편의를 위한 lombok <dependencies>
+	<dependency>
+		<groupId>org.springframework</groupId>
+		<artifactId>spring-core</artifactId>
+		<version>5.2.6.RELEASE</version>
+	</dependency>
+	<dependency>
+		<groupId>org.springframework</groupId>
+		<artifactId>spring-context</artifactId>
+		<version>5.2.6.RELEASE</version>
+	</dependency>
+	<dependency>
+		<groupId>org.springframework</groupId>
+		<artifactId>spring-webmvc</artifactId>
+		<version>5.2.6.RELEASE</version>
+	</dependency>
+	<dependency>
+		<groupId>org.hibernate</groupId>
+		<artifactId>hibernate-core</artifactId>
+		<version>5.4.15.Final</version>
+	</dependency>
+	<dependency>
+		<groupId>org.springframework</groupId>
+		<artifactId>spring-tx</artifactId>
+		<version>5.2.6.RELEASE</version>
+	</dependency>
+	<dependency>
+		<groupId>org.springframework</groupId>
+		<artifactId>spring-orm</artifactId>
+		<version>5.2.6.RELEASE</version>
+	</dependency>
+	<dependency>
+		<groupId>com.mchange</groupId>
+		<artifactId>c3p0</artifactId>
+		<version>0.9.5.5</version>
+	</dependency>
+	<dependency>
+		<groupId>mysql</groupId>
+		<artifactId>mysql-connector-java</artifactId>
+		<version>8.0.20</version>
+	</dependency>
+	<dependency>
+		<groupId>org.springframework</groupId>
+		<artifactId>spring-aop</artifactId>
+		<version>5.2.6.RELEASE</version>
+	</dependency>
+	<dependency>
+		<groupId>org.aspectj</groupId>
+		<artifactId>aspectjweaver</artifactId>
+		<version>1.9.5</version>
+	</dependency>
+	<dependency>
+		<groupId>javax.servlet</groupId>
+		<artifactId>jstl</artifactId>
+		<version>1.2</version>
+	</dependency>
+	<dependency>
+		<groupId>javax.servlet</groupId>
+		<artifactId>javax.servlet-api</artifactId>
+		<version>4.0.1</version>
+		<scope>provided</scope>
+	</dependency>
+	<dependency>
+		<groupId>javax.servlet.jsp</groupId>
+		<artifactId>javax.servlet.jsp-api</artifactId>
+		<version>2.3.3</version>
+		<scope>provided</scope>
+	</dependency>
+	<dependency>
+		<groupId>org.projectlombok</groupId>
+		<artifactId>lombok</artifactId>
+		<version>1.18.12</version>
+		<scope>provided</scope>
+	</dependency>
+		<dependency>
+		<groupId>junit</groupId>
+		<artifactId>junit</artifactId>
+		<version>4.11</version>
+		<scope>test</scope>
+	</dependency>
+</dependencies> 5. 프로젝트 폴더의. settings 폴더에 있는 org.eclipse.wst.common.project.facet.core.xml 파일을 수정한다. 5-1 eclipse를 사용할 경우에 반드시 수정해야 한다. 이거 수정하지 않으면 jstl 기능을 제대로 사용할 수 없다. 5-2 파일의 jst.web의 버전이 2.3이 기본인데 현재 위의 패키지를 보면 J2EE servlet이 최신이 4.0 버전을 사용한다. 5-2-1 아래처럼 pom에 import 한 sevlet 패키지 버전으로 변경하고 저장한다. 5-2-2 eclipse를 재기동한다. <?xml version="1.0" encoding="UTF-8"?>
+<faceted-project>
+  <fixed facet="wst.jsdt.web"/>
+  <installed facet="java" version="11"/>
+  <installed facet="jst.web" version="4.0"/>
+  <installed facet="wst.jsdt.web" version="1.0"/>
+</faceted-project> 6. org.apache.maven archetype으로 생성된 프로젝트는 servlet 2.3 기반이므로 4.0 기반으로 web.xml을 수정해야 한다. 6-1 이 부분은 작성하면 오타가 심각한 문제를 만들므로 그냥 붙여 넣는 게 좋다. 6-2 여기서 중요한 부분은 spring web mvc에서 사용할 설정 파일을 연결하는 부분이다. 6-3 아래 servlet 4.0 기반으로 web.xml을 바꾸면 프로젝트의 오류가 사라질 것이다. <?xml version="1.0" encoding="UTF-8"?>
+<web-app xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xmlns="http://xmlns.jcp.org/xml/ns/javaee"
+  xsi:schemaLocation="http://xmlns.jcp.org/xml/ns/javaee http://xmlns.jcp.org/xml/ns/javaee/web-app_4_0.xsd"
+  id="WebApp_ID" version="4.0">
+
+  <display-name>spring-mvc-demo</display-name>
+
+  <absolute-ordering />
+
+  <!-- Spring MVC Configs -->
+
+  <!-- Step 1: Configure Spring MVC Dispatcher Servlet -->
+  <servlet>
+    <servlet-name>dispatcher</servlet-name>
+    <servlet-class>org.springframework.web.servlet.DispatcherServlet</servlet-class>
+    <init-param>
+      <param-name>contextConfigLocation</param-name>
+      <param-value>/WEB-INF/spring-hibernate-aop-servlet.xml</param-value>
+    </init-param>
+    <load-on-startup>1</load-on-startup>
+  </servlet>
+
+  <!-- Step 2: Set up URL mapping for Spring MVC Dispatcher Servlet -->
+  <servlet-mapping>
+    <servlet-name>dispatcher</servlet-name>
+    <url-pattern>/</url-pattern>
+  </servlet-mapping>
+  
+</web-app> 7. 위 web.xml에서 설정한 spring-hibernate-aop-servlet.xml을 web.xml과 같은 폴더에 생성한다. 7-1 이 파일도 xml이므로 그냥 붙여 넣기가 정신건강에 좋다. 7-2 beans xmlns는 정말 짜증 나는 부분이다. 그냥 붙이면 된다. 7-3 첫 번째는 aop의 auto proxy를 설정하고 있다. 자동으로 @Aspect가 설정된 클래스를 point cut에 따라 처리해준다. 7-4 두 번째는 css, image, js 같은 static 파일을 사용하기 위한 폴더를 지정한다. 7-5 세 번째와 네 번째는 @Autowired를 사용하기 위한 컴포넌트 스캔과 annotaion 사용을 설정한다. 7-6 다섯 번째는 jsp파일을 해석하기 위한 Resolver 설정이다. 7-7 여섯 번째는 데이터 풀링을 위한 데이터 소스 설정이다. 여기에서 MySql Connector Java을 사용한다. 7-8 일곱 번째는 하이버네이트 핵심 SessionFactory 생성하는 Bean 코드이다. 7-9 여덟 번째는 하이버네이트 트렌잭션 처리를 위한 Spring tx의 트랜젝션 매니저를 생성하는 Bean 코드이다. 7-9-1 TransactionManager는 AOP기술을 사용하여 SessionFactory객체를 이용한 자동 트랜젝션 처리한다. 7-10 마지막 부분은 @Transactional annotation처리를 위해 7-9에서 생성한 트랜젝션 매니저를 등록한다. 7-11 아래 파일을 작성할 때 패키지 이름은 작성한 프로젝트 구조에 알맞게 변경해야 한다. 7-11-1 component-scan에 사용되는 패키지 이름 7-11-2 sessionFactory의 package scan에 사용되는 패키지 이름 <?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xmlns:context="http://www.springframework.org/schema/context"
+  xmlns:tx="http://www.springframework.org/schema/tx"
+  xmlns:mvc="http://www.springframework.org/schema/mvc"
+  xmlns:aop="http://www.springframework.org/schema/aop"
+  xsi:schemaLocation="
+    http://www.springframework.org/schema/beans
+    http://www.springframework.org/schema/beans/spring-beans.xsd
+    http://www.springframework.org/schema/context
+    http://www.springframework.org/schema/context/spring-context.xsd
+    http://www.springframework.org/schema/mvc
+    http://www.springframework.org/schema/mvc/spring-mvc.xsd
+    http://www.springframework.org/schema/tx 
+    http://www.springframework.org/schema/tx/spring-tx.xsd
+    http://www.springframework.org/schema/aop
+    http://www.springframework.org/schema/aop/spring-aop.xsd">
+
+
+  <!-- Add AspectJ autoproxy support for AOP -->
+  <aop:aspectj-autoproxy></aop:aspectj-autoproxy>
+
+  <!-- Add support for reading web resources -->
+  <mvc:resources location="/resources/"
+    mapping="/resources/**"></mvc:resources>
+
+  <!-- Step 3: Add support for component scanning -->
+  <context:component-scan
+    base-package="pe.pilseong.hibernateweb" />
+
+  <!-- Step 4: Add support for conversion, formatting and validation support -->
+  <mvc:annotation-driven />
+
+  <!-- Step 5: Define Spring MVC view resolver -->
+  <bean
+    class="org.springframework.web.servlet.view.InternalResourceViewResolver">
+    <property name="prefix" value="/WEB-INF/view/" />
+    <property name="suffix" value=".jsp" />
+  </bean>
+
+  <bean id="myDataSource"
+    class="com.mchange.v2.c3p0.ComboPooledDataSource"
+    destroy-method="close">
+    <property name="driverClass" value="com.mysql.cj.jdbc.Driver"></property>
+    <property name="jdbcUrl"
+      value="jdbc:mysql://localhost:3306/web_customer_tracker?useSSL=true&amp;serverTimezone=Asia/Seoul"></property>
+    <property name="user" value="springstudent"></property>
+    <property name="password" value="springstudent"></property>
+
+    <property name="minPoolSize" value="5"></property>
+    <property name="maxPoolSize" value="20"></property>
+    <property name="maxIdleTime" value="30000"></property>
+  </bean>
+
+  <bean id="sessionFactory"
+    class="org.springframework.orm.hibernate5.LocalSessionFactoryBean">
+    <property name="dataSource" ref="myDataSource"></property>
+    <property name="packagesToScan"
+      value="pe.pilseong.hibernateweb.entity"></property>
+    <property name="hibernateProperties">
+      <props>
+        <prop key="hibernate.dialect">org.hibernate.dialect.MySQLDialect</prop>
+        <prop key="hibernate.show_sql">true</prop>
+      </props>
+    </property>
+  </bean>
+
+  <bean id="transactionManager"
+    class="org.springframework.orm.hibernate5.HibernateTransactionManager">
+    <property name="sessionFactory" ref="sessionFactory"></property>
+  </bean>
+
+  <tx:annotation-driven
+    transaction-manager="transactionManager" />
+</beans> 8. src/main/java 폴더와 src/test/main 폴더를 만든다. 8-1 maven archetype webapp은 기본적으로 classpath는 잡혀 있지만, 폴더가 기본적으로 생성되지 않는다. 9. webapp/WEB-INF 아래 jsp파일을 저장할 view폴더를 만든다. 10. webapp 폴더에 index.jsp 파일이 생성되어 있을 건데 default 값이므로 context root로 접근하면 무조건 여기로 간다. 10-1 삭제한다.

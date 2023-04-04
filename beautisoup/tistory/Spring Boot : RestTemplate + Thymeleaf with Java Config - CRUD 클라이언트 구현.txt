@@ -1,0 +1,267 @@
+1. 이 포스트는 Spring : RestTemplate with Java Config - CRUD 클라이언트 구현의 후속 포스트이다. Spring : REST + Hibernate with Java Config - CRUD 클라이언트 구현 1. 이 포스트는 지난 포스트에서 작성한 CRUD REST서버에 데이터를 요청하는 Client를 작성한다. 1-1 일반 WEB MVC개발과 다를 게 하나도 없다. 1-2 차이점이 있다면 데이터베이스 관리를 하지 않기 때문� kogle.tistory.com 2. 1항목은 Spring REST와 JSP를 사용한 클라이언트 구현이었다.  이번에는 Spring Boot과 Thymeleaf를 사용한다. 3. 작업순서 3-1 Spring Starter Project를 이용한 프로젝트 생성 3-2 의존성 추가 3-3 RestTemplate 설정하기 3-4 Service 인터페이스 및 RestTemplate을 사용한 Service 구현 3-5 Controller 생성하기 3-6 View를 Template을 Thymeleaf로 구현하기 4. 프로젝트 생성한다. 4-1 의존성 추가도 한 번에 끝난다. 4-2 옆의 사실 필수적으로 필요한 것은 Spring Web, Thymeleaf 라이브러리다. 5. 설정하기 5-1 REST 서비스를 사용하기 위한 RestTemplate 설정 5-1-1 @SpringBootApplication은 @Configuration을 포함하고 있기 때문에 여기에서 생성 설정한다. package pe.pilseong.bootcustomerclient;
+
+import org.springframework.boot.SpringApplication;
+import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.context.annotation.Bean;
+import org.springframework.web.client.RestTemplate;
+
+@SpringBootApplication
+public class BootcustomerclientApplication {
+
+	public static void main(String[] args) {
+		SpringApplication.run(BootcustomerclientApplication.class, args);
+	}
+
+	@Bean
+	public RestTemplate restTemplate() {
+	  return new RestTemplate();
+	}
+} 5-2 REST 서버 url 설정 5-2-1 application.properties에 url을 설정한다. customer_service_server_url=http://localhost:8070/api/customers 6. 서비스 클래스를 작성한다. 6-1 인터페이스를 작성한다. 6-1-1 이 인터페이스는 서버의 Service와 동일하도록 하는 것이 여러므로 편리하다. package pe.pilseong.bootcustomerclient.service;
+
+import java.util.List;
+
+import pe.pilseong.bootcustomerclient.entity.Customer;
+
+public interface CustomerService {
+
+  List<Customer> getCustomers(String keyword);
+
+  Customer getCustomer(Long id);
+
+  void saveCustomer(Customer customer);
+
+  void deletCustomer(Long id);
+
+} 6-2 RestTemplate를 주입받아 Service를 구현한다. 6-2-1 1번 항목에서 참조하는 이전 포스트와 동일하므로 설명은 생략한다. package pe.pilseong.bootcustomerclient.service;
+
+import java.util.List;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.ParameterizedTypeReference;
+import org.springframework.http.HttpMethod;
+import org.springframework.http.ResponseEntity;
+import org.springframework.stereotype.Service;
+import org.springframework.web.client.RestTemplate;
+
+import pe.pilseong.bootcustomerclient.entity.Customer;
+
+@Service
+public class CustomerServiceImpl implements CustomerService {
+
+  @Autowired
+  private RestTemplate restTemplate;
+  
+  @Value("${customer_service_server_url}")
+  private String serverURL;
+  
+  @Override
+  public List<Customer> getCustomers(String keyword) {
+    if (keyword == null || keyword.length() == 0) {
+      keyword = "";
+    } else {
+      keyword = "?q=" + keyword;
+    }
+    
+    System.out.println(serverURL + keyword);
+    ResponseEntity<List<Customer>> customers = this.restTemplate.exchange(serverURL + keyword, HttpMethod.GET, 
+        null, new ParameterizedTypeReference<List<Customer>>() {}
+    );
+    
+    return customers.getBody();
+  }
+
+  @Override
+  public Customer getCustomer(Long id) {
+    return this.restTemplate.getForObject(serverURL + "/" + id, Customer.class);
+  }
+
+  @Override
+  public void saveCustomer(Customer customer) {
+    Long id = customer.getId();
+    if (id == null) {
+      this.restTemplate.postForEntity(serverURL, customer, String.class);
+    } else {
+      this.restTemplate.put(serverURL, customer);
+    }
+  }
+
+  @Override
+  public void deletCustomer(Long id) {
+    this.restTemplate.delete(serverURL + "/" + id);
+  }
+} 7. Controller 설정하기 7-1 이것 역시 이전 포스트와 동일하다. package pe.pilseong.bootcustomerclient.controller;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Controller;
+import org.springframework.ui.Model;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.ModelAttribute;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+
+import pe.pilseong.bootcustomerclient.entity.Customer;
+import pe.pilseong.bootcustomerclient.service.CustomerService;
+
+@Controller
+@RequestMapping("/customers")
+public class CustomerController {
+  
+  @Autowired
+  private CustomerService customerService;
+  
+  @GetMapping("/list")
+  public String getCustomers(Model model) {
+    model.addAttribute("customers", this.customerService.getCustomers(""));
+    
+    return "list-customers";
+  }
+  
+  @GetMapping("/search")
+  public String search(@RequestParam("search") String keyword, Model model) {
+    model.addAttribute("customers", this.customerService.getCustomers(keyword));
+    
+    return "list-customers";
+  }
+  
+  @GetMapping("/showUpdateCustomerForm")
+  public String showUpdateCustomerForm(@RequestParam("id") Long id, Model model) {
+    model.addAttribute("customer", this.customerService.getCustomer(id));
+    
+    return "customer-form";
+  }
+  
+  @PostMapping("/saveCustomer")
+  public String saveCustomer(@ModelAttribute("customer") Customer customer) {
+    
+    this.customerService.saveCustomer(customer);
+    
+    return "redirect:list";
+  }
+  
+  @GetMapping("/showAddCustomerForm")
+  public String showAddCustomerForm(Model model) {
+    model.addAttribute("customer", new Customer());
+    
+    return "customer-form";
+  }
+  
+  @GetMapping("/deleteCustomer")
+  public String deleteCustomer(@RequestParam("id") Long id) {
+    this.customerService.deletCustomer(id);
+    
+    return "redirect:list";
+  }
+} 8. Thymeleaf로 View를 작성한다. 8-0 Spring Boot의 기본 template 폴더는 src/main/resources/templates 이다. 여기에 두면 된다. 8-0-1 Thymeleaf의 확장자는 html이다. 8-2 Spring Boot의 기본 static 폴더는 src/main/resources/static 이다. 여기에 js, css, image를 두면 된다. 8-1 Controller에서 지정한 customer-form.html,  customers-list.html을 작성한다. 8-2 customer-list.html 8-2-1 기존 jsp와 거의 동일하다. 8-2-2 눈여겨 볼 점이 th로 시작하는 구분들이다. 8-2-2-1 @{...} - Link URL Expressions 경로를 설정하는데 사용한다. 8-2-2-2 ${...} - Variable Expressions attribute를 참조하여 데이터를 보여준다. 8-2-2-3 @로 시작하는 링크에 ( ) 로 채워져 있는 부분은 parameter를 추가한다. 여기에 ${ } 사용할 수 있다. <!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+<link rel="stylesheet"
+  href="https://stackpath.bootstrapcdn.com/bootstrap/4.4.1/css/bootstrap.min.css"
+  integrity="sha384-Vkoo8x4CGsO3+Hhxv8T/Q5PaXtkKtu6ug5TOeNV6gBiFeWPGFN9MuhOf23Q9Ifjh"
+  crossorigin="anonymous">
+<link rel="stylesheet" th:href="@{ /css/style.css }" />
+<title>List of Customers</title>
+</head>
+<body>
+  <div class="container">
+    <h2 class="mb-5 mt-5">CRM - Customer Relationship Manager</h2>
+    <a th:href="@{showAddCustomerForm}" class="btn btn-secondary mb-3">Add
+      Customer</a>
+    <div>
+      <form method="GET" action="search" class="form-inline">
+        <div class="input-group mb-3">
+          <input type="text" class="form-control"
+            placeholder="search first name" aria-label="search"
+            name="search">
+          <div class="input-group-append">
+            <button class="btn btn-outline-secondary" type="submit">Search</button>
+          </div>
+        </div>
+      </form>
+    </div>
+    <table class="table table-bordered table-striped table-hover">
+      <thead>
+        <tr class="thead-dark">
+          <th>First Name</th>
+          <th>Last Name</th>
+          <th>Email</th>
+          <th>Action</th>
+        </tr>
+      </thead>
+      <tbody>      
+        <tr th:each="customer : ${ customers }" >
+          <td th:text="${ customer.firstName }">></td>
+          <td th:text="${ customer.lastName }"></td>
+          <td th:text="${ customer.email }"></td>
+          <td><a th:href="@{/customers/showUpdateCustomerForm(id=${ customer.id })}">Update</a> | <a
+            th:href="@{/customers/deleteCustomer(id=${ customer.id })}"
+            onclick="if (!confirm('Do you really want to delete?')) return false">Delete</a>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+  <script src="https://code.jquery.com/jquery-3.4.1.slim.min.js"
+    integrity="sha384-J6qa4849blE2+poT4WnyKhv5vZF5SrPo0iEjwBvKU7imGFAV0wwj1yYfoRSJoZ+n"
+    crossorigin="anonymous"></script>
+  <script
+    src="https://cdn.jsdelivr.net/npm/popper.js@1.16.0/dist/umd/popper.min.js"
+    integrity="sha384-Q6E9RHvbIyZFJoft+2mJbHaEWldlvI9IOYy5n3zV9zzTtmI3UksdQRVvoxMfooAo"
+    crossorigin="anonymous"></script>
+  <script
+    src="https://stackpath.bootstrapcdn.com/bootstrap/4.4.1/js/bootstrap.min.js"
+    integrity="sha384-wfSDF2E50Y2D1uUdj0O3uMBJnjuUD4Ih7YwaYd1iqfktj0Uod8GCExl3Og8ifwB6"
+    crossorigin="anonymous"></script>
+</body>
+</html> 8-3 customer-form.html 8-3-1 Controller에서 첨부한 객체와의 매핑이 필요한 template이다. 8-3-2 *{...} : Selection Variable Expressions 객체의 속성을 선택하여 사용할 수 있다. 양방향이다. 8-3-3 spring form테그의 modelAttribute는 th:object, path는 th:field와 *{ }로 대체할 수 있다. <!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+<link rel="stylesheet"
+  href="https://stackpath.bootstrapcdn.com/bootstrap/4.4.1/css/bootstrap.min.css"
+  integrity="sha384-Vkoo8x4CGsO3+Hhxv8T/Q5PaXtkKtu6ug5TOeNV6gBiFeWPGFN9MuhOf23Q9Ifjh"
+  crossorigin="anonymous">
+<link rel="stylesheet" href="@{ /css/style.css}" />
+<title>Add Customer</title>
+</head>
+<body>
+  <div class="container">
+    <h2 class="mb-3 mt-5">CRM - Customer Relationship Manager</h2>
+    <h3>Save Customer</h3>
+    <form th:object="${customer}" method="POST" th:action="@{/customers/saveCustomer}">
+      <input type="hidden" th:field="*{id}" />
+      <div class="form-group">
+        <label for="firstname">First Name:</label>
+        <input class="form-control" th:field="*{firstName}" id="firstname"/>
+      </div>
+      <div class="form-group">
+        <label for="lastname">Last Name:</label>
+        <input class="form-control" th:field="*{lastName}" id="lastname"/>
+      </div>
+      <div class="form-group">
+        <label for="email">Email:</label>
+        <input class="form-control" th:field="*{email}" id="email"/>
+      </div>
+      <button type="submit" class="btn btn-secondary">Save</button>
+    </form>
+    <p class="lead mt-4">
+      <a th:href="@{/customers/list}">Back To List</a>
+    </p>
+  </div>
+  <script src="https://code.jquery.com/jquery-3.4.1.slim.min.js"
+    integrity="sha384-J6qa4849blE2+poT4WnyKhv5vZF5SrPo0iEjwBvKU7imGFAV0wwj1yYfoRSJoZ+n"
+    crossorigin="anonymous"></script>
+  <script
+    src="https://cdn.jsdelivr.net/npm/popper.js@1.16.0/dist/umd/popper.min.js"
+    integrity="sha384-Q6E9RHvbIyZFJoft+2mJbHaEWldlvI9IOYy5n3zV9zzTtmI3UksdQRVvoxMfooAo"
+    crossorigin="anonymous"></script>
+  <script
+    src="https://stackpath.bootstrapcdn.com/bootstrap/4.4.1/js/bootstrap.min.js"
+    integrity="sha384-wfSDF2E50Y2D1uUdj0O3uMBJnjuUD4Ih7YwaYd1iqfktj0Uod8GCExl3Og8ifwB6"
+    crossorigin="anonymous"></script>
+</body>
+</html>

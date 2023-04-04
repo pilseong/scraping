@@ -1,0 +1,1 @@
+Don't Cross Me! Same Origin Policy and all the "cross" vulns: XSS, CSRF, and CORS All too often, even seasoned web security professionals get mixed up by the subtle differences between cross site scripting (XSS), cross site request forgery (CSRF) and cross origin resource sharing (CORS). In this talk, I’ll start at the basics and disc speakerdeck.com

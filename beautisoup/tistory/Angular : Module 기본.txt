@@ -1,0 +1,36 @@
+1. Angular의 모듈은 하나의 목적을 달성하기 위해서 만들어진 덩어리이다. 2. 모듈의 타입은 다양한데 Domain, Routed, Routing, Service, Widget 정도로 구분할 수 있다. 2-1 Domin 타입은 한 가지 기능을 담고 있는 모듈이다. 2-2 Routed는 하나의 URL에 매핑되는 기능을 담고 있는 모듈이다. 2-3 Routing은 라우팅 테이블을 가지고 컴포넌트와 매핑하는 모듈이다. 2-4 Service는 앱의 여러 부분에서 사용될 서비스를 정의한다. 2-5 widget은 앱의 여러 부분에서 반복적으로 사용할 컴포넌트를 정의한다. 3. 타입에 따른 구분은 유용성이 떨어지고 그냥 용어처럼 사용되기 때문에 필요한 구분이다. 4. 보통 모듈은 기능 카테고리로 묶을 수 있는 큰 덩어리 정도라고 생각하면 되고 하나의 URL에 매핑된다. 4-1 하나의 홈페이지에 블로그, 다이어리, 날씨정보의 기능이 있으면 각 각을 모듈로 생성할 수 있다. 4-2 쇼핑몰이라고 한다면 쇼핑사이트, 관리자모듈 같이 분류가 가능하다. 5. 생성 방법은 5-1 아래와 같은 방식으로 할 수 있는데, --routing은 routing 테이블을 가지는 routed module을 생성한다는 의미다. 5-2 이렇게 하면 blog-routing.module.ts와 blog.module.ts파일이 생성된다. 5-2-1 blog-routing.module.ts는 블로그 모듈 내에서 routing 테이블을 가진다. 5-2-2 blog-module.ts는 컴포넌트의 exports, imports 같은 기능 수행을 정의하는 파일이다. $ ng generate module blog --routing 6. Angular의 핵심 중 하나가 다양한 모듈의 사용인데, 모듈은 상호 간 exports된 기능을 import하여 사용할 수 있다. 6-1 기능을 제공하려는 모듈은 아래처럼 exports에 공유할 component, directives, pipe같은 것을 지정한다. 6-2 아래는 SharedModule에 등록된 TimeDirective와 DividerComponent를 제공하고 있다. import { NgModule } from '@angular/core';
+import { CommonModule } from '@angular/common';
+import { TimesDirective } from './times.directive';
+import { DividerComponent } from './divider/divider.component';
+
+@NgModule({
+  declarations: [TimesDirective, DividerComponent],
+  imports: [
+    CommonModule
+  ],
+  exports: [
+    TimesDirective,
+    DividerComponent
+  ]
+})
+export class SharedModule { } 6-2 위의 TimesDirective를 사용하고 싶은 모듈이 있다면 exports된 세부 컴포넌트가 아닌 모듈을 import해야 한다. 6-2-1 소스의 imports의 SharedModule 부분을 확인할 수 있다. import { NgModule } from '@angular/core';
+import { CommonModule } from '@angular/common';
+
+import { ElementsRoutingModule } from './elements-routing.module';
+import { ElementsHomeComponent } from './elements-home/elements-home.component';
+import { PlaceholaderComponent } from './placeholader/placeholader.component';
+import { SharedModule } from '../shared/shared.module';
+import { SegmentComponent } from './segment/segment.component';
+
+
+@NgModule({
+  declarations: [ElementsHomeComponent, PlaceholaderComponent, SegmentComponent],
+  imports: [
+    CommonModule,
+    ElementsRoutingModule,
+    SharedModule
+  ],
+  exports: [
+  ]
+})
+export class ElementsModule { } 7. module.ts파일의 속성들 7-1 declarations - 현재 모듈에 등록되고 관리되는 컴포넌트, 파이프, directives의 목록이다. 7-1-1 컴포넌트를 생성하면 반드시 등록해야 한다. ng 키워드로 만들면 자동으로 등록이 된다. 7-2 imports - 현재 모듈에서 기능을 사용하고 있는 다른 모듈의 목록 7-3 exports - 다른 모듈에서 사용할 수 있도록 공개해 놓은 등록된 컴포넌트, 파이트, directives 7-4 providers - 원래 서비스를 등록할 때 사용했는데, 최신 angular에서는 사용하지 않는다. 7-5 bootstrap - 최상위 AppModule.ts에서 정의하는 최초로 보여질 컴포넌트 지정

@@ -1,0 +1,92 @@
+styles.css 0.02MB 1. 이 포스트는 아래 링크의 업데이트 된 서비스를 Angular로 구현하는 내용이다. Spring Boot + Angular : Rest Repository with JPA - Shopping Site 만들기 v2 - 1 - 서비스 업데이트 1. 이 포스트는 아래 포스트의 v1에 아래의 기능을 추가한 내용이다. 1-1 레이아웃 만들기 1-2 제품 표시하기 1-3 routing 추가하기 1-3 카테고리로 표출하기 1-4 검색기능 추가하기 Spring Boot : Rest Reposito kogle.tistory.com 2. 데이터베이스 데이터는 인터넷의 자료를 끌어 사용했고, 사진 역시 마찬가지이다. 3. 이 포스트는 사용자 화면을 그럴듯하게 변경하고 페이지의 각 부분에 맞게 컴포넌트들을 생성한다. 3-1 현재의 페이지이다. 3-2 변경될 화면이다. 3-2-1 다 껍데기일 뿐이고 상품만 지난 포스트에서 구현한대로 화면에 표출되고 있다. 3-2-2 이전 포스트의 서비스의 카테고리로 검색, 키워드로 검색 기능들을 구현하는 것이 v2의 목표이다. 4. 화면을 나누기 위해서 컴포넌트 몇 개를 추가한다. 4-1 카테고리를 표시하기 위한 product-category-menu, 검색을 위한 product-search를 생성한다. 4-2 카테고리 데이터와 매핑할 ProductCategory 클래스를 생성한다. $ ng generate component components/product-category-menu
+
+$ ng generate component components/product-search
+
+$ ng generate class common/product-category 5. 화면을 변경한다. 인터넷에서 찾은 레이아웃을 이용한다. 5-1 fontawsome을 연결한다. index.html 수정한다. bootstrap은 이미 설치되어 있다. <!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Shoppingmall</title>
+  <base href="/">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="icon" type="image/x-icon" href="favicon.ico">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.13.0/css/all.min.css">
+  
+</head>
+<body>
+  <app-root></app-root>
+</body>
+</html> 5-2 사용자 화면을 아래처럼 변경한다. - css는 첨부를 참고한다. 5-2-1 app.component.html <div class="page-wrapper">
+
+	  <app-product-category-menu></app-product-category-menu>
+
+	  <!-- PAGE CONTAINER-->
+	  <div class="page-container">
+	    <!-- HEADER DESKTOP-->
+	    <header class="header-desktop">
+	      <div class="section-content section-content-p30">
+	        <div class="container-fluid">
+	          <div class="header-wrap">
+	            <app-product-search></app-product-search>
+	            <div class="cart-area d-n">
+	              <a href="shopping-detail.html">
+	                <div class="total">200.50 <span> 10</span> </div> <i class="fa fa-shopping-cart"
+	                  aria-hidden="true"></i>
+	              </a>
+	            </div>
+	          </div>
+	          <div class="account-wrap"></div>
+	        </div>
+	      </div>
+	    </header>
+	    <!-- END HEADER DESKTOP-->
+
+	    <!-- MAIN CONTENT-->
+	    <div class="main-content">
+	      <app-product-list></app-product-list>
+	    </div>
+
+	    <!-- END MAIN CONTENT-->
+
+	  </div>
+	</div>
+	<!-- END PAGE CONTAINER-->
+
+	<footer>
+	  <ul>
+	    <li><a href="#">About Us</a></li>
+	    <li><a href="#">Contact Us</a></li>
+	    <li><a href="#">Help</a></li>
+	  </ul>
+	</footer> 5-2-2 product-category-menu.component.html <!-- MENU SIDEBAR-->
+	  <aside class="menu-sidebar d-none d-lg-block">
+	    <div class="logo">
+	      <a href="http://localhost:4200">
+	        <i class="fas fa-gifts"></i><span class="font-weight-bold text-dark"> DEMOSHOP</span>
+	      </a>
+	    </div>
+	    <div class="menu-sidebar-content js-scrollbar1">
+	      <nav class="navbar-sidebar">
+	        <ul class="list-unstyled navbar-list">
+	          <li>
+	            <a href="#">Books</a>
+	          </li>
+	          <li>
+	            <a href="#">Coffee Mugs</a>
+	          </li>
+	          <li>
+	            <a href="#">Mouse Pads</a>
+	          </li>
+	          <li>
+	            <a href="#">Luggage Tags</a>
+	          </li>
+	        </ul>
+	      </nav>
+	    </div>
+	  </aside>
+	  <!-- END MENU SIDEBAR--> 5-2-3 product-search.component.html <form class="form-header" onsubmit="return false;" method="GET">
+  <input class="au-input au-input-xl" type="text" name="search" placeholder="Search for data ..." />
+  <button class="au-btn-submit" type="submit">
+    Search
+  </button>
+</form>

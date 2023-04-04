@@ -1,0 +1,130 @@
+0. 이 포스트는 상속 매핑의 Joined Table 정책에 대해서 작성한다. 1. Joined Table 정책 1-1 모든 클래스는 테이블로 전환된다. 1-2 상속의 기능은 테이블의 관계로 처리되고 외래키 설정으로 이루어진다. 1-3 Entity 클래스를 가져올 때 내부적으로 여러 테이블 간의 Join으로 반환값이 만들어 진다. 2. 장점과 단점 2-1 장점 2-1-1 정규화된 테이블 구조를 가진다. 2-1-2 중복이 없고 데이터의 무결성이 보장된다. 2-2 단점 2-2-1 모든 entity 작업에 join이 필요하다. 그래서 느리다. 3. Joined Table 정책을 사용하려면 아래의 설정이 필요하다. 3-1 부모클래스의 상속 설정에서 Joined Table 정책을 지정한다. @Inheritance(strategy = InheritanceType.JOINED) 3-2 부모클래스의 id생성 방식은 일반적인 identity로 정하면 된다. 다른 테이블만 관리하기 때문이다. 4. Entity 클래스 4-1 User Entity 4-1-1 상속정책이 JOINED로 설정되었다. 4-1-2 id 생성 정책이 IDENTITY로 설정되었다. package pe.pilseong.joinedtable.entity;
+
+import javax.persistence.Column;
+import javax.persistence.Entity;
+import javax.persistence.GeneratedValue;
+import javax.persistence.GenerationType;
+import javax.persistence.Id;
+import javax.persistence.Inheritance;
+import javax.persistence.InheritanceType;
+import javax.persistence.Table;
+
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+@Entity
+@Table(name = "user")
+@Inheritance(strategy = InheritanceType.JOINED)
+@Data
+@NoArgsConstructor
+public abstract class User {
+  
+  @Id
+  @GeneratedValue(strategy = GenerationType.IDENTITY)
+  private Long id;
+  
+  @Column(name = "firstName")
+  private String firstName;
+  
+  @Column(name = "lastName")
+  private String lastName;
+  
+  @Column(name = "email")
+  private String email;
+
+  public User(String firstName, String lastName, String email) {
+    this.firstName = firstName;
+    this.lastName = lastName;
+    this.email = email;
+  }
+} 4-2 Student Entity - 이전 포스트와 완전히 동일 package pe.pilseong.joinedtable.entity;
+
+import javax.persistence.Column;
+import javax.persistence.Entity;
+import javax.persistence.EnumType;
+import javax.persistence.Enumerated;
+import javax.persistence.Table;
+
+import lombok.Data;
+import lombok.EqualsAndHashCode;
+import lombok.NoArgsConstructor;
+
+@Entity
+@Table(name = "student")
+@Data
+@EqualsAndHashCode(callSuper=false)
+@NoArgsConstructor
+public class Student extends User {
+
+  @Enumerated(EnumType.STRING)
+  @Column(name = "schoo_level")
+  private Level level;
+  
+  @Column(name = "course")
+  private String course;
+
+  public Student(String firstName, String lastName, String email, Level level, String course) {
+    super(firstName, lastName, email);
+    this.level = level;
+    this.course = course;
+  }
+} 4-3 Teacher Entity - 이전 포스트와 완전히 동일 package pe.pilseong.joinedtable.entity;
+
+import javax.persistence.Column;
+import javax.persistence.Entity;
+import javax.persistence.Table;
+
+import lombok.Data;
+import lombok.EqualsAndHashCode;
+
+@Entity
+@Table(name = "teacher")
+@Data
+@EqualsAndHashCode(callSuper=false)
+public class Teacher extends User {
+
+  @Column(name = "salary")
+  private Double salary;
+
+  public Teacher(String firstName, String lastName, String email, Double salary) {
+    super(firstName, lastName, email);
+    this.salary = salary;
+  }  
+} 5. 실행 결과 5-1 실행코드 - 이전 포스트와 완전히 동일 package pe.pilseong.joinedtable;
+
+import org.hibernate.Session;
+import org.hibernate.SessionFactory;
+import org.hibernate.cfg.Configuration;
+
+import pe.pilseong.joinedtable.entity.Level;
+import pe.pilseong.joinedtable.entity.Student;
+import pe.pilseong.joinedtable.entity.Teacher;
+import pe.pilseong.joinedtable.entity.User;
+
+/**
+ * Hello world!
+ *
+ */
+public class App {
+  public static void main(String[] args) {
+    SessionFactory factory = new Configuration().configure()
+        .addAnnotatedClass(User.class)
+        .addAnnotatedClass(Student.class)
+        .addAnnotatedClass(Teacher.class)
+        .buildSessionFactory();
+    
+    Session session = factory.getCurrentSession();
+    session.beginTransaction();
+    
+    Student student = new Student("Pilseong", "Heo", "heops79@gmail.com", Level.TERIARY, "Software Engineering");
+    Teacher teacher = new Teacher("Suel", "Heo", "suel@gmai.com", 1000000D);
+   
+    session.save(student);
+    session.save(teacher);
+    
+    session.getTransaction().commit();
+    
+    factory.close();
+    
+  }
+} 5-2 테이블 결과 5-2-1 3개의 테이블이 생성되었다. 5-2-2 테이블 구조는 다음과 같다. 5-2-2-1 다음과 같이 부모 클래스에 join되는 구조로 클래스가 생성된다. 5-2-2-2 중복이 없고 최소의 데이터만 각 테이블에 저장된 정규화 된 테이블 구조이다. 5-2-3 테이블의 들어간 값들 5-2-3-1 유저 테이블 5-2-3-2 학생 테이블 5-2-3-3 교사 테이블

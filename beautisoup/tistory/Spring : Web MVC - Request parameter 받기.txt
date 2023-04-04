@@ -1,0 +1,18 @@
+1. 가장 기본적으로 Controller에서 request parameter를 받는 방법은 HttpServletRequest를 사용하는 것이다. @Controller
+public class HelloWorldContoller {
+  
+  @GetMapping("/showForm")
+  public String showForm() {
+    return "helloworld-form";
+  }
+
+  @GetMapping("/processForm")
+  public String processForm(HttpServletRequest request, Model model) {
+    String name = request.getParameter("studentName");
+    model.addAttribute("name", name.toUpperCase());
+    return "helloworld";
+  } 2. 두 번째 방법은 @RequestParam("name")을 사용하는 방법이다. name은 당연히 form의 name에 들어있는 값이 된다. @GetMapping("/processForm")
+  public String processForm(@RequestParam("studentName") String name, Model model) {
+    model.addAttribute("name", name.toUpperCase());
+    return "helloworld";
+  }

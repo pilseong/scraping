@@ -1,0 +1,48 @@
+1. 이 포스트는 모듈 내에서 또 다른 라우터를 설정하는 방법에 관한 내용이다. 2. Semantic UI의 가로 Tab을 작성하는 것으로 설명한다. 3. 작성 순서 3-1 Tab 컴포넌트를 작성한다. 3-2 tab ui를 작성한다. 3-3 각 tab 메뉴를 선택했을 때 보여질 컴포넌트를 생성한다. 3-4 routing-module.ts에 라이팅 테이블을 작성한다. 4. Tab 컴포넌트 생성 및 ui 작성하기 4-1 Tab 컴포넌트를 작성한다. 4-2 컴포넌트 template을 작성한다. 4-2-1 첫번째 부분은 메뉴로 4개의 컬럼 크기로 구성되어 있고 3개의 메뉴 항목이 있다. 4-2-2 각 메뉴는 각기 다른 url로 이동시킨다. 4-2-3 여기서 주의해야할 점이 있는데, routerLink는 linux에서 사용하는 경로 선택자를 사용한다. 4-2-3-1 "" 처럼 빈공간을 지정하면 root가 되어 버려 localhost:4200/ 이 되어 버린다. 4-2-3-2 현재까지 경로에 누적하고 아무 것도 추가하기 싫으면 "./" 이런 식으로 설정해야 한다. 4-2-4 두번째 부분은 나머지 영역을 12개 전체를 다 지정하여 사용하고 메뉴에서 지정한 컴포넌트가 표출된다. 4-2-4-1 router-outlet이 있는 곳에 이 모듈에서 지정한 routing.module.ts의 children부분으로 대체된다. <div class="ui grid">
+  <div class="four wide column">
+    <div class="ui vertical fluid tabular menu">
+      <a routerLinkActive="active" routerLink="./" class="item" >Biography</a>
+      <a routerLinkActive="active" routerLink="./companies" class="item">Companies</a>
+      <a routerLinkActive="active" routerLink="./parteners" class="item">Parteners</a>
+    </div>
+  </div>
+  <div class="twelve wide stretched column">
+    <div class="ui segment">
+      <router-outlet></router-outlet>
+    </div>
+  </div>
+</div> 4-3 이 Tab 컴포넌트를 사용하는 home에 <app-tab />을 지정하면 다음과 같이 표현된다. 5. 컴포넌트를 선택했을 때 보여질 컴포넌트를 생성한다. 5-1 위의 예제는 3개의 컴포넌트가 필요하다. biography, companies, parteners 5-2 3개의 컴포넌트를 생성한다. 5-3 내용이 중요한 게 아니라서 코드는 생략한다. 6. 라우팅 테이블을 추가 설정한다. 6-1 현재 collections 모듈을 사용하고 있으므로 아래 파일이름은 collections-routing.module.ts가 된다. 6-2 내용을 보면 routes에 지정된 "" 경로에 HomeCollections 컴포넌트가 표출된다. 6-2-1 만약 "" 뒤에 추가적인 경로가 표출될 경우 6-2-2 이 경로에 따라 HomeCollections에 지정된 컴포넌트가 router-outlet에 표출된다. 6-2-3 만약 ""가 localhost:4200/collections 라고 하면 6-2-3-1 localhost:4200/collections 때 HomeCollectionComponent와 그 내부에 BiographyComponent가 나온다. 6-2-3-4 localhost:4200/collections/companies - HomeCollectionComponent와 내부에 Companies컴포넌트가 표출 6-2-3-1 localhost:4200/collections/partener - HomeCollectionComponent와 내부에 Parteners 컴포넌트 표출 import { NgModule } from '@angular/core';
+import { Routes, RouterModule } from '@angular/router';
+import { HomeCollectionsComponent } from './home-collections/home-collections.component';
+import { BiographyComponent } from './biography/biography.component';
+import { PartenersComponent } from './parteners/parteners.component';
+import { CompaniesComponent } from './companies/companies.component';
+
+
+const routes: Routes = [
+  { path: '', component: HomeCollectionsComponent,
+    children: [
+      { path: "", component: BiographyComponent },
+      { path: "companies", component: CompaniesComponent },
+      { path: "parteners", component: PartenersComponent },
+    ] }
+];
+
+@NgModule({
+  imports: [RouterModule.forChild(routes)],
+  exports: [RouterModule]
+})
+export class CollectionsRoutingModule { } 6-3 실행하면 다음과 같이 잘 나올 것이다. 6-4 한가지 문제가 있는데, Biography 탭이 아닌 다른 메뉴를 골라도 Biography가 진하게 나오는데 아래처럼 한다. 6-4-0 이 문제는 전체 경로안에 지정된 경로가 포함되는 경우에도 선택되기 때문인지 6-4-0-1 완전히 일치할 경우에만 선택되도록 변경한다. 6-4-1 routerLinkActiveOption 이라는 directive에 객체를 넘겨주는데 { exact: true } 처럼 exact 속성을 사용한다. <div class="ui grid">
+  <div class="four wide column">
+    <div class="ui vertical fluid tabular menu">
+      <a routerLinkActive="active" routerLink="./" [routerLinkActiveOptions]="{ exact: true }" class="item">Biography</a>
+      <a routerLinkActive="active" routerLink="./companies" class="item">Companies</a>
+      <a routerLinkActive="active" routerLink="./parteners" class="item">Parteners</a>
+    </div>
+  </div>
+  <div class="twelve wide stretched column">
+    <div class="ui segment">
+      <router-outlet></router-outlet>
+    </div>
+  </div>
+</div>

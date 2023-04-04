@@ -1,0 +1,106 @@
+1. 이 포스트는 Email Client를 작성하는 시리즈의 일부이다 1-1 이번 포스트는 가입과 로그인 화면을 생성하고 그에 맞는 Form Control을 작성한다. 1-2 그런 후 검증 로직을 다음 포스트에서 추가한다. 2. Sign Up과 Sign In 화면은 상당히 유사하다. 그래서 재사용했다. 2-0 ReactiveForm 을 사용하려면 module에 import해야 한다. Auth 모듈에 다음과 같이 추가한다. import { NgModule } from '@angular/core';
+import { CommonModule } from '@angular/common';
+import { SignInComponent } from './sign-in/sign-in.component';
+import { SignUpComponent } from './sign-up/sign-up.component';
+import { AuthRoutingModule } from './auth.routing.module';
+import { ReactiveFormsModule } from '@angular/forms';
+
+
+@NgModule({
+  declarations: [SignInComponent, SignUpComponent],
+  imports: [
+    CommonModule,
+    AuthRoutingModule,
+    ReactiveFormsModule
+  ]
+})
+export class AuthModule { } 2-1 Sign In 컴포넌트 작성 2-1-0 기본적으로 검증은 Required, 길이가 각 4-20자 이내로 지정하였다. 2-1-1 template 을 다음과 같이 작성한다. <h1 class="my-5">Log In</h1>
+<form class="col-sm-8" [formGroup]="loginGroup">
+  <div class="form-group">
+    <label class="form-label" for="username">Username</label>
+    <input id="username" class="form-control" type="text" formControlName="username">
+  </div>
+  <div class="form-group">
+    <label class="form-label" for="password">Password</label>
+    <input id="password" class="form-control" type="text" formControlName="password">
+  </div>
+  <button class="btn btn-secondary">Submit</button>
+</form> 2-1-2 클래스에 template에서 사용한 FormControl을 생성한다. import { Component, OnInit } from '@angular/core';
+import { FormGroup, FormBuilder, Validators } from '@angular/forms';
+
+@Component({
+  selector: 'app-sign-up',
+  templateUrl: './sign-up.component.html',
+  styleUrls: ['./sign-up.component.css']
+})
+export class SignUpComponent implements OnInit {
+
+  registrationGroup: FormGroup
+
+  constructor(private formBuilder: FormBuilder) {
+    this.registrationGroup = this.formBuilder.group({
+      username: ['', [
+        Validators.required,
+        Validators.minLength(4),
+        Validators.maxLength(10)
+      ]],
+      password: ['', [
+        Validators.required,
+        Validators.minLength(4),
+        Validators.maxLength(10)
+      ]],
+      passwordConfirmation: ['', [
+        Validators.required,
+        Validators.minLength(4),
+        Validators.maxLength(10)
+      ]]
+    })
+  }
+
+  ngOnInit(): void {
+  }
+} 2-2 Sign up 컴포넌트 작성하기 2-2-1 Sign up Template은 Sign In에 Control이 하나 더 추가되었다. <h1 class="my-5">Create an Account</h1>
+<form class="col-sm-8" [formGroup]="registrationGroup">
+  <div class="form-group">
+    <label class="form-label" for="username">Username</label>
+    <input id="username" class="form-control" type="text" formControlName="username">
+  </div>
+  <div class="form-group">
+    <label class="form-label" for="password">Password</label>
+    <input id="password" class="form-control" type="password" formControlName="password">
+  </div>
+  <div class="form-group">
+    <label class="form-label" for="passwordConfirmation">Password Confirmation</label>
+    <input id="passwordConfirmation" class="form-control" type="password" formControlName="passwordConfirmation">
+  </div>
+  <button class="btn btn-secondary">Submit</button>
+</form> 2-2-2 SignUp 클래스이다. import { Component, OnInit } from '@angular/core';
+import { FormGroup, FormBuilder, Validators } from '@angular/forms';
+
+@Component({
+  selector: 'app-sign-in',
+  templateUrl: './sign-in.component.html',
+  styleUrls: ['./sign-in.component.css']
+})
+export class SignInComponent implements OnInit {
+
+  loginGroup: FormGroup
+
+  constructor(private formBuilder: FormBuilder) {
+    this.loginGroup = this.formBuilder.group({
+      username: ['', [
+        Validators.required,
+        Validators.minLength(4),
+        Validators.maxLength(10)
+      ]],
+      password: ['', [
+        Validators.required,
+        Validators.minLength(4),
+        Validators.maxLength(10)
+      ]],
+    })
+  }
+
+  ngOnInit(): void {
+  }
+} 3. 테스트 하기 3-1 로그인 화면 3-2 가입화면

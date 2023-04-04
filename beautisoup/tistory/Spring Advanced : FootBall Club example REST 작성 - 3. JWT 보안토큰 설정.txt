@@ -1,0 +1,433 @@
+0. 이 포스트는 이전 Fooball club예제를 REST로 다시 작성하는 시리즈의 일부이다. football-server.zip 0.13MB 1. 적용된 테크닉 1-1 JWT 생성 및 검증 1-2 OncePerRequestFilter 생성 및 등록 1-3 AuthenticationEntryPoint 작성 2. 이 포스트에서 할 내용 2-1 보안 설정하기 2-2 인증용 컨트롤러 만들기 2-3 JWT 유틸리티 생성하기 2-3 인증용 endpoint 작성하기 2-4 JWT 검증용 필터 작성하기 3. 보안설정하기 3-1 지난 포스트에서 안보이던 JwtRequestFilter가 보인다. 이것은 Request마다 JWT 검증용으로 사용한다. 3-2 필요한 곳에 인증을 적용하기 위해 skills, players, teams에 대한 접근을 USER권한 이있는 사람으로 한정하였다. 3-3 JWT 토큰 방식은 서버에 세션을 관리할 필요가 없으므로 STATELESS방식으로 설정해야 한다. 3-4 JWT 검증 필터를 언제 처리할지를 지정해 주어야 한다. 3-4-1 지정해 주지 않으면 보안 경로 접근 시 검증 절차도 수행되지 않고, 접근 권한 없음 에러를 볼 수 있다. 3-5 인증오류가 발생할 때 처리할 AuthenticationEntryPoint도 생성하였다. 3-6 스프링 부트에 자동생성이 수동생성으로 변경된 AuthenticationManager를 @Bean으로 설정해야 한다. 3-6-1 이렇게 하면 보안 UserDetailsService가 연결된 local ProviderManager가 생성되어 외부에서 사용가능해 진다. package pe.pilseong.footballserver.config;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.config.annotation.authentication.builders.AuthenticationManagerBuilder;
+import org.springframework.security.config.annotation.web.builders.HttpSecurity;
+import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
+import org.springframework.security.config.annotation.web.configuration.WebSecurityConfigurerAdapter;
+import org.springframework.security.config.http.SessionCreationPolicy;
+import org.springframework.security.core.userdetails.UserDetailsService;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+
+import pe.pilseong.footballserver.filter.JwtRequestFilter;
+
+@Configuration
+@EnableWebSecurity
+public class SecurityConfig extends WebSecurityConfigurerAdapter {
+
+  @Autowired
+  private UserDetailsService userDetailsService;
+
+  @Autowired
+  private JwtRequestFilter jwtRequestFilter;
+
+  @Autowired
+  private JwtAuthEntryPoint unauthorizedHandler;
+
+  @Override
+  protected void configure(AuthenticationManagerBuilder auth) throws Exception {
+    auth.userDetailsService(userDetailsService).passwordEncoder(passwordEncoder());
+  }
+
+  @Override
+  protected void configure(HttpSecurity http) throws Exception {
+    http.cors().and().csrf().disable()
+      .exceptionHandling().authenticationEntryPoint(unauthorizedHandler).and()
+      .sessionManagement().sessionCreationPolicy(SessionCreationPolicy.STATELESS).and()
+      .authorizeRequests().antMatchers("/api/skills/**", "/api/players/**", "/api/teams/**").hasRole("USER")
+      .antMatchers("/test**", "/api/authenticate").permitAll()
+      .anyRequest().authenticated();
+
+    http.addFilterBefore(jwtRequestFilter, UsernamePasswordAuthenticationFilter.class);
+  }
+
+  @Bean
+  @Override
+  public AuthenticationManager authenticationManagerBean() throws Exception {
+    return super.authenticationManagerBean();
+  }
+
+
+  @Bean
+  public PasswordEncoder passwordEncoder() {
+    return new BCryptPasswordEncoder();
+  }
+} 3-7 AuthenticationEntryPoint 클래스 3-7-1 JWT 검증을 통과하지 못하는 경우와 login을 실패하는 경우 클래스의 commence가 호출된다. 3-7-2 다시 말하면 AuthenticationException이 발생하는 경우에 실행된다. package pe.pilseong.footballserver.security;
+
+import java.io.IOException;
+import java.time.LocalDateTime;
+import java.util.HashMap;
+import java.util.Map;
+
+import javax.servlet.ServletException;
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
+
+import org.json.JSONObject;
+import org.springframework.http.HttpStatus;
+import org.springframework.security.core.AuthenticationException;
+import org.springframework.security.web.AuthenticationEntryPoint;
+import org.springframework.stereotype.Component;
+
+import lombok.extern.slf4j.Slf4j;
+
+@Slf4j
+@Component
+public class JwtAuthEntryPoint implements AuthenticationEntryPoint {
+
+  @Override
+  public void commence(HttpServletRequest request, HttpServletResponse response, 
+    AuthenticationException authException)
+      throws IOException, ServletException {
+
+    log.error("Unauthorized error. Message - {}", authException.getMessage());
+    response.setContentType("application/json");
+    response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+
+
+    String msg = new JSONObject() 
+                .put("timestamp", LocalDateTime.now())
+                .put("status",  HttpStatus.UNAUTHORIZED)
+                .put("error",  authException.getMessage()).toString();
+
+    log.info(msg);
+
+    response.getWriter().write(msg);
+  }
+} 3-7-3 위 소스코드의 JSONObject를 사용하기 위해서 아래 의존성을 추가한다. 3-7-3-1 JSONObject는 Map을 key-value 매핑을 JSON으로 변환해 준다. <dependency>
+      <groupId>org.json</groupId>
+      <artifactId>json</artifactId>
+      <version>20200518</version>
+    </dependency> 4. 이제 인증 URL로 들어오는 인증 수행을 위한 컨트롤러가 필요하다. 4-1 아래 코드로 들어오는 검증 요청은 AuthenticationRequest에 담아서 받는다. 4-2 이 검증 요청 객체는 username, password 항목이 있고 둘 다 @NotEmpty로 처리하여 미리 에러를 방지한다. 4-2-1 @Valid를 사용하여 검증해야 한다. 다양한 에러에 따른 예외처리는 필수이다. 여기선 이미 다 되어 있다. 4-3 username, password가 일치하지 않으면 BadCredentialsException를 발생시켜 4-3-1 AuthenticationEntryPoint에서 처리한다. 4-3-2 BadCredentialsException은 AuthenticationException을 상속하고 있다. 4-4 검증을 위한 인증 관리자는 미리 설정파일에서 설정해두었으니 @Autowired로 주입받는다. 4-4-1 주입 받은 인증 관리자는 설정파일에서 인증로직이 연결되어 authenticate 메소드만 수행하면 자동처리된다. 4-5 예외가 발생하지 않고 인증을 예외없이 통과하면 JWT 토큰을 생성하여 클라이언트에게 반환한다. package pe.pilseong.footballserver.controller;
+
+import javax.validation.Valid;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.BadCredentialsException;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+
+import lombok.extern.slf4j.Slf4j;
+import pe.pilseong.footballserver.dto.AuthenticationRequest;
+import pe.pilseong.footballserver.dto.AuthenticationResponse;
+import pe.pilseong.footballserver.repository.UserRepository;
+import pe.pilseong.footballserver.util.JwtUtil;
+
+@RestController
+@RequestMapping("/api")
+@Slf4j
+public class AuthenticationController {
+
+  @Autowired
+  private AuthenticationManager authenticationManager;
+
+  @Autowired
+  private UserRepository userRepository;
+
+  @Autowired
+  private JwtUtil jwtUtil;
+
+  @PostMapping("/authenticate")
+  public ResponseEntity<AuthenticationResponse> authenticate(
+  	@Valid @RequestBody AuthenticationRequest request) {
+
+    log.info("authenticate :: " + request.toString());
+    try {
+      this.authenticationManager
+          .authenticate(new UsernamePasswordAuthenticationToken(
+            request.getUsername(), 
+            request.getPassword()
+           ));
+
+    } catch (Exception e) {
+      throw new BadCredentialsException("Incorrect username or password" + e);
+    }
+
+    UserDetails userDetails = this.userRepository.findByUsername(request.getUsername());
+    String jwt = jwtUtil.generateToken(userDetails);
+
+    log.info("authenticate in AuthenticationController jwt is :: " + jwt);
+    return ResponseEntity.ok().body(new AuthenticationResponse(jwt));
+  }
+} 4-6 인증용 AuthenticationRequest, AuthenticationResponse package pe.pilseong.footballserver.dto;
+
+import javax.validation.constraints.NotEmpty;
+
+import lombok.Data;
+
+@Data
+public class AuthenticationRequest {
+
+  @NotEmpty
+  private String username;
+
+  @NotEmpty
+  private String password;
+  
+}
+
+
+
+
+package pe.pilseong.footballserver.dto;
+
+import lombok.Data;
+
+@Data
+public class AuthenticationResponse {
+
+  private final String jwt;
+
+} * 한참지나 읽어보다보니 JwtUtil 설명이 빠져있다. 4-5/2 아래의 JwtUtil은 Jwt token을 생성, 검증하는 기능을 가진다. package pe.pilseong.footballserver.util;
+
+import io.jsonwebtoken.Claims;
+import io.jsonwebtoken.Jwts;
+import io.jsonwebtoken.SignatureAlgorithm;
+
+import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.stereotype.Service;
+
+import java.util.Date;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.function.Function;
+
+@Service
+public class JwtUtil {
+
+  private String SECRET_KEY = "secret";
+
+  public String extractUsername(String token) {
+    return extractClaim(token, Claims::getSubject);
+  }
+
+  public Date extractExpiration(String token) {
+    return extractClaim(token, Claims::getExpiration);
+  }
+
+  public <T> T extractClaim(String token, Function<Claims, T> claimsResolver) {
+    final Claims claims = extractAllClaims(token);
+    return claimsResolver.apply(claims);
+  }
+
+  private Claims extractAllClaims(String token) {
+      return Jwts.parser().setSigningKey(SECRET_KEY).parseClaimsJws(token).getBody();
+  }
+
+  private Boolean isTokenExpired(String token) {
+    return extractExpiration(token).before(new Date());
+  }
+
+  public String generateToken(UserDetails userDetails) {
+    Map<String, Object> claims = new HashMap<>();
+    return createToken(claims, userDetails.getUsername());
+  }
+
+  private String createToken(Map<String, Object> claims, String subject) {
+
+    return Jwts.builder().setClaims(claims).setSubject(subject).setIssuedAt(new Date(System.currentTimeMillis()))
+        .setExpiration(new Date(System.currentTimeMillis() + 1000 * 60 * 60 * 10))
+        .signWith(SignatureAlgorithm.HS256, SECRET_KEY).compact();
+  }
+
+  public Boolean validateToken(String token, UserDetails userDetails) {
+    final String username = extractUsername(token);
+    return (username.equals(userDetails.getUsername()) && !isTokenExpired(token));
+  }
+} 5. JWT를 생성하여 클라이언트에게 보냈으니 이제 매 Request마다 JWT토큰을 검증할 filter가 필요하다. 5-1 filter를 사용하는 이유는 모든 요청에 대해서 JWT검증이 필요하고 그 시기가 가장 앞단에 위치하기 때문이다. 5-2 모든 요청마다 실행되어야 하므로 OncePerRequestFilter를 상속하여 작성한다. 5-3 메소드는 doFilterInternal를 Override(재작성) 하면 되고 검증을 위해 필요한 건 JWT 토큰과 JWT 유틸이다. 5-3-1 JWT유틸은 주입받을 수 있고, JWT는 Request header에서 얻을 수 있다. 5-3-2 형식이 request 헤더에 Authorization 속성, 값은 Bearer jwt값 이런 형식이다. 5-4 로직은 5-4-1 header에서 Authorization 속성이 있는지 확인하고 5-4-2 있는 경우는 jwt에서 username을 추출하여 그 이름으로 데이터베이스를 검색하여 찾은 결과를 비교한다. 5-4-2-1 단순히 반환받은 username과 JWT의 username이 동일한지와 기간이 남아있는 토큰인지를 체크한다. 5-4-3 사실 토큰의 값을 추출할 때 이미 검증이 완료된 것이다. 추출할 때 복호화 로직과 secret 텍스트를 사용한다. 5-5 검증에 통과한 경우 SecurityContext에 Authentication을 저장하여 인증을 마친다. 5-6 여기 나온 인증관련 내용들이 이해 어려우면 아래 링크를 참조한다. Spring Security : 스프링 보안의 구조 - 1 인증 0. 도식은 인터넷 검색에서 가져온 내용이다. 개인의 정리 차원에서 작성한 내용이라 신경쓰지 않는다. 1. 스프링 보안 2가지로 큰 문제로 나눌 수 있다. 1-1 인증 1-2 권한(접근제어) 2. 인증 - 스프� kogle.tistory.com 5-7 이렇게 filter로 구현하면 토큰 만료시 발생하는 ExpiredJwtException예외를 처리하기 힘들다는 점이다. 5-7-1 @ControllerAdvice는 DispatcherServlet 내부의 @Controller의 수식을 받는 클래스에서 발생한 예외만 다룬다. 5-7-2 이 경우는 filter 내부에 json 예외처리를 하던가 HandlerInterceptor를 사용하는 것이 좋다. 5-7-3 위치 상 filter내부에서 예외처리하는 것이 제일 좋은 방식처럼 보인다. HandlerInterceptor는 너무 뒤에 있다. 5-7-4 위치를 정확하게 아는 게 중요하다. 5-8 스프링 filter 5-9 스프링 HandlerInterceptor 5-10 현재 구조와 유사한 도식 5-11 에러처리를 내부적으로 하기 위해서 필터 코드 전체를 try - catch로 감싸고 있다. 5-11-1 보통 많이 나는 에러는 ExpiredJwtException 같은 대부분의 JwtException이다. 5-11-2 여기서 에러 기본적인 예외처리를 하지만 실제 에러 처리 부분은 AuthenticationEntryPoint에 넘긴다. 5-11-3 이렇게 하면 검증오류가 발생하여 AuthenticationException이 발생하게 된다. package pe.pilseong.footballserver.filter;
+
+import java.io.IOException;
+
+import javax.servlet.FilterChain;
+import javax.servlet.ServletException;
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.security.core.userdetails.UserDetailsService;
+import org.springframework.security.web.authentication.WebAuthenticationDetailsSource;
+import org.springframework.stereotype.Component;
+import org.springframework.web.filter.OncePerRequestFilter;
+
+import io.jsonwebtoken.ExpiredJwtException;
+import lombok.extern.slf4j.Slf4j;
+import pe.pilseong.footballserver.util.JwtUtil;
+
+@Slf4j
+@Component
+public class JwtRequestFilter extends OncePerRequestFilter {
+
+  @Autowired
+  private JwtUtil jwtUtil;
+
+  @Autowired
+  private UserDetailsService userDetailsService;
+
+  @Override
+  protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
+      throws ServletException, IOException {
+
+    String authorizationHeader = request.getHeader("Authorization");
+
+    String username = null;
+    String jwt = null;
+
+    try {
+      log.info("doFilterInternal in JwtRequestFilter start");
+      if (authorizationHeader != null && authorizationHeader.startsWith("Bearer ")) {
+        jwt = authorizationHeader.substring(7);
+        username = this.jwtUtil.extractUsername(jwt);
+      }
+
+      if (username != null && SecurityContextHolder.getContext().getAuthentication() == null) {
+        UserDetails userDetails = userDetailsService.loadUserByUsername(username);
+
+        if (jwtUtil.validateToken(jwt, userDetails)) {
+          UsernamePasswordAuthenticationToken token = new UsernamePasswordAuthenticationToken(userDetails, null,
+              userDetails.getAuthorities());
+
+          token.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
+
+          log.info("doFilterInternal in JwtRequestFilter before :: " + token.toString());
+
+          SecurityContextHolder.getContext().setAuthentication(token);
+
+          log.info("doFilterInternal in JwtRequestFilter after :: " + token.toString());
+        }
+      }
+    } catch (ExpiredJwtException e) {
+      log.error("JWT had expired");
+    } catch (Exception e) {
+      log.error("Error occurred while jwt verification");
+    }
+    log.info("Test before chain");
+    filterChain.doFilter(request, response);
+  }
+} 6. 이제 보안설정까지 마무리 되었다. 하지만 위와 같이 작성하고 실행하면 동작하지 않는다. 6-1 Role을 가지고 오는 데 lazy로딩을 하는데 세션이 없다고 할 것이다. 6-2 User와 Role 관계 Many to Many의 기본 로딩방식이 lazy라서 발생한 부분인데 eager로 바꾸면 간단히 해결된다. 6-2-1 lazy를 그대로 두고 싶으면 @Transaction을 확장해야 하는데 별로 좋은 방법으로 보이지는 않는다. package pe.pilseong.footballserver.model;
+
+import java.util.Collection;
+import java.util.Set;
+
+import javax.persistence.Column;
+import javax.persistence.Embedded;
+import javax.persistence.Entity;
+import javax.persistence.FetchType;
+import javax.persistence.JoinColumn;
+import javax.persistence.JoinTable;
+import javax.persistence.ManyToMany;
+import javax.persistence.Table;
+
+import org.springframework.security.core.GrantedAuthority;
+import org.springframework.security.core.userdetails.UserDetails;
+
+import lombok.Data;
+import lombok.EqualsAndHashCode;
+@Entity
+@Table(name = "users")
+@Data
+@EqualsAndHashCode(callSuper=false)
+public class User extends AbstractEntity implements UserDetails {
+
+  private static final long serialVersionUID = 1L;
+
+  @Column
+  private String username;
+
+  @Column
+  private String password;
+
+  @Column
+  private String fullname;
+
+  @Column(name = "phone_number")
+  private String phoneNumber;
+
+  @ManyToMany(fetch = FetchType.EAGER)
+  @JoinTable(
+    joinColumns = @JoinColumn(name = "user_id"),
+    inverseJoinColumns = @JoinColumn(name = "role_id")
+  )
+  private Set<Role> roles;
+
+  @Embedded
+  @Column
+  private Address address;
+
+  @Override
+  public Collection<? extends GrantedAuthority> getAuthorities() {
+    return this.roles;
+  }
+
+  @Override
+  public boolean isAccountNonExpired() {
+    return true;
+  }
+
+  @Override
+  public boolean isAccountNonLocked() {
+    return true;
+  }
+
+  @Override
+  public boolean isCredentialsNonExpired() {
+    return true;
+  }
+
+  @Override
+  public boolean isEnabled() {
+    return true;
+  }
+  
+} 6-3 한 가지 문제가 더 있는데 Lombok에서 @Data를 사용하는데 User, Role은 recursive관계라서 조심해야 한다. 6-3-0 실행해보면 Stackoverflow가 발생하면서 에러가 엄청나게 올라올 것이다. 대부분의 경우가 Recusive 문제이다. 6-3-1 @Data 적용시 부모 클래스 때문에 발생하는 warning을 처리하기 위해서 6-3-2 @EqualsAndHashCode (callSuper= false )를 붙였는데, 양쪽에 있는 경우 Equals 메소드 만들면서 loop이 생긴다. 6-3-3 한쪽을 끊어 주어야 한다. 여기서는 Role에서만 삭제해 주었다. 6-4 하이버네이트를 다룰 때 loop문제는 정말 주의해야 한다. 6-5 Json변환 시에도 문제가 발생할 수 있음을 생각하고 작업해야 한다. package pe.pilseong.footballserver.model;
+
+import java.util.Set;
+
+import javax.persistence.Entity;
+import javax.persistence.JoinColumn;
+import javax.persistence.JoinTable;
+import javax.persistence.ManyToMany;
+import javax.persistence.Table;
+
+import org.springframework.security.core.GrantedAuthority;
+
+import lombok.Getter;
+import lombok.Setter;
+
+@Entity
+@Table(name = "roles")
+@Getter
+@Setter
+public class Role extends AbstractEntity implements GrantedAuthority {
+
+  private static final long serialVersionUID = 1L;
+
+  private String name;
+
+  @ManyToMany
+  @JoinTable(
+    name = "users_roles",
+    joinColumns = @JoinColumn(name = "role_id"),
+    inverseJoinColumns = @JoinColumn(name = "user_id")
+  )
+  private Set<User> users;
+
+  @Override
+  public String getAuthority() {
+    return name;
+  }
+
+} 7. 결과 7-1 여기까지 정상적으로 코딩이 되었으면, /api/authenticate으로 인증을 해서 jwt를 받을 수 있고, 7-2 받아온 jwt토큰으로 보안 설정된 url의 리소스 접근이 가능할 것이다. 8. 인증 절차에 대한 생각 8-1 허용된 uri - login 같이 authenticaton을 시도하고 성공한 경우 JWT를 발급받는다. 8-2 보안적용된 url - jwt를 filter에서 검증하고 검증되면 해당 보안 url 접근 가능 8-3 filter에서 login과 authentication을 모두 처리하면 좋겠지만 가능한지는 모르겠다. 9. 결과적으로 아래의 구조처럼 돌아가는데 인터넷을 찾아봐도 대부분 유사하게 작성하는 것 같다.

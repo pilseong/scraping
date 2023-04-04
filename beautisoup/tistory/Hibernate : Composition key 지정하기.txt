@@ -1,0 +1,27 @@
+1. 두 개 이상의 키를 조합하여 같이 하난의 고유한 키로 사용하는 방식이다. 2. 스프링 Security의 기본 schema는 아래 다이어그램과 같다. 3. users의 기본키는 username이고 authority는 기본키가 없다. 3-1 ORM을 설정할 때는 키지정은 반드시 필요하므로 authorities 테이블도 지정해야 한다. 3-2 username은 users테이블의 username을 참조하는 외례키로 중복이 허용된다. 3-3 결국 username과 authority를 같이 묶어 primary로 선언해야 한다. 4. 하이버네이트에서 복합키를 설정하는 방법은 여러가지가 있는데, 가장 간단한 방법이 아래와 같다. 4-1 복합키로 묶이는 속성모두에 @Id를 넣어주는 것이다. 이러면 굳이 클래스를 따로 만들 필요가 없다. 4-2 그리고 Serializable을 구현해야 한다. 4-2-1 하나의 Id를 가진 Entity는 기본적으로 Serializable을 상속하지만 둘 이상은 따로 명시해야 한다. package pe.pilseong.customermanagement.entity;
+
+import java.io.Serializable;
+
+import javax.persistence.Column;
+import javax.persistence.Entity;
+import javax.persistence.Id;
+import javax.persistence.Table;
+
+import lombok.Data;
+
+@Entity
+@Table(name = "authorities")
+@Data
+public class Authority implements Serializable {
+  
+  /**
+   * 
+   */
+  private static final long serialVersionUID = -129819940058142473L;
+
+  @Id
+  private String username;
+  
+  @Id
+  private String authority;
+}

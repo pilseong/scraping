@@ -1,0 +1,90 @@
+1 이전에 작성한 것이 있긴 한대 내용이 좀 부실해서 다시 정리한다. 2. 스프링 라이프 사이클은 스프링 컨테이너가 어떻게 스프링 빈을 관리하는지에 대한 내용이다. 3. 인터넷을 찾아보면 위의 라이프 사이클에 맞게 작성한 코드가 있어 언제 호출하는지 확인 할 수 있다. 3-1 아래 수 많은 interface가 구현되고 있다. 각각의 인터페이스는 하나 혹은 두 개 정도의 메소드를 가지고 있다. 3-2 sysout안에 어떤 interface의 메소드인지를 명시하였다. 3-3 Aware 인터페이스는 스프링이 프레임워크의 내부적인 동작을 수정하기 위한 기회를 제공한다. 3-4 InitializingBean, DisposableBean은 이벤트에 따라 실행되는 call back 메소드를 제공한다. 3-5 @PostConstruct, @PreDestory는 annotation으로 지정되면 Lifecycle hook으로 특정시점에 호출하게 된다. 3-5-0 이 두 annotation은 BeanPostProcessor에 의해서 등록되어 실행된다. 3-5-1 @PostConstruct 생성자가 실행 완료 후에 호출한다. 3-5-2 @PreDestory는 컨테이너가 빈을 제거하기 직전에 호출한다. package pe.pilseong.demodi.services;
+
+import org.springframework.beans.BeansException;
+import org.springframework.beans.factory.*;
+import org.springframework.context.ApplicationContext;
+import org.springframework.context.ApplicationContextAware;
+import org.springframework.stereotype.Component;
+
+import javax.annotation.PostConstruct;
+import javax.annotation.PreDestroy;
+
+@Component
+public class LifeCycleDemoBean
+    implements BeanNameAware, BeanFactoryAware, ApplicationContextAware, 
+               InitializingBean, DisposableBean {
+
+  public LifeCycleDemoBean() {
+    System.out.println("1  ## LifeCycleBean Constructor");
+  }
+
+  @Override
+  public void setBeanName(String name) {
+    System.out.println("2  ## [in BeanNameAware] My Bean Name is: " + name);
+  }
+
+  @Override
+  public void setBeanFactory(BeanFactory beanFactory) throws BeansException {
+    System.out.println("3  ## [in BeanFactoryAware] Bean Factory has been set");
+  }
+
+  @Override
+  public void setApplicationContext(ApplicationContext applicationContext) throws BeansException {
+    System.out.println("4  ## [in ApplicationContextAware] Application context has been set");
+  }
+
+  public void beforeInit() {
+    System.out.println("5  ## - [BeanPostProcessor] Before Init - Called by Bean Post Processor");
+  }
+
+  @PostConstruct
+  public void postConstruct() {
+    System.out.println("6  ## [@PostConstruct] The Post Construct annotated method has been called");
+  }
+
+  @Override
+  public void afterPropertiesSet() throws Exception {
+    System.out.println("7  ## [InitializingBean] The LifeCycleBean has its properties set!");
+
+  }
+
+  public void afterInit() {
+    System.out.println("8  ## - [BeanPostProcessor] After init called by Bean Post Processor");
+  }
+
+  @PreDestroy
+  public void preDestroy() {
+    System.out.println("9  ## [@PreDestroy] The Predestroy annotated method has been called");
+  }
+
+  @Override
+  public void destroy() throws Exception {
+    System.out.println("10 ## [DisposableBean] The Lifecycle bean has been terminated");
+  }
+} 3-2 BeanPostProcessor가 역시 라이프사이클에 참여한다. package pe.pilseong.demodi.services;
+
+import org.springframework.beans.BeansException;
+import org.springframework.beans.factory.config.BeanPostProcessor;
+import org.springframework.stereotype.Component;
+
+@Component
+public class CustomBeanPostProcessor implements BeanPostProcessor {
+  @Override
+  public Object postProcessBeforeInitialization(Object bean, String beanName) throws BeansException {
+
+    if (bean instanceof LifeCycleDemoBean) {
+      ((LifeCycleDemoBean) bean).beforeInit();
+    }
+
+    return bean;
+  }
+
+  @Override
+  public Object postProcessAfterInitialization(Object bean, String beanName) throws BeansException {
+    if (bean instanceof LifeCycleDemoBean) {
+      ((LifeCycleDemoBean) bean).afterInit();
+    }
+
+    return bean;
+  }
+} 3-3 실행 결과 4. Spring Aware 인터페이스에 대한 기능은 다음을 참고한다.

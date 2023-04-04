@@ -1,0 +1,154 @@
+1. ResponseStatus는 Controller나 Exception에 사용하여 status 정보를 설정하여 리턴해 준다. * Marks a method or exception class with the status {@link #code} and * {@link #reason} that should be returned. * <p>The status code is applied to the HTTP response when the handler * method is invoked and overrides status information set by other means, * like {@code ResponseEntity} or {@code "redirect:"}. 2. @ExceptionHandler는 Controller 단위로 사용하여 해당 클래스에서 발생하는 Exception을 받아 처리 한다. * Annotation for handling exceptions in specific handler classes and/or * handler methods. * * <p>Handler methods which are annotated with this annotation are allowed to * have very flexible signatures. They may have parameters of the following * types, in arbitrary order: 3. Custom Exception에서 ResponseStatus를 사용할 수 있다. 3-1 해당 Exception이 발생했을 때 자동으로 특정 status를 response에 등록하여 반환해 준다. package pe.pilseong.recipe.exception;
+
+import org.springframework.http.HttpStatus;
+import org.springframework.web.bind.annotation.ResponseStatus;
+
+@ResponseStatus(code = HttpStatus.NOT_FOUND)
+public class NotFoundException extends RuntimeException {
+
+  private static final long serialVersionUID = 1L;
+
+  public NotFoundException() {
+  }
+
+  public NotFoundException(String message) {
+    super(message);
+  }
+
+  public NotFoundException(String message, Throwable cause) {
+    super(message, cause);
+  }
+  
+} 4. Controller에서 @ExceptionHandler는 아래처럼 사용할 수 있다. 4-1 마지막에 정의된 메소드가 ExceptionHandler이다. 4-2 이 메소드가 Exception 클래스 보다 우선한다. 4-2-1 메소드에 @ResponseStatus를 붙이지 않으면 Status가 원하는 대로 설정되지 않는다. 4-2-2 즉 Exception에 정의된 @ResponseStatus는 실행되지 않는다. 4-3 @ExceptionHandler는 특정 view를 실행하도록 설정할 수 있어 ModelAndView를 반환 가능하다. 4-3-1 실체 처리하는 HandlerExceptionResolver는 model을 받지 않는다. 4-3-1-1 하지만 ModelAndView를 사용하면 Model을 template에서 사용할 수 있다. 4-3-2 아래의 코드는 View 404error를 template으로 지정하고 있다. package pe.pilseong.recipe.controller;
+
+import org.springframework.http.HttpStatus;
+import org.springframework.stereotype.Controller;
+import org.springframework.ui.Model;
+import org.springframework.web.bind.annotation.ExceptionHandler;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.ModelAttribute;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.ResponseStatus;
+import org.springframework.web.servlet.ModelAndView;
+
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import pe.pilseong.recipe.command.RecipeCommand;
+import pe.pilseong.recipe.coverter.RecipeToRecipeCommand;
+import pe.pilseong.recipe.domain.Recipe;
+import pe.pilseong.recipe.exception.NotFoundException;
+import pe.pilseong.recipe.service.RecipeService;
+
+@Controller
+@RequiredArgsConstructor
+@RequestMapping("/recipe")
+@Slf4j
+public class RecipeController {
+  
+  private final RecipeService recipeService;
+  private final RecipeToRecipeCommand commandConverter;
+
+
+  @GetMapping("/{id}/show")
+  public String showById(@PathVariable("id") Long id, Model model) {
+
+    log.debug("showById in RecipeController with id :: " + id);
+    
+    Recipe recipe = recipeService.findById(id);
+    model.addAttribute("recipe", recipe);
+
+    return "recipe/show";
+  }
+
+  @GetMapping("/new")
+  public String newRecipe(Model model) {
+    RecipeCommand command = new RecipeCommand();
+    command.setDirections("I love you");
+
+    model.addAttribute("recipe", command);
+    return "recipe/recipeForm";
+  }
+
+  @PostMapping("/")
+  public String saveOrUpdate(@ModelAttribute("recipe") RecipeCommand command) {
+    log.debug(command.toString());
+    if (this.commandConverter == null) log.debug("converter is null");
+
+    RecipeCommand savedCommand = recipeService.saveRecipeCommand(command);
+
+    return "redirect:/recipe/" + savedCommand.getId() + "/show";
+  }
+  
+  @GetMapping("/{id}/update")
+  public String showUpdateRecipe(@PathVariable("id") Long id, Model model) {
+    model.addAttribute("recipe", recipeService.findCommandById(id));
+
+    return "recipe/recipeForm";
+  }
+
+  @GetMapping("/{id}/delete")
+  public String deleleById(@PathVariable("id") Long id) {
+    recipeService.deleteById(id);
+    return "redirect:/";
+  }
+
+  @ResponseStatus(HttpStatus.NOT_FOUND)
+  @ExceptionHandler(NotFoundException.class)
+  public ModelAndView handleNotFound(Exception exception) {
+    log.error("Handling not found Exception");
+    log.error(exception.getMessage());
+
+    ModelAndView mav = new ModelAndView();
+
+    mav.setViewName("404error");
+    mav.addObject("exception", exception);
+
+    return mav;
+  }
+} 4-4 HandlerExceptionResolver 인터페이스는 다음과 같다. 4-4-1 VS Code에서 라이브러리에 존재하는 클래스를 조회하는 방법은 ctrl+t 를 눌러서 검색창에 조회가능하다. package org.springframework.web.servlet;
+
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
+
+import org.springframework.lang.Nullable;
+
+/**
+ * Interface to be implemented by objects that can resolve exceptions thrown
+ * during handler mapping or execution, in the typical case to error views.
+ * Implementors are typically registered as beans in the application context.
+ *
+ * <p>
+ * Error views are analogous to JSP error pages but can be used with any kind of
+ * exception including any checked exception, with potentially fine-grained
+ * mappings for specific handlers.
+ *
+ * @author Juergen Hoeller
+ * @since 22.11.2003
+ */
+public interface HandlerExceptionResolver {
+
+  /**
+   * Try to resolve the given exception that got thrown during handler execution,
+   * returning a {@link ModelAndView} that represents a specific error page if
+   * appropriate.
+   * <p>
+   * The returned {@code ModelAndView} may be {@linkplain ModelAndView#isEmpty()
+   * empty} to indicate that the exception has been resolved successfully but that
+   * no view should be rendered, for instance by setting a status code.
+   * 
+   * @param request  current HTTP request
+   * @param response current HTTP response
+   * @param handler  the executed handler, or {@code null} if none chosen at the
+   *                 time of the exception (for example, if multipart resolution
+   *                 failed)
+   * @param ex       the exception that got thrown during handler execution
+   * @return a corresponding {@code ModelAndView} to forward to, or {@code null}
+   *         for default processing in the resolution chain
+   */
+  @Nullable
+  ModelAndView resolveException(HttpServletRequest request, 
+    HttpServletResponse response, @Nullable Object handler, Exception ex);
+
+}

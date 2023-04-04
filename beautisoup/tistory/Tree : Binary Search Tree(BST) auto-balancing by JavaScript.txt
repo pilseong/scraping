@@ -1,0 +1,521 @@
+1. 자바 스크립트로 만든 간단한 BST 트리이다. 2. 필요한 대부분의 기능은 작성되어 있지만 빠진 기능이 있을 수도 있다. 3. 구현하는데 생각보다 시간이 많이 걸린다. 재귀적 사고가 많이 요구된다. const readlineSync = require('readline-sync');
+
+
+// tail  ----->   head
+class Queue {
+  constructor() {
+    this.head = null;
+    this.tail = null;
+    this.size = 0;
+  }
+
+  // put data from tail
+  enqueue(data) {
+    const node = new Node(data);
+    if (this.isEmpty()) {
+      this.head = node;
+      this.tail = node;
+    } else {
+      this.tail.next = node;
+      this.tail = node;
+    }
+    this.size++;
+  }
+
+  // fetch data from head
+  dequeue() {
+    if (!this.isEmpty()) {
+      let returnNode = this.head;
+
+      if (this.size === 1) {
+        this.head = null;
+        this.tail = null;
+      } else {
+        this.head = this.head.next;
+      }
+      returnNode.next = null;
+      this.size--;
+
+      return returnNode.data;
+    }
+  }
+
+  isEmpty() {
+    return this.size === 0 ? true : false;
+  }
+}
+
+// [    <----
+class Stack {
+  constructor() {
+    this.head = null;
+    this.tail = null;
+    this.size = 0;
+  }
+
+  // put data to the head
+  push(data) {
+    const node = new Node(data);
+    if (this.isEmpty()) {
+      this.head = node;
+      this.tail = node;
+    } else {
+      node.next = this.head;
+      this.head = node;
+    }
+    this.size++;
+  }
+
+  //fetch data from the head
+  pop() {
+    if (!this.isEmpty()) {
+      const returnNode = this.head;
+      if (this.size === 1) {
+        this.head = null;
+        this.tail = null;
+      } else {
+        this.head = this.head.next;
+      }
+      this.size--;
+      returnNode.next = null;
+      return returnNode.data;
+    }
+  }
+
+  peek() {
+    if (this.head !== null)
+      return this.head.data;
+    return null;
+  }
+
+  isEmpty() {
+    return this.size === 0 ? true : false;
+  }
+}
+
+class Node {
+  constructor(data) {
+    this.data = data;
+    this.next = null;
+  }
+}
+
+class BinaryTree {
+
+  constructor() {
+    this.root = null;
+  }
+
+  create() {
+    const queue = new Queue();
+    let input = readlineSync.question("Value of Root: ");
+    this.root = new TreeNode(+input);
+    queue.enqueue(this.root);
+
+    let cur = null;
+    while (!queue.isEmpty()) {
+      cur = queue.dequeue();
+      input = readlineSync.question(`Left value of ${cur.data}: `);
+      if (+input !== -1) {
+        cur.left = new TreeNode(+input);
+        queue.enqueue(cur.left);
+      }
+
+      input = readlineSync.question(`Right value of ${cur.data}: `);
+      if (+input !== -1) {
+        cur.right = new TreeNode(+input);
+        queue.enqueue(cur.right);
+      }
+    }
+  }
+
+  inorderRecursive(node) {
+    if (node === null) return;
+
+    this.inorderRecursive(node.left);
+    console.log(node.data);
+    this.inorderRecursive(node.right);
+  }
+
+  inorderIterative() {
+    let cur = this.root;
+    const stack = new Stack();
+
+    while (cur !== null || !stack.isEmpty()) {
+      if (cur !== null) {
+        stack.push(cur);
+        cur = cur.left;
+      } else {
+        cur = stack.pop();
+        console.log(cur.data);
+        cur = cur.right;
+      }
+    }
+  }
+
+  preorderRecursive(node) {
+    if (node === null) return;
+
+    console.log(node.data);
+    this.preorderRecursive(node.left);
+    this.preorderRecursive(node.right);
+  }
+
+  preorderIterative() {
+    let cur = this.root;
+    const stack = new Stack();
+
+    while (cur !== null || !stack.isEmpty()) {
+      if (cur !== null) {
+        console.log(cur.data);
+        stack.push(cur);
+        cur = cur.left;
+      } else {
+        cur = stack.pop();
+        cur = cur.right;
+      }
+    }
+  }
+
+  postorderRecursive(node) {
+    if (node === null) return;
+
+    this.postorderRecursive(node.left);
+    this.postorderRecursive(node.right);
+    console.log(node.data);
+  }
+
+  postorderIterative() {
+    let cur = this.root;
+    let node = null;
+    const stack = new Stack();
+
+    while (cur !== null || !stack.isEmpty()) {
+      if (cur !== null) {
+        stack.push({ cur, order: 1 });
+        cur = cur.left;
+      } else {
+        node = stack.pop();
+        cur = node.cur;
+
+        if (node.order === 1) {
+          stack.push({ cur, order: 2 });
+          cur = cur.right;
+        } else if (node.order === 2) {
+          console.log(cur.data);
+          // cur has to set to be null. because if the node has taken second time, 
+          // cur is directing some node. not null
+          cur = null;
+        }
+      }
+    }
+  }
+}
+
+
+class TreeNode {
+  constructor(data) {
+    this.data = data;
+    this.height = 1;
+    this.left = null;
+    this.right = null;
+  }
+}
+
+// Binary Search Tree with Auto-balancing
+// AVL Tree
+class BinarySearchTree {
+  constructor() {
+    this.root = null;
+  }
+
+  search(node, key) {
+    if (node === null) return;
+
+    if (node.data === key) {
+      return node;
+    } else if (node.data > key) {
+      return this.search(node.left, key);
+    } else if (node.data < key) {
+      return this.search(node.right, key);
+    }
+  }
+
+  insert(node, data) {
+    if (node === null) {
+      return new TreeNode(data);
+    }
+
+    if (data > node.data) {
+      node.right = this.insert(node.right, data);
+    } else {
+      node.left = this.insert(node.left, data);
+    }
+
+    node.height = this.getHeighWhenCreation(node);
+    console.log(`Height: ${node.height} and input is ${data}`)
+
+      //     *
+      //   *   
+      // *    *
+      //    * 
+    // to balance Binary Search Tree, balance factor is necessary
+    // After the ratation, the node connected to parent has to change
+    if (this.getBalanceFactor(node) === 2 && node.left !== null && this.getBalanceFactor(node.left) === 1) {
+      node = this.LLRotation(node);
+    } else if (this.getBalanceFactor(node) === 2 && node.left !== null && this.getBalanceFactor(node.left) === -1) {
+      node = this.LRRotation(node);
+    } else if (this.getBalanceFactor(node) === -2 && node.right !== null && this.getBalanceFactor(node.right) === -1)  {
+      node = this.RRRotation(node);
+    } else if (this.getBalanceFactor(node) === -2 && node.right !== null && this.getBalanceFactor(node.right) === 1) {
+      node = this.RLRotation(node);
+    }
+    return node;
+  }
+
+  getBalanceFactor(node) {
+    const leftHeight = node.left !== null ? node.left.height : 0;
+    const rightHeight = node.right !== null ? node.right.height : 0;
+
+    var gap = leftHeight - rightHeight
+    console.log(`gap : ${gap}`)
+    return gap;
+  }
+
+  LLRotation(node) {
+    console.log('LLR')
+    let p = node;
+    let pl = node.left;
+    p.left = pl.right;
+    pl.right = p;
+
+    // we need to recalculate the node with the balance factor with 2
+    p.height = this.getHeighWhenCreation(p);
+    pl.height = this.getHeighWhenCreation(pl)
+    
+    return pl;
+  }
+
+  LRRotation(node) {
+    console.log('LRR')
+    let p = node;
+    let pl = p.left;
+    let plr = pl.right;
+    
+    p.left = plr.right;
+    pl.right = plr.left;
+    plr.right = p;
+    plr.left = pl;
+
+    p.height = this.getHeighWhenCreation(p);
+    pl.height = this.getHeighWhenCreation(pl);
+    plr.height = this.getHeighWhenCreation(plr);
+
+    return plr;    
+  }
+
+  RRRotation(node) {
+    console.log('RRR')
+    let p = node;
+    let pr = node.right;
+    p.right = pr.left;
+    pr.left = p;
+
+    // we need to recalculate the node with the balance factor with 2
+    p.height = this.getHeighWhenCreation(p);
+    pr.height = this.getHeighWhenCreation(pr);
+    return pr;
+  }
+
+  RLRotation(node) {
+    console.log('RLR')
+    let p = node;
+    let pr = p.right;
+    let prl =  pr.left;
+
+    p.right = prl.left;
+    pr.left = prl.right;
+    prl.left = p;
+    prl.right = pr;
+
+    p.height = this.getHeighWhenCreation(p);
+    pr.height = this.getHeighWhenCreation(pr);
+    prl.height =this.getHeighWhenCreation(prl);
+
+    return prl;
+  }
+
+  // get the height from the children and plus one
+  getHeighWhenCreation(node) {
+    
+    const leftHeight = node.left !== null ? node.left.height : 0;
+    const rightHeight = node.right !== null ? node.right.height : 0;
+
+    node.height = leftHeight > rightHeight ? leftHeight : rightHeight;
+
+    return node.height + 1;
+  }
+
+  // get the height in any position
+  getHeight(node) {
+    if (node === null) return 0;
+
+    const leftHeight = this.getHeight(node.left);
+    const rightHeight = this.getHeight(node.right);
+
+    return leftHeight > rightHeight ? leftHeight + 1 : rightHeight + 1;
+  }
+
+  travsersePreorder(node) {
+    if (node === null) return;
+
+    console.log(node.data);
+    this.travsersePreorder(node.left);
+    this.travsersePreorder(node.right);
+  }
+
+  getInPost(node) {
+    let cur = node;
+
+    while (cur !== null && cur.left !== null) {
+      cur = cur.left;
+    }
+
+    return cur;
+  }
+
+  getInPre(node) {
+    let cur = node;
+
+    while (cur !== null && cur.right !== null) {
+      cur = cur.right;
+    }
+
+    return cur;
+  }
+
+  delete(node, key) {
+    // end conditin
+    if (node === null) return null;
+
+    // deletion phase
+    if (node.data === key && node.left === null && node.right === null) {
+      if (node === this.root) {
+        this.root = null;
+      }
+      node = null;
+      return null;
+    }
+
+    // searching phase
+    if (node.data > key) {
+      node.left = this.delete(node.left, key);
+    } else if (node.data < key) {
+      node.right = this.delete(node.right, key);
+    } else {
+      // pick up the longer side node
+      if (this.getHeight(node.left) > this.getHeight(node.right)) {
+        const pre = this.getInPre(node.left);
+        node.data = pre.data;
+        node.left = this.delete(node.left, pre.data);
+      } else {
+        const post = this.getInPost(node.right);
+        node.data = post.data;
+        node.right = this.delete(node.right, post.data);
+      }
+    }
+    return node;
+  }
+
+  // create BST only with preorder array
+  // myBST.createBSTWithPreorder([20, 10, 5, 15, 30, 35]);
+  createBSTWithPreorder(arr) {
+    const stack = new Stack();
+
+    // the first node is root
+    this.root = new TreeNode(arr[0]);
+    let cur = this.root;
+    let index = 1;
+
+    // from 1 to the last value in the array
+    while (index < arr.length) {
+      // if the new value is less than the current node, 
+      // then make a new node to the left of current and push current node to the stack.
+      // and change the current position to the newly created node
+      // the process finished, so the index has to be increased
+      if (arr[index] < cur.data) {
+        cur.left = new TreeNode(arr[index++]);
+        stack.push(cur);
+        cur = cur.left;
+      }
+      // if the new value is larger than current node,
+      // then compare this node with the value of the parent node,
+      else {
+        // if the value is less than parent, then make a new node and put it to the left of current node.
+        // if there is no parent in stack, then it regards as infinity
+        // and change the position to the newly created node
+        // the process finished, so the index has to be increased.
+        const top = stack.peek();
+        if (top === null || arr[index] < top.data) {
+          cur.right = new TreeNode(arr[index++]);
+          cur = cur.right;
+        // if the value is larger than parent node, 
+        // then pop the parent from the stack and change the position to the parent node.
+        // then compare the new value with the parent of the parent.
+        } else {
+          cur = stack.pop();
+        }
+      }
+    }
+  }
+}
+
+const myBST = new BinarySearchTree();
+// myBST.createBSTWithPreorder([20, 10, 5, 15, 30, 35]);
+// console.log(JSON.stringify(myBST));
+
+myBST.root = myBST.insert(myBST.root, 20);
+myBST.insert(myBST.root, 10);
+myBST.insert(myBST.root, 30);
+myBST.insert(myBST.root, 15);
+myBST.insert(myBST.root, 5);
+myBST.insert(myBST.root, 35);
+myBST.insert(myBST.root, 3);
+myBST.insert(myBST.root, 1);
+myBST.insert(myBST.root, 40);
+myBST.insert(myBST.root, 37);
+myBST.insert(myBST.root, 7);
+myBST.insert(myBST.root, 17);
+myBST.insert(myBST.root, 16);
+
+myBST.travsersePreorder(myBST.root);
+
+
+console.log(JSON.stringify(myBST));
+
+// myBST.delete(myBST.root, 6);
+// myBST.delete(myBST.root, 20);
+// myBST.delete(myBST.root, 30);
+// myBST.delete(myBST.root, 10);
+// console.log("\n\n")
+// console.log(JSON.stringify(myBST));
+
+// console.log(myBST.search(myBST.root, 11));
+// console.log(myBST.getHeight(myBST.root));
+
+
+// const myTree = new BinaryTree();
+// myTree.create();
+
+// console.log("--- inorder ---")
+// myTree.inorderRecursive(myTree.root);
+// console.log("--- preorder ---")
+// myTree.preorderRecursive(myTree.root);
+// console.log("--- postorder ---")
+// myTree.postorderRecursive(myTree.root);
+// console.log("-- inorder iterative ---")
+// myTree.inorderIterative();
+// console.log("-- preorder iterative ---")
+// myTree.preorderIterative();
+// console.log("-- postorder iterative ---")
+// myTree.postorderIterative();

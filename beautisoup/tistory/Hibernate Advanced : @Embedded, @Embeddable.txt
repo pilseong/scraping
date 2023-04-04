@@ -1,0 +1,316 @@
+1. 이 포스트는 반복되는 형태의 저장 속성에 효율적으로 사용가능한 @Embedded 관한 포스팅이다. 2. 하이버네이트는 다룰 수 있는 Type을 Entity와 그 외로 나눌 수 있다. 2-1 Entity는 데이터베이스 테이블을 표현하는 하나의 자바클래스로 @Entity로 수식하고 테이블로 인식한다. 2-2 그 외로 Value값 String, Integer, Double 같은 일반적인 자바와 데이터베이스의 값들이 있다. 3. Value 값들의 분류 3-1 일반적인 String ,Integer, Double, Date 같은 데이터베이스의 속성 값들 3-2 두번째는 @ElementCollection을 사용하는 Collection 2-4 마지막으로는 이런 Value 값들의 집합인 Embedded 4. Embedded는 value값들의 집합으로 값들의 모음일 뿐이다. 4-1 자바에서는 반복되는 형식을 클래스로 표현할 수 있고 편리하게 사용할 수 있다. 4-2 배송정보, 과금정보, 거주지, 회사주소, 이런 중복되는 데이터는 Address 클래스로 따로 뽑을 수 있다. 4-3 부모데이터베이스와 Embeddable 데이터베이스는 has관계를 가진다. 5. Annotation  설명 5-1 @Embeddable - 클래스에 붙여지는 것으로 이 클래스는 Entity에 집어 넣을 수 있다는 의미다. 5-2 @Embedded - 속성값에 붙이고 @Embeddable이 붙은 클래스의 속성을 사용한다. 없어도 동작한다. 6. 프로젝트 생성 6-1 maven archetype quickstart 1.4로 생성하였다. 6-2 hibernate-core, mysql-connector-java, lombok 라이브러리를 추가한다. <?xml version="1.0" encoding="UTF-8"?>
+
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <groupId>pe.pilseong</groupId>
+  <artifactId>hibernate_embedded</artifactId>
+  <version>0.0.1-SNAPSHOT</version>
+
+  <name>hibernate_embedded</name>
+
+  <properties>
+    <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+    <maven.compiler.source>11</maven.compiler.source>
+    <maven.compiler.target>11</maven.compiler.target>
+  </properties>
+
+  <dependencies>
+    <dependency>
+      <groupId>org.hibernate</groupId>
+      <artifactId>hibernate-core</artifactId>
+      <version>5.4.17.Final</version>
+    </dependency>
+
+    <dependency>
+      <groupId>mysql</groupId>
+      <artifactId>mysql-connector-java</artifactId>
+      <version>8.0.20</version>
+    </dependency>
+
+    <dependency>
+      <groupId>org.projectlombok</groupId>
+      <artifactId>lombok</artifactId>
+      <version>1.18.12</version>
+      <scope>provided</scope>
+    </dependency>
+  
+    <dependency>
+      <groupId>junit</groupId>
+      <artifactId>junit</artifactId>
+      <version>4.11</version>
+      <scope>test</scope>
+    </dependency>
+  </dependencies>
+
+  <build>
+    <pluginManagement><!-- lock down plugins versions to avoid using Maven defaults (may be moved to parent pom) -->
+      <plugins>
+        <!-- clean lifecycle, see https://maven.apache.org/ref/current/maven-core/lifecycles.html#clean_Lifecycle -->
+        <plugin>
+          <artifactId>maven-clean-plugin</artifactId>
+          <version>3.1.0</version>
+        </plugin>
+        <!-- default lifecycle, jar packaging: see https://maven.apache.org/ref/current/maven-core/default-bindings.html#Plugin_bindings_for_jar_packaging -->
+        <plugin>
+          <artifactId>maven-resources-plugin</artifactId>
+          <version>3.0.2</version>
+        </plugin>
+        <plugin>
+          <artifactId>maven-compiler-plugin</artifactId>
+          <version>3.8.0</version>
+        </plugin>
+        <plugin>
+          <artifactId>maven-surefire-plugin</artifactId>
+          <version>2.22.1</version>
+        </plugin>
+        <plugin>
+          <artifactId>maven-jar-plugin</artifactId>
+          <version>3.0.2</version>
+        </plugin>
+        <plugin>
+          <artifactId>maven-install-plugin</artifactId>
+          <version>2.5.2</version>
+        </plugin>
+        <plugin>
+          <artifactId>maven-deploy-plugin</artifactId>
+          <version>2.8.2</version>
+        </plugin>
+        <!-- site lifecycle, see https://maven.apache.org/ref/current/maven-core/lifecycles.html#site_Lifecycle -->
+        <plugin>
+          <artifactId>maven-site-plugin</artifactId>
+          <version>3.7.1</version>
+        </plugin>
+        <plugin>
+          <artifactId>maven-project-info-reports-plugin</artifactId>
+          <version>3.0.0</version>
+        </plugin>
+      </plugins>
+    </pluginManagement>
+  </build>
+</project> 6-3 데이터베이스 연결을 위한 hibernate.cfg.xml파일을 classpath:root에 복사한다. 6-3-1 클래스 패스로 가장 편한 곳이 src/main/java 폴더이다. <!DOCTYPE hibernate-configuration PUBLIC
+        "-//Hibernate/Hibernate Configuration DTD 3.0//EN"
+        "http://www.hibernate.org/dtd/hibernate-configuration-3.0.dtd">
+
+<hibernate-configuration>
+
+  <session-factory>
+
+    <!-- JDBC Database connection settings -->
+      <property name="connection.driver_class">com.mysql.cj.jdbc.Driver</property>
+      <property name="connection.url">jdbc:mysql://localhost:3306/advanced_hibernate?useSSL=false&amp;serverTimezone=Asia/Seoul</property>
+      <property name="connection.username">root</property>
+      <property name="connection.password">rort</property>
+
+    <!-- JDBC connection pool settings ... using built-in test pool -->
+      <property name="connection.pool_size">1</property>
+
+    <!-- Select our SQL dialect -->
+      <property name="dialect">org.hibernate.dialect.MySQL8Dialect</property>
+
+    <!-- Echo the SQL to stdout -->
+      <property name="show_sql">true</property>
+      
+      <property name="hibernate.hbm2ddl.auto">create</property>
+
+    <!-- Set the current session context -->
+      <property name="current_session_context_class">thread</property>
+
+  </session-factory>
+
+</hibernate-configuration> 7. 코드 작성 7-1 Student Entity 7-1-1 @Embedded로 Address를 정의하고 있다. 7-1-2 인자 3개 짜리 생성자를 사용하고 있으므로 @NoArgsConstructor를 붙여야 한다. package pe.pilseong.hibernate_embedded.entity;
+
+import javax.persistence.Column;
+import javax.persistence.Embedded;
+import javax.persistence.Entity;
+import javax.persistence.GeneratedValue;
+import javax.persistence.GenerationType;
+import javax.persistence.Id;
+import javax.persistence.Table;
+
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+@Entity
+@Table(name = "student")
+@Data
+@NoArgsConstructor
+public class Student {
+  
+  @Id
+  @GeneratedValue(strategy = GenerationType.IDENTITY)
+  private Long id;
+  
+  @Column(name = "first_name")
+  private String firstName;
+  
+  @Column(name = "last_name")
+  private String lastName;
+  
+  @Column(name = "email")
+  private String email;
+  
+  @Embedded
+  private Address address;
+
+  public Student(String firstName, String lastName, String email) {
+    this.firstName = firstName;
+    this.lastName = lastName;
+    this.email = email;
+  }
+} 7-2 Address Embeddable Value 7-2-0 클래스 선언 위에 @Embeddable을 지정한다. 7-2-1 Value클래스이기 때문에 @Id같은 것은 들어올 수 없다. 7-2-2 인자 4개 짜리 생성자이기 때문에 @NoArgsConstructor가 있어야 한다. package pe.pilseong.hibernate_embedded.entity;
+
+import javax.persistence.Column;
+import javax.persistence.Embeddable;
+
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+@Embeddable
+@Data
+@NoArgsConstructor
+public class Address {
+
+  @Column(name = "street")
+  private String street;
+  
+  @Column(name = "city")
+  private String city;
+  
+  @Column(name = "state")
+  private String state;
+  
+  @Column(name = "country")
+  private String country;
+
+  public Address(String street, String city, String state, String country) {
+    this.street = street;
+    this.city = city;
+    this.state = state;
+    this.country = country;
+  } 
+} 8. 실행결과 8-1 실행코드 package pe.pilseong.hibernate_embedded;
+
+import org.hibernate.Session;
+import org.hibernate.SessionFactory;
+import org.hibernate.cfg.Configuration;
+
+import pe.pilseong.hibernate_embedded.entity.Address;
+import pe.pilseong.hibernate_embedded.entity.Student;
+
+/**
+ * Hello world!
+ *
+ */
+public class App {
+  public static void main(String[] args) {
+    SessionFactory factory = new Configuration().configure()
+        .addAnnotatedClass(Student.class)
+        .buildSessionFactory();
+    
+    Session session = factory.getCurrentSession();
+    
+    session.beginTransaction();
+    
+    Student student = new Student("Pilseong", "Heo", "heops79@gmail.com");
+    Address address = new Address("siminro gold", "Seongnam", "Gyeunggi", "South Korea");
+    
+    student.setAddress(address);
+    
+    session.save(student);
+    
+    session.getTransaction().commit();
+    factory.close();
+   
+  }
+} 8-2 테이블 결과 8-3 테이블 구조 9. 재활용 예시 9-1 Shipping Entity 작성 9-1-1 기존의 Address을 재사용하고 있는데 Entity에서 사용될 이름을 변경하여 지정하고 있다. 9-1-2 name에는 기존 속성이름, @Column(name 에는 사용을 원하는 속성이름을 입력한다. package pe.pilseong.hibernate_embedded.entity;
+
+import javax.persistence.AttributeOverride;
+import javax.persistence.AttributeOverrides;
+import javax.persistence.Column;
+import javax.persistence.Embedded;
+import javax.persistence.Entity;
+import javax.persistence.GeneratedValue;
+import javax.persistence.GenerationType;
+import javax.persistence.Id;
+import javax.persistence.Table;
+
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+@Entity
+@Table(name = "shipping_product")
+@Data
+@NoArgsConstructor
+public class Shipping {
+  
+  @Id
+  @GeneratedValue(strategy = GenerationType.IDENTITY)
+  private Long id;
+  
+  @Embedded
+  @AttributeOverrides({
+    @AttributeOverride(name="street", 
+                       column=@Column(name = "shipping_street")),
+    @AttributeOverride(name="city", 
+                       column=@Column(name = "shipping_city")),
+    @AttributeOverride(name="state", 
+                      column=@Column(name = "shipping_state")),
+    @AttributeOverride(name="country", 
+                      column=@Column(name = "shipping_country"))
+  }) 
+  private Address address;
+  
+  @Column(name = "product_name")
+  private String product;
+  
+  @Column(name = "quantity")
+  private Integer quantity;
+
+  public Shipping(Address address, String product, Integer quantity) {
+    this.address = address;
+    this.product = product;
+    this.quantity = quantity;
+  }  
+} 9-2 실행코드 9-2-1 하나의 주소를 생성하고 student entity와 shipping entity에 모두 사용하고 있다. package pe.pilseong.hibernate_embedded;
+
+import org.hibernate.Session;
+import org.hibernate.SessionFactory;
+import org.hibernate.cfg.Configuration;
+
+import pe.pilseong.hibernate_embedded.entity.Address;
+import pe.pilseong.hibernate_embedded.entity.Shipping;
+import pe.pilseong.hibernate_embedded.entity.Student;
+
+/**
+ * Hello world!
+ *
+ */
+public class App {
+  public static void main(String[] args) {
+    SessionFactory factory = new Configuration().configure()
+        .addAnnotatedClass(Student.class)
+        .addAnnotatedClass(Shipping.class)
+        .buildSessionFactory();
+    
+    Session session = factory.getCurrentSession();
+    
+    session.beginTransaction();
+    
+    Student student = new Student("Pilseong", "Heo", "heops79@gmail.com");
+    Address address = new Address("siminro gold", "Seongnam", "Gyeunggi", "South Korea");
+    
+    Shipping shipping = new Shipping(address, "computer", 5);
+    
+    student.setAddress(address);
+    
+    session.save(student);
+    
+    session.save(shipping);
+    
+    session.getTransaction().commit();
+    factory.close();
+   
+  }
+} 9-3 테이블 결과 9-4 테이블 구조

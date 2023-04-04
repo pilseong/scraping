@@ -1,0 +1,106 @@
+1. 이 포스트는 Spring AOP with Java Config - @Pointcut annotation의 연속이다. 2. point cut의 조합은 2-1 하나의 advice 메소드에 여러 개의 point cut expression을 적용하거나 2-2 특정한 조건에서만 실행하도록 메소드를 정의할 수 있다. 2-3 조합에는 &&, ||, ! 논리 연산자를 사용할 수 있다. 2-4 논리 연산자의 조합은 if statement처럼 처리되며 true일 경우만 실행대상이 된다. // and 연산
+@Before("expressionOne() && expressionTwo()")
+
+// or 연산
+@Before("expressionOne() || expressionTwo()")
+
+// and와 !연산
+@Before("expressionOne() && !expressionTwo()") 3. 아래는 조합의 예로 특정 패키지에서 getter와 setter를 제외한 모든 함수가 실행되는 보여준다. 3-1 아래의 소스처럼 패키지 내의 모든 메소드를 포함하는 forDAOPackage() 3-2 패키지 내의 모든 get으로 시작되는 메소드를 선택하는 getter() 3-3 패키지 내의 모든 set으로 시작되는 메소드를 선택하는 setter() 3-4 @Before로 수식된 advice에서 모든 메스드 중에서 get이나 set으로 시작하는 메소드를 제외하는 로직을 사용 3-5 결과는 getAccount 메소드 실행 시에만 @Before advice가 실행되지 않았음을 알 수 있다. @Aspect
+@Component
+public class LoggingAspect {
+
+//  @Before(value = "execution(public void addAccount())")
+//  @Before(value = "execution(public void add*())")
+//  @Before(value="execution(boolean add*())")
+//  @Before(value="execution(* add*())")
+//  @Before(value="execution(* add*(pe.pilseong.spring_aop_review.Account))")
+//  @Before(value="execution(* add*(pe.pilseong.spring_aop_review.Account, ..))")
+//  @Before(value="execution(* add*(..))")
+//  @Before("execution(* pe.pilseong.spring_aop_review.dao.*.*(..))")
+//  public void beforeAddAccountAdvice() {
+//    System.out.println("\nExecuting @Before advice on pe.pilseong.spring_aop_review.dao.*.*(..)");
+//  }
+
+  @Pointcut(value = "execution(* pe.pilseong.spring_aop_review.dao.*.*(..))")
+  public void forDAOPackage() {}
+  
+  @Pointcut(value = "execution(* pe.pilseong.spring_aop_review.dao.*.get*(..))")
+  public void getter() {}
+  
+  @Pointcut(value = "execution(* pe.pilseong.spring_aop_review.dao.*.set*(..))")
+  public void setter() {}
+  
+  @Before(value = "forDAOPackage() && !(getter() || setter())")
+  public void beforeAdvice() {
+    System.out.println("\nExecuting in beforeAdvice @Before advice on forDAOPackage() && !(getter() || setter())");
+  }
+}
+
+
+// 더미 DAO 클래스 1
+@Component
+public class AccountDAO {
+  public void addAccount(Account account, boolean flag) {
+    System.out.println(getClass() + ": addAccount() with Account, boolean Parameter. Doing my DB work: Adding an account\n");
+  }
+  
+  public Account getAccount() {
+    System.out.println(getClass() + ": getAccount() with No Parameter. Doing my DB work: getting an account\n");
+    return null;
+  }
+}
+
+// 더미 DAO 클래스 2
+@Component
+public class MembershipDAO { 
+  public void membership() {
+    System.out.println(getClass() + ": membership() with No parameter. Doing my DB work: membership method is doing something \n\n");
+  }
+}
+
+// 실행 클래스
+public class App {
+  public static void main(String[] args) {
+    AnnotationConfigApplicationContext context = 
+        new AnnotationConfigApplicationContext(JavaConfig.class);
+    
+    AccountDAO accountDAO = context.getBean("accountDAO", AccountDAO.class);
+    accountDAO.getAccount();
+    
+    Account account = new Account();
+    accountDAO.addAccount(account, true);
+    
+    MembershipDAO membershipDAO = context.getBean("membershipDAO", MembershipDAO.class);
+    
+    membershipDAO.membership();
+    
+    context.close();
+  }
+}
+
+// 실행 결과
+
+class pe.pilseong.spring_aop_review.dao.AccountDAO: getAccount() with No Parameter. Doing my DB work: getting an account
+
+
+Executing in beforeAdvice @Before advice on forDAOPackage() && !(getter() || setter())
+class pe.pilseong.spring_aop_review.dao.AccountDAO: addAccount() with Account, boolean Parameter. Doing my DB work: Adding an account
+
+
+Executing in beforeAdvice @Before advice on forDAOPackage() && !(getter() || setter())
+class pe.pilseong.spring_aop_review.dao.MembershipDAO: membership() with No parameter. Doing my DB work: membership method is doing something 3-6 위의 Aspect 클래스는 아래처럼 @Pointcut을 추가하여 표현할 수 있다. 3-6-1 @Pointcut에 논리 연산을 지정한 메소드를 추가로 선언하고 3-6-2 그 메소드를 @Before에 지정할 수도 있다. 결과는 동일하다. @Pointcut(value = "execution(* pe.pilseong.spring_aop_review.dao.*.*(..))")
+  public void forDAOPackage() {}
+  
+  @Pointcut(value = "execution(* pe.pilseong.spring_aop_review.dao.*.get*(..))")
+  public void getter() {}
+  
+  @Pointcut(value = "execution(* pe.pilseong.spring_aop_review.dao.*.set*(..))")
+  public void setter() {}
+  
+  @Pointcut(value = "forDAOPackage() && !(getter() || setter())")
+  public void forDAOPackageNoGetterSetter() {}
+  
+  @Before(value = "forDAOPackageNoGetterSetter()")
+  public void beforeAdvice() {
+    System.out.println("\nExecuting in beforeAdvice @Before advice on forDAOPackage() && !(getter() || setter())");
+  }

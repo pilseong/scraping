@@ -1,0 +1,129 @@
+1. 이 포스트는 스프링 부트 3에서의 보안 설정에 관한 내용으로 세부적인 것보다는 전반적인 것을 설명한다. 2. 이 포스트를 적는 이유는 스프링 보안이 세부적으로 들어가면 상당히 복잡해 보이는데 실제로는 그렇지 않다. 3. 세부적인 내용을 설명하는 포스트는 많지만 개괄을 제대로 설명하는 글이 없어서 적어본다. 4. 스프링 보안의 가장 기본은 FilterChainProxy와 DelegatingFilterProxy이다. 4. 보안 처리 요청은 실제 DelegatingFilterProxy는 등록된 FilterChainProxy을 사용하여 실제 보안 처리를 수행하게 된다. 아래의 delegate가 Filter를 구현한 FilterChainProxy를 저장하는데 이 proxy를 통해서 FilterChain내의 filter를 하나씩 수행하게 된다. public class DelegatingFilterProxy extends GenericFilterBean {
+
+	@Nullable
+	private String contextAttribute;
+
+	@Nullable
+	private WebApplicationContext webApplicationContext;
+
+	@Nullable
+	private String targetBeanName;
+
+	private boolean targetFilterLifecycle = false;
+
+	@Nullable
+	private volatile Filter delegate;
+
+	private final Object delegateMonitor = new Object();
+
+
+	/**
+	 * Create a new {@code DelegatingFilterProxy}. For traditional use in {@code web.xml}.
+	 * @see #setTargetBeanName(String) 4-1 아래 소스가 debugger로 찍어본 객체인데 실제 FilterChainProxy인 것을 알 수 있다. 5. 이  FilterChainProxy에 여러개의 FilterChain이 등록되어 있는데 아무 설정을 하지 않으면 default filter chain만 등록되어 있다. 5-1 아래 캡처를 보면 DefaultSecurityFilterChain이 등록되어 있는 것을 볼 수 있는데 이것이 자동생성되는 FilterChain이다. 5-2 일반적으로 이 FilterChain을 수정하여 우리가 원하는 인증을 구현하게 된다. 필요시 2개 이상의 체인을 등록할 수 있다. 5-3 예를 들면 하나는 Http Basic인증용 다른 하나는 FormLogin 이런 식으로 등록하여 각 end point 별로 적용할 수 있다. 5-3-1 아래를 보면 RequestMatcher에 any request라고 되어 있는데 이것은 모든 end point에 다 적용된다는 의미다. 5-4 각 필터의 역할은 문서를 보면 되는데 대략 설명하면 5-4-1 2번에 있는 SecurityContextHolderFilter가 사용자가 로그인 되어 있는지 SecurityContext에 검색하는 부분이다. 5-4-2 4번은 Csrf 설정이 되어 있는지 그리고 그에 따른 보안정적이 적용되는 부분이다. 5-4-3 5번 LogoutFilter는 로그아웃 request를 판별하여 로그아웃이면 그 기능을 실행한다. 등록된 logout페이지를 보여주게 된다. 5-4-4 6번 UsernamePasswordAuthenticationFilter는 실제 로그인을 실행하는 부분이다. 이 안에 AuthenticationManager가 들어가고 UserDetailsService가 들어가게 된다. 5-4-5 13번 AuthrorizationFilter는 실제 페이지에 접근 권한이 있는지를 확인하는 부분이다. 실제 Authentication을 뒤져서 Role을 확인하고 권한이 없으면 예외를 발생시킨다. 권한이 있으면 보여준다. 5-4-6 12번 ExceptionTranslationFilter는 13번에서 발생한 예외를 처리하는데 예를 들면 로그인 요청이면 로그인 화면을, Basic Auth의 경우는 X-Authentication 헤더를 사용하여 유저에게 로그인정보를 요청하게 된다. 6. 궁극적으로 스프링 보안을 사용하는 개발자가 할일은 위의 DefaultSecurityChain에 등록된 각 Filter를 교체하는 것이 대부분이다. 좀 더 복잡한 시스템의 경우는 세션을 사용하는 Form Login이나 Digest 인증, Api를 제공하기 위한 JWT 인증 등 하나 이상의 FilterChain을 등록하여 사용하는 경우도 종종 있다. 7. 스프링 2.7로 기억하는데 이전에는 WebSecurityConfigurerAdapter를 상속하여 각 설정을 입력했는데 이 클래스가 deprecated가 되어 이제는 각 개발자가 SecurityFilterChain을 정의하고 제공해야 한다. 8. 아래를 예를 들면 이제 설정에서 SecurityFilterChain을 제공하는 부분을 설정해 주어야 한다. 9. SecurityFilterChain에는 아래처럼 formLogin을 사용할지 httpBasic을 사용할지, 어떤 end point에 적용할지 같은 설정 등을 할 수 있다. 세부적인 것은 documentation을 참고하면 된다. 아래는 필터 설정이기 때문에 차례대로 실행되고 차례되로 반환된다. 9-1 아래의 경우는 formLogin(즉 화면 UI로 Username, Password을 제공하는 기능)과 입력 정보를 데이터베이스에서 가지고 오는 JdbcUserDetailsService를 설정하고 있다. 만약 JbdcUserDetailsManager 대신 주석된 InMemoryUserDetailsManager을 활성화 하면 거기에 하드코딩 된 유저정보가 인증시 반영되게 된다. package com.example.securitydemo.config;
+
+import javax.sql.DataSource;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.security.config.annotation.web.builders.HttpSecurity;
+import org.springframework.security.core.userdetails.User;
+import org.springframework.security.crypto.password.NoOpPasswordEncoder;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.security.provisioning.InMemoryUserDetailsManager;
+import org.springframework.security.provisioning.JdbcUserDetailsManager;
+import org.springframework.security.web.SecurityFilterChain;
+
+@Configuration
+public class WebSecuirtyConfiguration {
+  
+  @Bean
+  SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+    // http.csrf().disable();
+    // http.headers().frameOptions().sameOrigin();
+
+    http.authorizeHttpRequests(auth -> auth.anyRequest().authenticated());
+
+    // http.httpBasic();
+    http.formLogin();
+
+
+    return http.build();
+  }
+
+  // @Bean
+  // public InMemoryUserDetailsManager inMemoryUserDetailsManager() {
+  //   return new InMemoryUserDetailsManager(
+  //     User.withUsername("pilseong").password(passwordEncoder().encode("qwe123")).roles("USER").build(),
+  //     User.withUsername("suel").password(passwordEncoder().encode("qwe123")).roles("USER").build());
+  // }
+
+  @Bean
+  public PasswordEncoder passwordEncoder() {
+    return NoOpPasswordEncoder.getInstance();
+  }
+
+
+  @Autowired
+  private DataSource dataSource;
+	
+  @Bean
+  protected JdbcUserDetailsManager userdetailsService() {
+    return new JdbcUserDetailsManager(dataSource);
+  }	
+} 9-2 스프링 부터에서 제공하는 JdbcUserDetailsManager가 별도 설정없이 어떻게 구성되어 있길래 데이터베이스를 읽어오는지 궁금할 수 있어서 실제 소스를 보면 아래와 같이 하나하나 하드코딩이 되어 있다. 그래서 테이블 구조를 documentation에 따라 만들어야지만 동적하게 된다. 당연히 h2 설정과 테이블 구조와 데이터는 당연히 개발자가 제공해야 한다. public class JdbcUserDetailsManager extends JdbcDaoImpl implements UserDetailsManager, GroupManager {
+
+	public static final String DEF_CREATE_USER_SQL = "insert into users (username, password, enabled) values (?,?,?)";
+
+	public static final String DEF_DELETE_USER_SQL = "delete from users where username = ?";
+
+	public static final String DEF_UPDATE_USER_SQL = "update users set password = ?, enabled = ? where username = ?";
+
+	public static final String DEF_INSERT_AUTHORITY_SQL = "insert into authorities (username, authority) values (?,?)";
+
+	public static final String DEF_DELETE_USER_AUTHORITIES_SQL = "delete from authorities where username = ?";
+
+	public static final String DEF_USER_EXISTS_SQL = "select username from users where username = ?";
+
+	public static final String DEF_CHANGE_PASSWORD_SQL = "update users set password = ? where username = ?";
+
+	public static final String DEF_FIND_GROUPS_SQL = "select group_name from groups";
+
+	public static final String DEF_FIND_USERS_IN_GROUP_SQL = "select username from group_members gm, groups g "
+			+ "where gm.group_id = g.id and g.group_name = ?";
+
+	public static final String DEF_INSERT_GROUP_SQL = "insert into groups (group_name) values (?)";
+
+	public static final String DEF_FIND_GROUP_ID_SQL = "select id from groups where group_name = ?";
+
+	public static final String DEF_INSERT_GROUP_AUTHORITY_SQL = "insert into group_authorities (group_id, authority) values (?,?)";
+
+	public static final String DEF_DELETE_GROUP_SQL = "delete from groups where id = ?";
+
+	public static final String DEF_DELETE_GROUP_AUTHORITIES_SQL = "delete from group_authorities where group_id = ?";
+
+	public static final String DEF_DELETE_GROUP_MEMBERS_SQL = "delete from group_members where group_id = ?";
+
+	public static final String DEF_RENAME_GROUP_SQL = "update groups set group_name = ? where group_name = ?";
+
+	public static final String DEF_INSERT_GROUP_MEMBER_SQL = "insert into group_members (group_id, username) values (?,?)";
+
+	public static final String DEF_DELETE_GROUP_MEMBER_SQL = "delete from group_members where group_id = ? and username = ?";
+
+	public static final String DEF_GROUP_AUTHORITIES_QUERY_SQL = "select g.id, g.group_name, ga.authority "
+			+ "from groups g, group_authorities ga " + "where g.group_name = ? " + "and g.id = ga.group_id ";
+
+	public static final String DEF_DELETE_GROUP_AUTHORITY_SQL = "delete from group_authorities where group_id = ? and authority = ?";
+
+	protected final Log logger = LogFactory.getLog(getClass());
+
+	private SecurityContextHolderStrategy securityContextHolderStrategy = SecurityContextHolder
+			.getContextHolderStrategy();
+
+	private String createUserSql = DEF_CREATE_USER_SQL;
+
+	private String deleteUserSql = DEF_DELETE_USER_SQL;
+
+	private String updateUserSql = DEF_UPDATE_USER_SQL;
+
+	private String createAuthoritySql = DEF_INSERT_AUTHORITY_SQL; 아래의 도식은 인터넷에서 구글 포토로 검색해서 붙였다. 이것만큼 개괄이 잘된 도식을 못찾은 것 같다. 난 일본어를 전혀 모른다. 출처 https://www.google.com/url?sa=i&url=https%3A%2F%2Fqiita.com%2Fopengl-8080%2Fitems%2Fc105152c9ca48509bd0c&psig=AOvVaw31N2R84Tn8r_4JxdzB99kg&ust=1673861423425000&source=images&cd=vfe&ved=0CBIQ3YkBahcKEwjo44juocn8AhUAAAAAHQAAAAAQBA 10. 좀 더 세부적인 내용도 적을 기회가 있으면 적어볼려는데 참고가 될지 모르겠다.

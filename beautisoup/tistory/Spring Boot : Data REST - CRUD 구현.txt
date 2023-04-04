@@ -1,0 +1,121 @@
+1. 이전 Spring Boot : REST + Hibernate CRUD 구현하기의 연속된 포스트이다. Spring Boot : REST + Hibernate CRUD 구현 1. 지난 Spring : REST + Hibernate with Java Config - CRUD 포스트와 동일한 기능을 Spring Boot으로 구현한다. 1-1 데이터베이스와 전반적인 내용은 아래 링크를 참조한다. Spring : REST + Hibernate with Jav.. kogle.tistory.com 2. Spring Data REST는 데이터베이스 Entity 클래스와 ID타입만 지정하면 REST 서비스의 CRUD를 전체를 구현해 준다. 3. Spring Data REST HATEOAS 호환으로 REST endpoint 접근경로 정보를 같이 제공해 준다. Spring HATEOAS - Reference Documentation Example 49. Configuring WebTestClient when using Spring Boot @SpringBootTest @AutoConfigureWebTestClient (1) class WebClientBasedTests { @Test void exampleTest(@Autowired WebTestClient.Builder builder, @Autowired HypermediaWebTestClientConfigurer configure docs.spring.io 3. 구현 방법은 3-1 의존성을 설정한다. 3-2 데이터베이스 설정파일을 생성한다. 3-3 Entity 클래스를 만든다. 3-3 JpaRepository를 상속하는 인터페이스를 작성한다. 4. 의존성을 설정한다. 4-1 중요한 부분은 spring-boot-starter-data-rest를 추가한 부분이다. 4-1-1 이상하게도 initializer 리스트에서는 이 starter를 찾을 수 없었다. 4-1-2 나머지 부분은 1번 항목의 링크를 참조한다. <?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+	<modelVersion>4.0.0</modelVersion>
+	<parent>
+		<groupId>org.springframework.boot</groupId>
+		<artifactId>spring-boot-starter-parent</artifactId>
+		<version>2.3.0.RELEASE</version>
+		<relativePath /> <!-- lookup parent from repository -->
+	</parent>
+	<groupId>pe.pilseong.bootcustomersrest</groupId>
+	<artifactId>bootcustomersrest</artifactId>
+	<version>0.0.1-SNAPSHOT</version>
+	<name>bootcustomersREST</name>
+	<description>customer with spring boot</description>
+
+	<properties>
+		<java.version>11</java.version>
+	</properties>
+
+	<dependencies>
+		<!-- rest api support -->
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-web</artifactId>
+		</dependency>
+
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-data-rest</artifactId>
+		</dependency>
+
+		<!-- auto restart -->
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-devtools</artifactId>
+			<scope>runtime</scope>
+			<optional>true</optional>
+		</dependency>
+
+		<!-- database support -->
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-data-jpa</artifactId>
+		</dependency>
+		
+		<dependency>
+			<groupId>mysql</groupId>
+			<artifactId>mysql-connector-java</artifactId>
+			<scope>runtime</scope>
+		</dependency>
+
+		<!-- development convenience -->
+		<dependency>
+			<groupId>org.projectlombok</groupId>
+			<artifactId>lombok</artifactId>
+			<optional>true</optional>
+		</dependency>
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-test</artifactId>
+			<scope>test</scope>
+			<exclusions>
+				<exclusion>
+					<groupId>org.junit.vintage</groupId>
+					<artifactId>junit-vintage-engine</artifactId>
+				</exclusion>
+			</exclusions>
+		</dependency>
+	</dependencies>
+
+	<build>
+		<plugins>
+			<plugin>
+				<groupId>org.springframework.boot</groupId>
+				<artifactId>spring-boot-maven-plugin</artifactId>
+			</plugin>
+		</plugins>
+	</build>
+
+</project> 5. Entity는 동일하다. package pe.pilseong.bootcustomersrest.entity;
+
+import javax.persistence.Column;
+import javax.persistence.Entity;
+import javax.persistence.GeneratedValue;
+import javax.persistence.GenerationType;
+import javax.persistence.Id;
+import javax.persistence.Table;
+
+import lombok.Data;
+
+@Entity
+@Table(name = "customer")
+@Data
+public class Customer {
+
+  @Id
+  @GeneratedValue(strategy = GenerationType.IDENTITY)
+  private Long id;
+  
+  @Column(name = "first_name")
+  private String firstName;
+  
+  @Column(name = "last_name")
+  private String lastName;
+  
+  @Column
+  private String email;
+} 6. JpaRepository 상속 인터페이스을 생성한다. package pe.pilseong.bootcustomersrest.repository;
+
+import org.springframework.data.jpa.repository.JpaRepository;
+
+import pe.pilseong.bootcustomersrest.entity.Customer;
+
+public interface CustomerRepository extends JpaRepository<Customer, Long> {
+
+} 7. 접속 url이 약간 달라진다. 7-1 모두 동일하지만 put 즉 업데이트 할 때 기존은 /customers 로 요청을 하고 데이터의 값에 id가 있었다. 7-2 Spring REST는 put의 경우 /customers/{ id } 형식을  요청을 해야 한다. 7-3 모든 REST url은 다루는 Entity의 복수형으로 지정되며 Customer entity는 customers 라고 지정된다. 7-4 만약 다른 이름을 사용하고 싶은 경우 아래처럼 Respository 인터페이스에 설정할 수 있다. @RepositoryRestResource(path = "members")
+public interface CustomerRepository extends JpaRepository<Customer, Long> {
+
+} 7-5 정렬기능도 지원한다. http://localhost:8080/members?sort=firstName 7-6 페이지 지정도 가능하다. 7-6-1 아래처럼 페이지를 검색할 수 있고 기본값 설정에 대한 부분은 properties 속성의 데이터 부분을 참고한다. http://localhost:8080/members?page=1&size=3 Common Application properties Various properties can be specified inside your application.properties file, inside your application.yml file, or as command line switches. This appendix provides a list of common Spring Boot properties and references to the underlying classes that consume docs.spring.io

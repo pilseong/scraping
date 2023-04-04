@@ -1,0 +1,1 @@
+1. 참고용이다. 1-1 root 패스워드 설정을 위한 환경변수를 설정하고 있다. 1-2 데이터베이스 파일은 로컬에서 저장하도록 하고 있다. docker run --name doggie-mysql -e MYSQL_ROOT_PASSWORD=qwe123 -p 3306:3306 -v E:\dockerdata\mysql:/var/lib/mysql -d mysql --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci

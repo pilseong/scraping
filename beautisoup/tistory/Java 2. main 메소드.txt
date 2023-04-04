@@ -1,0 +1,5 @@
+1. main method 1-1 프로그램을 실행하기 위해 JVM이 사용하는 표준 메소드이다. 1-2 public static 이유 - JVM이 public이 아닐 경우 접근할 수가 없고 static이 아니면 객체가 없으므로 접근할 수 없다. 2. main method 없이 프로그램 실행 2-1 자바 7 이후로는 불가능하다. 2-2 자바 7이전에는 static initialiser라는 방식이 있어 main method없이 가능했다. public class Main {
+  static {
+    system.exit(0);
+  }
+} 2-3 Servlet이나 EJB 같은 프레임워크는 자체  lifecycle이 있어서 별도의 main이 필요 없다. 3. main메소드의 signature는 변경가능한가 3-1 불가능하다. JVM은 return type까지 다 확인하여 main메소드인지를 판단한다. public static void main이어야 한다. 3-2 다만 final 수식은 가능하다. final은 상속 override 안된다는 의미로 사용되므로 아무런 문제가 없다.

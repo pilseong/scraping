@@ -1,0 +1,108 @@
+0. 사용된 lambda 0-1 int[][] 를 List<List<Integer>>로 변환 0-2 map 내부에서 int[] 를 List<Integer>로 변환한다. 0-2-1 boxed를 사용하여 wrapping을 해야 한다. 0-2-2 Arrays.stream(int[])은 IntStream을 반환하는데 각 int값이 List에 들어가려면 boxed가 필요하다. 0-3 boolean[]을 Boolean[]로 변환하기 위해서는 꼼수를 써야한다. 0-3-1 IntStream.range를 통해 배열개수를 정하고, mapToObj를 통해 index로 Wrapper를 만든다. 0-3-2 range의 인자는 첫번째는 포함, 두번째는 불포함이라서 0과 배열 length를 넘기면 된다. 0-3-3 mapToObj를 자동으로 primitive type의 wrapper을 만들어 준다. 0-4 filter에서 false이 있는 것만 통과시켜 foreach에서 노드를 추가하는 방식이다. 한개만 false면 충분하다. 1. 이 문제는 어떤 노드를 제거했을 때 연결된 그래프가 분리된 그래프가 되는지를 묻는 문제이다. You are given an undirected connected graph. An articulation point (or cut vertex) is defined as a vertex which, when removed along with associated edges, makes the graph disconnected (or more precisely, increases the number of connected components in the graph). The task is to find all articulation points in the given graph. Input: The input to the function/method consists of three arguments: numNodes, an integer representing the number of nodes in the graph. numEdges, an integer representing the number of edges in the graph. edges, the list of pair of integers - A, B representing an edge between the nodes A and B. Output: Return a list of integers representing the critical nodes. Example: Input: numNodes = 7, numEdges = 7, edges = [[0, 1], [0, 2], [1, 3], [2, 3], [2, 5], [5, 6], [3, 4]] Output: [2, 3, 5] 2. 우선 그래프를 각 꼭지점을 기준으로 한 map을 작성한다. 2-0 int[][]를 List<List<Integer>>을 변환하는 부분이 처음에 나온다. boxed를 통해 Wrapping해야 사용가능하다. 2-1 꼭지점 이름을 key로 연결된 꼭지점 set을 값으로 하여 작성한다. 2-1-1 map을 만들 때는 computeIfPresent, computeIfAbsent가 편리하고 1회 스캔만 하면 되지만 코드가 길어진다. 2-2 여기서는 BFS을 통한 검색을 사용하였다. 2-2-1 이미 방문한 노드는 visitedNode 변수를 통해 세팅하고 있다. 2-2-2 검색 후에 방문하지 않은 노드가 있다면 그래프가 분리된 것이다. 2-2-3 cut 노드는 이미 방문한 노드로 간주하여야 queue에 추가하지 않는다. 2-3 boolean[] 을 stream을 바꿀려면 IntStream.range 같은 꼼수를 써야 한다. 2-3-1 Boolean을 사용하면 초기값이 false가 아니라서 생성 및 초기화의 해주어야 하는데 그것보다는 이게 낫다. import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.Map;
+import java.util.Queue;
+import java.util.Set;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
+
+public class App {
+  public static void main(final String[] args) throws Exception {
+    final Solution sol = new Solution();
+
+    final int[][] edges = new int[][] {{0, 1}, {0, 2}, {1, 3}, {2, 3}, {2, 5}, {5, 6}, {3, 4}};
+
+    // converting int[][] to List<List<Integer>>
+    final List<List<Integer>> edgeList = Arrays.stream(edges)
+      .map(edge-> Arrays.stream(edge)
+        .boxed()
+        .collect(Collectors.toList()))
+      .collect(Collectors.toList());
+
+    sol.criticalConnections(7, edgeList);
+  }
+}
+
+class Solution {
+  public List<Integer> criticalConnections(final int n, final List<List<Integer>> connections) {
+    final Map<Integer, Set<Integer>> graph = new HashMap<>();
+    
+    // map generation
+    connections.forEach(connection-> {
+
+      Set<Integer> temp = graph.computeIfPresent(connection.get(0), (key, value)-> {
+        value.add(connection.get(1));
+        return value;
+      });
+      
+      if (temp == null) {
+        graph.computeIfAbsent(connection.get(0), key-> {
+          Set<Integer> to = new HashSet<>();
+          to.add(connection.get(1));
+          return to;
+        });
+      }
+
+      temp = graph.computeIfPresent(connection.get(1), (key, value)-> {
+        value.add(connection.get(0));
+        return value;
+      });
+      
+      if (temp == null) {
+        graph.computeIfAbsent(connection.get(1), key-> {
+          Set<Integer> to = new HashSet<>();
+          to.add(connection.get(0));
+          return to;
+        });
+      }
+
+    });
+
+    // finding critical nodes
+    final Queue<Integer> queue = new LinkedList<>();
+    final List<Integer> result = new ArrayList<>();
+    for (int i=0; i<n; i++) {
+      boolean[] nodeFlag = new boolean[n];
+      final int cutNode = i;
+      nodeFlag[i] = true;
+
+      //set the starting node
+      if (i != 0) {
+        queue.add(0);
+      } else {
+        queue.add(1);
+      }
+
+      while (!queue.isEmpty()) {
+        System.out.println(queue);
+        int size = queue.size();
+        for (int j=0; j<size; j++) {
+          int nodeNum = queue.poll();
+          nodeFlag[nodeNum] = true;
+
+          graph.get(nodeNum).forEach(node -> {
+            if (nodeFlag[node] == false) { 
+              queue.add(node);
+            }
+          });
+        }
+      }
+
+      IntStream.range(0, nodeFlag.length)
+        .mapToObj(index-> nodeFlag[index])
+        .filter(flag-> !flag)
+        .limit(1)
+        .forEach(flag-> result.add(cutNode));
+
+    }
+
+    System.out.println(result.toString());
+    System.out.println(graph.toString());
+
+    return result;
+  }
+} 3.  결과

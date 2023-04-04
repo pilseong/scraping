@@ -1,0 +1,30 @@
+기본적으로 리눅스에서 ssh-keygen으로 생성한 id_rsa.pub를 이미 github에 등록 한 것을 전체로 한다. 1. devcontainer 환경은 container 안에서 벌어지는 일이기 때문에 github에 접속할 때 ssh-key를 사용할 수 없다. 1-1 당연히 로컬의 ~/.ssh 폴더와 컨테이너 안의 ~/.ssh은 완전히 다르기 때문이다. 2. 이를 위해 ssh-agent를 사용할 수 있다. 이것은 외부환경을 위한 port forwading같은 것으로 생각하면 되는데 데몬 서비스이다. 3. ssh-agent를 사용하려면 우선 ssh-agent에 사용할 ssh 공개키를 등록해야 한다. 3-1 ssh-add ~/.ssh/id_rsa.pub 형식으로 등록해 주면 된다. 4. ssh-agent 서비스를 실행한다. 4-1 eval "$(ssh-agent -s)" 로 실행할 수 있지만 1회성이므로 아래의 내용을 .bash_profile에 등록해 준다. 4-2 .bashrc에 등록하면 될 것 같은데 동작하지 않는다. .bash_profile에 등록한다. if [ -z "$SSH_AUTH_SOCK" ]; then
+   # Check for a currently running instance of the agent
+   RUNNING_AGENT="`ps -ax | grep 'ssh-agent -s' | grep -v grep | wc -l | tr -d '[:space:]'`"
+   if [ "$RUNNING_AGENT" = "0" ]; then
+        # Launch a new instance of the agent
+        ssh-agent -s &> $HOME/.ssh/ssh-agent
+   fi
+   eval `cat $HOME/.ssh/ssh-agent`
+fi 4-3 재부팅하여 devcontainer 환경에서 접속가능한지 확인한다. 4-3-1 가장 간단한 방법은 git remote show origin 을 실행한다. 이 명령어는 ssh-key가 등록되어야 있어야 수행된다. 4-4 혹시 안되면 아래의 내용을 .bash_profile에 붙인다. SSH_ENV="$HOME/.ssh/agent-environment"
+
+function start_agent {
+    echo "Initialising new SSH agent..."
+    /usr/bin/ssh-agent | sed 's/^echo/#echo/' > "${SSH_ENV}"
+    echo succeeded
+    chmod 600 "${SSH_ENV}"
+    . "${SSH_ENV}" > /dev/null
+    /usr/bin/ssh-add;
+}
+
+# Source SSH settings, if applicable
+
+if [ -f "${SSH_ENV}" ]; then
+    . "${SSH_ENV}" > /dev/null
+    #ps ${SSH_AGENT_PID} doesn't work under cywgin
+    ps -ef | grep ${SSH_AGENT_PID} | grep ssh-agent$ > /dev/null || {
+        start_agent;
+    }
+else
+    start_agent;
+fi 이 내용은 공식 가이드에 잘 나와 있다. https://code.visualstudio.com/docs/remote/containers#_sharing-git-credentials-with-your-container Developing inside a Container using Visual Studio Code Remote Development Developing inside a Container using Visual Studio Code Remote Development code.visualstudio.com

@@ -1,0 +1,68 @@
+1. Reactive프로그래밍에서 Optional처럼 orElseThrow() 같은 함수를 사용하기 원하는 경우는 1-1 아래의 findById와 같이 map을 사용하여 데이터가 있는 경우, 적절하게 처리하고 1-2 switchIfEmpty 함수를 활용하여 에러를 발생시킬 수 있다. 1-3 findById와 거의 같은 findCommandById함수와 비교하면 차이를 쉽게 알 수 있다. package pe.pilseong.recipe.service;
+
+import org.springframework.stereotype.Service;
+
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import pe.pilseong.recipe.command.RecipeCommand;
+import pe.pilseong.recipe.converter.RecipeCommandToRecipe;
+import pe.pilseong.recipe.converter.RecipeToRecipeCommand;
+import pe.pilseong.recipe.domain.Recipe;
+import pe.pilseong.recipe.exception.NotFoundException;
+import pe.pilseong.recipe.repository.reactive.RecipeReactiveRepository;
+import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
+
+@Service
+@RequiredArgsConstructor
+@Slf4j
+public class RecipeServiceImpl implements RecipeService {
+
+  private final RecipeReactiveRepository recipeReactiveRepository;
+  private final RecipeCommandToRecipe recipeConverter;
+  private final RecipeToRecipeCommand commandConverter;
+
+  @Override
+  public Flux<Recipe> getRecipes() {
+    log.debug("getRecipes in RecipeServiceImpl");
+
+    return recipeReactiveRepository.findAll();
+  }
+
+  @Override
+  public Mono<Recipe> findById(String id) {    
+    return recipeReactiveRepository.findById(id).map(fetchedRecipe -> {
+      fetchedRecipe.getIngredients().forEach(ingredient-> ingredient.setRecipeId(fetchedRecipe.getId()));
+      return fetchedRecipe;
+    })
+    .switchIfEmpty(Mono.error(new NotFoundException("recipe not found with id :: " + id)));
+  }
+
+  @Override
+  public Mono<Recipe> save(RecipeCommand command) {
+    return recipeReactiveRepository.save(recipeConverter.convert(command));
+  }
+
+  @Override
+  public Mono<RecipeCommand> findCommandById(String id) {
+    Recipe reactiveRecipe = recipeReactiveRepository.findById(id).block();
+    if (reactiveRecipe != null) {
+      return Mono.just(commandConverter.convert(reactiveRecipe));
+    } else {
+      throw new NotFoundException("recipe not found with id :: " + id);
+    }
+  }
+
+  @Override
+  public Mono<RecipeCommand> saveRecipeCommand(RecipeCommand command) {
+    return recipeReactiveRepository.save(recipeConverter.convert(command))
+      .map(commandConverter::convert);
+  }
+
+  @Override
+  public Mono<Void> deleteById(String id) {
+    recipeReactiveRepository.deleteById(id).block();
+
+    return Mono.empty();
+  }
+} 2. 자세한 내용은 StackOverflow에서 다양한 방법으로 잘 설명되어 있다. Correct way of throwing exceptions with Reactor I'm new to project Reactor and reactive programming in general. I'm currently working on a piece of code similar to this: Mono.just(userId) .map(repo::findById) .map(user-> { i... stackoverflow.com

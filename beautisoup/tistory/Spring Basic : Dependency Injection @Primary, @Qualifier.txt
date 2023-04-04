@@ -1,0 +1,114 @@
+1. 스프링 컨테이너에 하나 이상의 동일한 타입의 객체가 존재할 경우 1-1 @Qualifier로 어떤 객체를 사용할지를 명시해 주어야 한다. 1-2 아니면 @Primary로 지정하여 @Qualifier가 없는 경우 기본으로 사용될 객체를 지정해 준다. 2. 사용법 2-1 우선 예제로 사용할 공통 인터페이스와 구현 클래스 두개를 만들었다. 2-1-1 PrimaryGreetingServiceImpl은 @Primary가 지정되어 있어 동일한 타입의 여러 객체가 있을 경우 2-1-1-1 우선 순위를 갖게 된다. // 인터페이스 정의
+
+package pe.pilseong.demodi.services;
+
+public interface GreetingService {
+  String sayGreeting();
+}
+
+
+// Primary로 저정된 구현 클래스
+package pe.pilseong.demodi.services;
+
+import org.springframework.context.annotation.Primary;
+import org.springframework.stereotype.Service;
+
+@Service
+@Primary
+public class PrimaryGreetingServiceImpl implements GreetingService {
+
+  @Override
+  public String sayGreeting() {
+    return "PrimaryGreetingServiceImpl hello";
+  }
+}
+
+
+// 동일한 인터페이스를 구현하고 있는 서비스
+package pe.pilseong.demodi.services;
+
+import org.springframework.stereotype.Service;
+
+@Service
+public class SetterInjectedGreetingServiceImpl implements GreetingService {
+
+  @Override
+  public String sayGreeting() {
+    return "SetterInjectedGreetingServiceImpl Hello";
+  }
+} 2-2 @Qualifer를 사용하면 명시적으로 어떤 객체를 사용할 지를 아래처럼 지정할 수 있다. 2-2-1 Setter 방식의 주입이므로 반드시 @Autowired가 지정되어야 한다. package pe.pilseong.demodi.controller;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.stereotype.Controller;
+
+import pe.pilseong.demodi.services.GreetingService;
+
+@Controller
+public class SetterInjectedController {
+  public GreetingService greetingService;
+
+  public GreetingService getGreetingService() {
+    return greetingService;
+  }
+
+  @Autowired
+  @Qualifier("setterInjectedGreetingServiceImpl")
+  public void setGreetingService(GreetingService greetingService) {
+    this.greetingService = greetingService;
+  }
+
+  public String sayHello() {
+    return this.greetingService.sayGreeting();
+  }
+  
+} 2-3 PrimaryGreetingServiceImpl에 @Primary가 설정되어 있으므로 @Qualifier 설정이 없다면 이 객체가 사용된다. package pe.pilseong.demodi.controller;
+
+import org.springframework.web.bind.annotation.RestController;
+
+import pe.pilseong.demodi.services.GreetingService;
+
+@RestController
+public class MyController {
+
+  private final GreetingService greetingService;
+
+  public String sayHello() {
+    return greetingService.sayGreeting();
+  }
+
+  public MyController(GreetingService greetingService) {
+    this.greetingService = greetingService;
+  }
+} 3. 실행결과 3-1 실행 코드 package pe.pilseong.demodi;
+
+import org.springframework.boot.SpringApplication;
+import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.context.ApplicationContext;
+
+import pe.pilseong.demodi.controller.ConstructorInjectedController;
+import pe.pilseong.demodi.controller.MyController;
+import pe.pilseong.demodi.controller.PropertyInjectedController;
+import pe.pilseong.demodi.controller.SetterInjectedController;
+
+@SpringBootApplication
+public class DemoApplication {
+
+  public static void main(String[] args) {
+    ApplicationContext ctx = SpringApplication.run(DemoApplication.class, args);
+
+    System.out.println("\nPrimary Injection\n");
+
+    MyController myController = (MyController) ctx.getBean("myController");
+
+    System.out.println(myController.sayHello());
+
+    System.out.println("\nSetter Injection\n");
+
+    SetterInjectedController setterInjectedController = 
+      (SetterInjectedController) ctx.getBean("setterInjectedController");
+
+    System.out.println(setterInjectedController.sayHello());
+  }
+
+} 3-2 화면 캡처

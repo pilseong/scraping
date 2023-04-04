@@ -1,0 +1,94 @@
+1. 기본적인 get, post, put을 위한 MockMvc 테스트 템플릿이다. 2. 이걸 붙여 놓는 이유는 VSCode는 자동으로 static 메소드를 임포트 하는 기능이 좋지 않아 클래스 이름을 기억하기 힘들기 때문이다. 3. 기본적인 내용 3-1 JUnit 5 버전은 @ExtendWith를 사용해야 하고 MockitoExtention을 사용해야 BDDMockito문법을 사용할 수 있다. 3-2 사용을 원하는 fixture는 @MockBean을 붙여서 지정한다. 3-3 MockMvc는 @Autowired로 가져온다. package pe.pilseong.some.web.controller;
+
+import static org.hamcrest.CoreMatchers.is;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.BDDMockito.given;
+import static org.mockito.BDDMockito.then;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+
+import java.util.UUID;
+
+import com.fasterxml.jackson.databind.ObjectMapper;
+
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
+import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.http.MediaType;
+import org.springframework.test.web.servlet.MockMvc;
+
+import pe.pilseong.some.web.model.SomeDto;
+import pe.pilseong.some.web.service.SomeService;
+
+@ExtendWith(MockitoExtension.class)
+@WebMvcTest(SomeController.class)
+public class SomeControllerTest {
+    @MockBean
+    SomeService someService;
+
+    @Autowired
+    MockMvc mockMvc;
+
+    @Autowired
+    ObjectMapper objectMapper;
+
+    SomeDto someDto;
+
+    @BeforeEach
+    public void setup(){
+        someDto = SomeDto.builder().id(UUID.randomUUID())
+            .someName("some1")
+            .someStyle("someStyle1")
+            ...
+            .build();
+    }
+        
+    @Test
+    public void getSomeById() throws Exception {
+        if (this.someService == null || this.mockMvc == null) {
+            System.out.println("null");
+        }
+        given(someService.getSomeById(any(UUID.class))).willReturn(this.someDto);
+
+        mockMvc.perform(get("/api/some/" + this.someDto.getId().toString()).accept(MediaType.APPLICATION_JSON))
+            .andExpect(status().isOk())
+            .andExpect(content().contentType(MediaType.APPLICATION_JSON))
+            .andExpect(jsonPath("$.id", is(this.someDto.getId().toString())))
+            .andExpect(jsonPath("$.someName", is("Some1")));
+    }
+
+    @Test
+    public void saveSome() throws Exception {
+        SomeDto some = this.someDto;
+        some.setId(null);
+        SomeDto saveDto = SomeDto.builder().id(UUID.randomUUID()).someName("Some2").build();
+        String someDtoJson = objectMapper.writeValueAsString(some);
+        
+        given(someService.saveSome(any())).willReturn(saveDto);
+
+        mockMvc.perform(post("/api/some").contentType(MediaType.APPLICATION_JSON)
+            .content(someDtoJson))
+          .andExpect(status().isCreated());
+
+    }
+
+    @Test
+    public void updateSome() throws Exception {
+        SomeDto some = this.someDto;
+        String someDtoJson = objectMapper.writeValueAsString(some);
+
+        mockMvc.perform(put("/api/some/" + someDto.getId())
+            .contentType(MediaType.APPLICATION_JSON).content(someDtoJson))
+          .andExpect(status().isNoContent());
+
+        then(someService).should().updateSome(any(), any());
+    }
+}

@@ -1,0 +1,68 @@
+1. CommandLineRunner는 스프링 부트가 제공하는 단순한 인터페이스이다 package org.springframework.boot;
+public abstract interface CommandLineRunner {
+  
+  public abstract void run(java.lang.String... args) throws java.lang.Exception;
+} 2. 이 클래스를 구현하여 run메소드를 작성하면 프로그램 기동시에 ApplicationContext 생성이 종료된 후에 run메소드가 자동으로 실행된다. 3. 초기화 명령을 담는 곳으로 사용되며 주로 개발 시에 간단한 테스트 용도로 이용된다. 4. 사용법이 간단하기 때문에 기동 클래스에서 상속하여 사용하는 경우가 많지만 separate concern을 고려하면 분리하는 게 낫다. 4-1 command runner 클래스 @Component로 자동생성을 지정해야 동작한다. package pe.pilseong.springdepth.config;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.CommandLineRunner;
+import org.springframework.stereotype.Component;
+
+import lombok.extern.slf4j.Slf4j;
+import pe.pilseong.springdepth.entity.User;
+import pe.pilseong.springdepth.repository.UserRepository;
+
+@Component
+@Slf4j
+public class UserCommandLineRunner implements CommandLineRunner {
+
+  @Autowired
+  private UserRepository userRepository;
+
+  @Override
+  public void run(String... args) throws Exception {
+    userRepository.save(new User("Pilseong", "Admin"));
+    userRepository.save(new User("Suel", "User"));
+    userRepository.save(new User("Noel", "Admin"));
+    userRepository.save(new User("Sangmi", "User"));
+
+    for (User user : userRepository.findAll()) {
+      log.info(user.toString());
+    }
+  }
+  
+} 4-2 Main 클래스 package pe.pilseong.springdepth;
+
+import org.springframework.boot.SpringApplication;
+import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Profile;
+
+import lombok.extern.slf4j.Slf4j;
+
+@SpringBootApplication
+@Slf4j
+public class DemoApplication {
+
+	public static void main(String[] args) {
+
+		log.info("Starting Main method but before application run");
+		SpringApplication.run(DemoApplication.class, args);
+		log.info("Main method after application run");
+	}
+
+	@Profile("dev")
+	@Bean
+	public String demo_dev() {
+		return "demo_dev";
+	}
+
+	@Profile("prod")
+	@Bean
+	public String demo_prod() {
+		return "demo_prod";
+	}
+
+} 4-3 아래 로그를 보면 main 메소드가 끝나기 전에 CommandLineRunner가 실행됨을 알 수 있다. 4-3-1 필요한 로그만 보기 위해서 아래 설정을 했다. # logging.level.org.springframework.boot.web=DEBUG
+logging.level.root=OFF
+logging.level.pe.pilseong.*=INFO

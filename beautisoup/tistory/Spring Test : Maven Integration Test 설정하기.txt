@@ -1,0 +1,98 @@
+1. 메이븐의 spring-boot-maven-plugin은 기본적으로 surefire 플러그인을 사용하여 유닛테스트만 수행한다. 2. Integration Test는 시간이 많이 걸리고 시스템의 부하도 크기 때문에 Unit 테스트를 통과한 경우에만 수행해야 한다. 3. 통합 테스트를 위해서는 maven- failsafe -plugin을 설정해 주어야 한다. 3-1 설정 후에 verify goal을 통해 실행가능하고 한번에 surefire로 unit테스트 수행 후 통합테스트를 순차로 실행한다. 4. 아래는 전체 pom.xml 4-1 starter-test가 두개로 나누어져 있는데 스프링부트 최신버전은 JUnit5를 기본으로 사용하는데 4-1-1 최근 포스트에는 JUnit 4를 가지고 코드를 작성하였기 때문에 exclusion을 부분을 제거하여 JUnit 4를 끌어온다. 4-1-2 JUnit 5를 사용한 코딩이라면 기본적인 설정 그대로 사용하면 된다. 아래 pom파일의 주석된 부분을 참고한다. 4-2 build에 있는 플러그인을 보면 failsafer가 추가되어 있다. 4-2-1 failsafer는 surefire를 기본으로 사용할 수 있는데 surefire는 maven-spring-boot-plugin에 포함되어 있다. 4-2-2 기본적으로 스캔되는 파일을 **/*IT.java 로 통합테스트에 IT를 붙이도록 약속하고 있다. 4-2-3 최신 버전은 2.22.2버전인데 최근에 3.0.0-M5가 공개되어 그것을 아래에서 사용하고 있다. 4-2-4 2버전 릴리즈는 내부적인 문제가 있어 아래처럼 추가적인 설정이 필요했지만 3버전에서는 개선되었다. 4-2-4-1 additionalClasspathElement은 필수적으로 추가해야 한다. <configuration>
+	<includes>
+		<include>**/*IT.java</include>
+	</includes>
+	<additionalClasspathElements>
+		<additionalClasspathElement>${basedir}/target/classes</additionalClasspathElement>
+	</additionalClasspathElements>
+	<parallel>none</parallel>
+</configuration> <?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+  <parent>
+    <groupId>org.springframework.boot</groupId>
+    <artifactId>spring-boot-starter-parent</artifactId>
+    <version>2.3.1.RELEASE</version>
+    <relativePath /> <!-- lookup parent from repository -->
+  </parent>
+  <groupId>pe.pilseong</groupId>
+  <artifactId>recipe</artifactId>
+  <version>0.0.1-SNAPSHOT</version>
+  <name>demo</name>
+  <description>Demo project for Spring Boot</description>
+
+  <properties>
+    <java.version>11</java.version>
+  </properties>
+
+  <dependencies>
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-data-jpa</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-thymeleaf</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-web</artifactId>
+    </dependency>
+
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-devtools</artifactId>
+      <scope>runtime</scope>
+      <optional>true</optional>
+    </dependency>
+    <dependency>
+      <groupId>com.h2database</groupId>
+      <artifactId>h2</artifactId>
+      <scope>runtime</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.projectlombok</groupId>
+      <artifactId>lombok</artifactId>
+      <optional>true</optional>
+    </dependency>
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-test</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <!-- <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-test</artifactId>
+      <scope>test</scope>
+      <exclusions>
+        <exclusion>
+          <groupId>org.junit.vintage</groupId>
+          <artifactId>junit-vintage-engine</artifactId>
+        </exclusion>
+      </exclusions>
+    </dependency> -->
+  </dependencies>
+
+  <build>
+    <plugins>
+      <plugin>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-maven-plugin</artifactId>
+      </plugin>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-failsafe-plugin</artifactId>
+        <version>3.0.0-M5</version>
+        <executions>
+          <execution>
+            <goals>
+              <goal>integration-test</goal>
+              <goal>verify</goal>
+            </goals>
+          </execution>
+        </executions>
+      </plugin>
+    </plugins>
+  </build>
+
+</project> 5. verify를 실행한 결과 5-1 surefire 테스트 통과 후 추가로 failsafer로 IT테스트를 수행하였고 IT가 붙은 테스트 파일만 수행되었다.

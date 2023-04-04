@@ -1,0 +1,468 @@
+1. 이 포스트는 Spring : Web MVC + Security + JDBC 시리즈에 연장이다. xml파일 설정은 사용하지 않는다. 1-1 하려는 것은 우선 in-memory로 인증을 구현한다. 1-2 Database를 생성하고 hibernate로 유저 등록을 구현한다. -> 이 포스트에서 할 내용 1-3 가입정보에 대한 Validation처리를 작성한다. Customer Validatior로 구현한다. 1-4 In-memory가 아닌 DaoAuthenticationProvider로 hibernate를 사용한 Spring security 인증처리로 변경 1-5 위에 것을 한번에 다 할려면 난이도가 헬이라서 이렇게 분리해서 한다. 2. 데이터베이스를 생성한다. 2-1 Spring Security가 지정하고 있는 스키마가 있지만 그것을 사용하지 않고 그냥 맘대로 만든다. 2-2 인증을 위해서는 스프링 Security가 필요로 하는 데이터만 제공하면 된다. 2-3 constraint name 같은 건 테스트용이라 무시한다. create database custom_registration
+
+create table user (
+    id int not null auto_increment primary key,
+    username varchar(50) not null,
+    password varchar(80) not null,
+    first_name varchar(50) not null,
+    last_name varchar(50) not null,
+    email varchar(50) not null
+)
+
+create table role (
+    id int not null auto_increment primary key,
+    name varchar(50) not null
+)
+
+create table users_roles (
+    user_id int not null,
+    role_id int not null,
+    primary key (user_id, role_id),
+    foreign key(user_id) references user(id),
+    foreign key(role_id) references role(id)    
+)
+
+# role을 등록한다.
+insert into role(name)
+values
+("ROLE_EMPLOYEE"), 
+("ROLE_MANAGER"), 
+("ROLE_ADMIN") 2-4 스키마 다이어그램은 다음과 같다. 3. 데이터베이스를 생성했으니 이제 이것을 사용하기 위한 dependency 설정을 추가 한다. <!-- Transaction, ORM, Hibernate, MySql, c3p0 pool -->
+<dependency>
+	<groupId>org.springframework</groupId>
+	<artifactId>spring-tx</artifactId>
+	<version>${springframework.version}</version>
+</dependency>
+<dependency>
+	<groupId>org.springframework</groupId>
+	<artifactId>spring-orm</artifactId>
+	<version>${springframework.version}</version>
+</dependency>
+<dependency>
+	<groupId>org.hibernate</groupId>
+	<artifactId>hibernate-core</artifactId>
+	<version>5.4.15.Final</version>
+</dependency>
+<dependency>
+	<groupId>mysql</groupId>
+	<artifactId>mysql-connector-java</artifactId>
+	<version>8.0.20</version>
+</dependency>
+<dependency>
+	<groupId>com.mchange</groupId>
+	<artifactId>c3p0</artifactId>
+	<version>0.9.5.5</version>
+</dependency>
+<dependency>
+	<groupId>org.projectlombok</groupId>
+	<artifactId>lombok</artifactId>
+	<version>1.18.12</version>
+	<scope>provided</scope>
+</dependency> 3. Entity Class를 생성하고 Annotation을 설정한다. 3-1 User Entity이다. Annotation 패지키는 ORM규약으로 javax.persistence를 사용해야 한다. package pe.pilseong.custom_registration.entity;
+
+import java.util.List;
+
+...
+
+import lombok.Getter;
+import lombok.Setter;
+
+@Entity
+@Table(name = "user")
+@Getter
+@Setter
+public class User {
+  
+  @Id
+  @GeneratedValue(strategy = GenerationType.IDENTITY)
+  private Long id;
+  
+  @Column
+  private String usernamae;
+  
+  @Column
+  private String password;
+ 
+  @Column(name = "first_name")
+  private String firstName;
+  
+  @Column(name = "last_name")
+  private String lastName;
+  
+  @Column
+  private String email;
+  
+  @ManyToMany(cascade = {
+      CascadeType.DETACH,
+      CascadeType.MERGE,
+      CascadeType.PERSIST,
+      CascadeType.REFRESH}
+  )
+  @JoinTable(
+      name = "users_roles",
+      joinColumns = @JoinColumn(name = "user_id"),
+      inverseJoinColumns = @JoinColumn(name = "role_id")
+  )
+  private List<Role> roles;
+  
+} 3-2 Role Entity이다. package pe.pilseong.custom_registration.entity;
+
+...
+
+@Entity
+@Table(name = "role")
+@Getter
+@Setter
+public class Role {
+
+  @Id
+  @GeneratedValue(strategy = GenerationType.IDENTITY)
+  private Long id;
+  
+  @Column
+  private String name;
+  
+  @ManyToMany(cascade = {
+      CascadeType.DETACH,
+      CascadeType.MERGE,
+      CascadeType.PERSIST,
+      CascadeType.REFRESH}
+  )
+  @JoinTable(
+      name = "users_roles",
+      joinColumns = @JoinColumn(name = "role_id"),
+      inverseJoinColumns = @JoinColumn(name = "user_id")
+  )
+  private List<User> users;
+} 4. 데이터베이스 연결 세팅을 한다. 4-1 설정은 외부파일에서 한다. 파일이름은 persistence-mysql.properties classpath root 위치시킨다. jdbc.driver=com.mysql.cj.jdbc.Driver
+jdbc.url=jdbc:mysql://localhost:3306/custom_registration?serverTimezone=Asia/Seoul
+jdbc.username=springstudent
+jdbc.password=springstudent
+
+connection.pool.initialPoolSize=5
+connection.pool.minPoolSize=5
+connection.pool.maxPoolSize=20
+connection.pool.maxIdleTime=3000
+
+hibernate.packageToScan=pe.pilseong.custom_registration
+hibernate.dialect=org.hibernate.dialect.MySQLDialect
+hibernate.show_sql=true 4-2 WebConfig.java에서 @ProperySource로 외부파일을 설정하고 Environement로 연결하여 사용한다. 4-2-0 아래는 지난 포스트의 소스에서 내용을 추가한 코드이다. 4-2-1 여기서는 DataSource 연결 라이브러리로 c3p0를 사용하였다. package pe.pilseong.custom_registration.config;
+...
+
+@Configuration
+@EnableWebMvc
+@EnableTransactionManagement
+@ComponentScan(basePackages = "pe.pilseong.custom_registration")
+@PropertySource(value = "classpath:persistence-mysql.properties")
+public class WebConfig {
+  
+  @Autowired
+  private Environment env;
+  
+  @Bean
+  public DataSource dataSource() {
+    ComboPooledDataSource dataSource = new ComboPooledDataSource();
+    
+    try {
+      dataSource.setDriverClass(env.getProperty("jdbc.driver"));
+    } catch (PropertyVetoException e) {
+      throw new RuntimeException(e);
+    }
+    dataSource.setJdbcUrl(env.getProperty("jdbc.url"));
+    dataSource.setUser(env.getProperty("jdbc.username"));
+    dataSource.setPassword(env.getProperty("jdbc.password"));
+    
+    dataSource.setInitialPoolSize(Integer.parseInt(env.getProperty("connection.pool.initialPoolSize")));
+    dataSource.setMinPoolSize(Integer.parseInt(env.getProperty("connection.pool.minPoolSize")));
+    dataSource.setMaxPoolSize(Integer.parseInt(env.getProperty("connection.pool.maxPoolSize")));
+    dataSource.setMaxIdleTime(Integer.parseInt(env.getProperty("connection.pool.maxIdleTime")));
+    
+    return dataSource;
+  }
+  
+ ... 4-3 Hibernate LocalSessionFactoryBean를 생성한다. 바로 위에서 생성한 DataSource를 이용하여 생성한다. ...
+ 
+ @Bean
+  public LocalSessionFactoryBean sessionFactory() {
+    LocalSessionFactoryBean sessionFactory = new LocalSessionFactoryBean();
+    sessionFactory.setDataSource(dataSource());
+    sessionFactory.setPackagesToScan(env.getProperty("hibernate.packageToScan"));
+    sessionFactory.setHibernateProperties(getHibernateProperites());
+    
+    return sessionFactory;
+  }
+
+  private Properties getHibernateProperites() {
+    Properties properties = new Properties();
+    properties.setProperty("hibernate.dialect", env.getProperty("hibernate.dialect"));
+    properties.setProperty("hibernate.show_sql", env.getProperty("hibernate.show_sql"));  
+    
+    return properties;
+  }
+  
+  ... 4-4 트랜젝션 처리를 위한 TransactionManager를 설정한다. 4-4-1 트랜젝션 메니저가 관리할 sessionFactory를 LocalSessionFactoryBean에서 바로 가져올 수 없으므로 4-4-2 Autowired로 스프링 컨테이너로 부터 받아온다. 4-4-3 클래스 헤더를 보면 @EnableTransactionManagement 이 설정되어 있다. Transaction AOP를 기동한다. ...
+  
+  @Bean
+  @Autowired
+  public HibernateTransactionManager transactionManager(SessionFactory sessionFactory) {
+    HibernateTransactionManager txManager = new HibernateTransactionManager();
+    txManager.setSessionFactory(sessionFactory);
+    
+    return txManager;
+  }
+} 5. 이제 데이터베이스 연결을 위한 설정이 끝났으니 SessionFactory를 이용하여 데이터베이스 기능을 작성한다. 5-1 User entity 를 다루기 위한 UserDAO 인터페이스와 클래스이다. 5-1-1 UserDAO 인터페이스 package pe.pilseong.custom_registration.dao;
+
+import pe.pilseong.custom_registration.entity.User;
+
+public interface UserDAO {
+
+  User findByUserName(String userName);
+  
+  void save(User user);
+} 5-1-2 UserDAOImpl 클래스 5-1-2-1 HQL에 try-catch가 있는 것은 getSingleResult 메소드는 결과값이 없으면 exception을 발생시키기 때문 5-1-2-2 여기서는 에러가 발생하면 Exception 발생 대신 null을 리턴하기 위해서 사용하였다. package pe.pilseong.custom_registration.dao;
+
+...
+
+@Repository
+public class UserDAOImpl implements UserDAO {
+
+  @Autowired
+  private SessionFactory factory;
+  
+  @Override
+  public User findByUserName(String userName) {
+    Session session = factory.getCurrentSession();
+
+    User user = null;
+    
+    try {
+      user = session.createQuery("from User where userName=:userName", User.class)
+                .setParameter("userName", userName).getSingleResult();
+    } catch (Exception e) {
+      // when there is no result, it will throw an exception. 
+      // I just want to set null when no result.
+      user = null;
+    }
+    return user;
+  }
+
+  @Override
+  public void save(User user) {
+    Session session = factory.getCurrentSession();
+    
+    session.saveOrUpdate(user);
+  }
+} 6. 이 DAO 클래스를 사용할 Service 클래스를 작성해야 하는데 Service는 DTO객체를 사용한다. 6-1 여기서는 User가 사용자로부터 전달 받을 데이터이므로 UserDTO 클래스를 생성한다. 6-2 여기에는 아무런 Validation을 사용하지 않았다. 나중에 추가할 예정이다. package pe.pilseong.custom_registration.user;
+
+import lombok.Data;
+
+@Data
+public class UserDTO {
+  
+  private String userName;
+  
+  private String password;
+  
+  private String matchingPassword;
+  
+  private String firstName;
+  
+  private String lastName;
+  
+  private String email;
+} 6-3 이 DTO를 처리하는 UserService를 작성한다. 6-3-1 UserService 인터페이스 소스코드다. 6-3-2 나중에 스프링 Security 로그인 연동을 위해서 수정할 부분이 있다. package pe.pilseong.custom_registration.service;
+
+import pe.pilseong.custom_registration.entity.User;
+import pe.pilseong.custom_registration.user.UserDTO;
+
+public interface UserService {
+  
+  User findByUserName(String userName);
+  
+  void save(UserDTO user);
+} 6-3-2 UserServiceImpl 클래스 6-3-2-1 유저에서 받은 등록정보를 저장하는 부분이 핵심 이다. 6-3-2-2 저장 시 비밀번호를 BCrypt hashing 후 저장한다. 6-3-2-3 유저의 기본 권한을 EMPLOYEE로 설정하기 위한 코드가 있다. RoleDAO 구현이 필요하다. package pe.pilseong.custom_registration.service;
+
+...
+
+public class UserServiceImpl implements UserService {
+
+  @Autowired
+  private UserDAO userDAO;
+  
+  @Autowired
+  private RoleDAO roleDAO;
+  
+  @Autowired
+  private BCryptPasswordEncoder passwordEncoder;
+
+  @Override
+  @Transactional
+  public User findByUserName(String userName) {
+    return this.userDAO.findByUserName(userName);
+  }
+
+  @Override
+  @Transactional
+  public void save(UserDTO userDTO) {
+    User user = new User();
+    
+    user.setUsername(userDTO.getUserName());
+    user.setPassword(this.passwordEncoder.encode(userDTO.getPassword()));
+    user.setFirstName(userDTO.getFirstName());
+    user.setLastName(userDTO.getLastName());
+    user.setEmail(userDTO.getEmail());
+    
+    user.setRoles(Arrays.asList(this.roleDAO.findRoleByName("ROLE_EMPLOYEE")));
+    
+    this.userDAO.save(user);
+  }
+} 6-3-2-4 위 UserService save를 수행하기 위한 RoleDAO를 작성한다. 6-3-2-4-1 추가한 메소드는 데이터베이스의 ROLE을 이름으로 읽어서 가져온다. package pe.pilseong.custom_registration.dao;
+
+...
+
+public interface RoleDAO {
+  Role findRoleByName(String name);
+} 6-3-2-5 RoleDAOImpl을 작성한다. package pe.pilseong.custom_registration.dao;
+
+...
+
+import pe.pilseong.custom_registration.entity.Role;
+
+@Repository
+public class RoleDAOImpl implements RoleDAO {
+
+  @Autowired
+  private  SessionFactory sessionFactory;
+
+  @Override
+  public Role findRoleByName(String name) {
+    Session session = this.sessionFactory.getCurrentSession();
+    
+    return session.createQuery("from Role where name=:name", Role.class)
+      .setParameter("name", name).getSingleResult();
+  }
+} 7. 유저 View부분을 수정하고 추가한다. (이제 남은 것은 가입화면을 만드는 것과 그것에 대한 처리이다.) 7-1 Login 화면에서 가입버튼을 추가한다. plain-login.jsp의 container 블럭의 제일 아래의 4 줄이 추가되었다. 7-1-1 가입 등록 버튼을 눌렀을 때 요청하는 url은 context root /registrationPage이다. <div class="container">
+    <div class="card" style="width: 350px; margin-left: auto; margin-right: auto; border: none;">
+      <h1 class="display-4">Please Login</h1>
+      <form action="${pageContext.request.contextPath}/authenticateUser" method="POST">
+      
+        <input type="hidden" name="${ _csrf.parameterName }" value="${ _csrf.token }">
+        
+        <div class="form-group">
+          <label for="username">Username</label> 
+          <input type="text" id="username" name="username" class="form-control" />
+        </div>
+        <div class="form-group">
+          <label for="password">Password</label>
+          <input type="password" id="password" name="password" class="form-control">
+          <c:if test="${ param.error != null }">
+            <small id="passwordHelpBlock" class="form-text text-warning">
+              Sorry! You entered invalid username/password.
+            </small>
+          </c:if>          
+          <c:if test="${ param.logout != null }">
+            <small id="passwordHelpBlock" class="form-text text-info">
+              You have been logged out.
+            </small>
+          </c:if>          
+        </div>  
+        <input type="submit" value="Login" class="btn btn-primary">
+      </form>
+      
+      <!-- Registration Button -->
+      <div class="mt-3">
+        <a href="${ pageContext.request.contextPath }/registrationPage" class="btn btn-info">
+          Register New User
+        </a>
+      </div>
+    </div>
+  </div> 7-1-2 로그인 화면은 다음과 같이 표출된다. 7-2 등록 페이지이다. registration-form.jsp 7-2-1 등록 처리 요청 페이지는 context root /registerUser 이다. <%@ taglib prefix="c" uri="http://java.sun.com/jsp/jstl/core" %>
+<%@ taglib prefix="form" uri="http://www.springframework.org/tags/form"%>
+<%@ page language="java" contentType="text/html; charset=UTF-8"
+  pageEncoding="UTF-8"%>
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<link rel="stylesheet"
+  href="https://stackpath.bootstrapcdn.com/bootstrap/4.4.1/css/bootstrap.min.css"
+  integrity="sha384-Vkoo8x4CGsO3+Hhxv8T/Q5PaXtkKtu6ug5TOeNV6gBiFeWPGFN9MuhOf23Q9Ifjh"
+  crossorigin="anonymous">
+<title>Registration Form</title>
+</head>
+<body>
+
+  <div class="container">
+    <div class="card" style="width: 350px; margin-left: auto; margin-right: auto; border: none;">
+      <h1 class="display-4">Registration</h1>
+      <form:form action="${pageContext.request.contextPath}/registerUser" method="POST" modelAttribute="user">
+        <div class="form-group">
+          <label for="username">Username</label> 
+          <form:input type="text" id="userName" name="userName" class="form-control" path="userName"/>
+          <form:errors></form:errors>
+        </div>
+        <div class="form-group">
+          <label for="password">Password</label>
+          <form:input type="password" id="password" name="password" class="form-control" path="password" />
+        </div>  
+        <div class="form-group">
+          <label for="matchingPassword">Confirm Password</label>
+          <form:input type="password" id="matchingPassword" name="matchingPassword" class="form-control" path="matchingPassword"/>
+        </div>  
+        <div class="form-group">
+          <label for="firstName">First Name</label>
+          <form:input type="text" id="firstName" name="firstName" class="form-control" path="firstName"/>
+        </div>  
+        <div class="form-group">
+          <label for="lastName">Last Name</label>
+          <form:input type="text" id="lastName" name="lastName" class="form-control" path="lastName"/>
+        </div>  
+        <div class="form-group">
+          <label for="email">Email</label>
+          <form:input type="email" id="email" name="email" class="form-control" path="email" />
+        </div>  
+        <input type="submit" value="Register" class="btn btn-primary">
+      </form:form>
+    </div>
+  </div>
+
+  <script src="https://code.jquery.com/jquery-3.4.1.slim.min.js"
+    integrity="sha384-J6qa4849blE2+poT4WnyKhv5vZF5SrPo0iEjwBvKU7imGFAV0wwj1yYfoRSJoZ+n"
+    crossorigin="anonymous"></script>
+  <script
+    src="https://cdn.jsdelivr.net/npm/popper.js@1.16.0/dist/umd/popper.min.js"
+    integrity="sha384-Q6E9RHvbIyZFJoft+2mJbHaEWldlvI9IOYy5n3zV9zzTtmI3UksdQRVvoxMfooAo"
+    crossorigin="anonymous"></script>
+  <script
+    src="https://stackpath.bootstrapcdn.com/bootstrap/4.4.1/js/bootstrap.min.js"
+    integrity="sha384-wfSDF2E50Y2D1uUdj0O3uMBJnjuUD4Ih7YwaYd1iqfktj0Uod8GCExl3Og8ifwB6"
+    crossorigin="anonymous"></script>
+</body>
+</html> 8. 마지막으로 Controller로 프로그램을 연결한다. 8-1 registrationPage에는 spring form 테그를 사용하고 있기 때문에 UserDTO를 초기화 하여 보내준다. 8-2 등록 처리부분은 데이터를 DTO로 받아 이미 작성된 userService를 주입받아 사용자를 저장한다. 8-2-1 기존에 동일한 유저이름이 있는 경우는 다시 가입화면으로 돌아간다. 8-2-2 가입이 정상처리되면 로그인 페이지로 이동한다. package pe.pilseong.custom_registration.controller;
+
+...
+
+@Controller
+public class LoginController {
+  @Autowired
+  private UserService userService;
+  
+  ...
+
+  @GetMapping("/registrationPage")
+  public String registrationPage(Model model) {
+    model.addAttribute("user", new UserDTO());
+    
+    return "registration-form";
+  }
+  
+  @PostMapping("/registerUser")
+  public String registerUser(@ModelAttribute UserDTO userDTO) {
+    if (this.userService.findByUserName(userDTO.getUserName()) != null) {
+      return "registration-form";
+    }
+    
+    this.userService.save(userDTO);
+    return "redirect:/showLoginPage";
+  }
+} 8-3 정상적으로 저장되었다. 9. 이 포스트에서 한 내용은 9-1 데이터베이스 테이블을 생성하고 9-2 하이버네이트로 연결한 후 9-3 사용자가 가입화면에서 가입정보를 넣고 저장하면 저장된다. 9-4 비밀번호는 BCrypt로 암호화 하여 저장한다. 9-4 하지만 로그인은 여전히 in Memory 방식으로 처리하고 있다.

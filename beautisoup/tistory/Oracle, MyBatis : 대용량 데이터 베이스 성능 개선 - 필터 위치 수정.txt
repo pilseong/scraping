@@ -1,0 +1,569 @@
+1. 연간 민원이 약 60만 건 정도 쌓이고 이런 민원 데이터는 10년이면 600만 건 정도가 쌓이는데 이런 데이터를 조회하는 데 상당한 시간이 소요된다. 2. 기본적으로 데이터베이스의 성능개선은 2-1 데이터베이스의 기본은 쿼리의 개선이다. 1차적으로 쿼리의 개선을 수행하고 데이터베이스 실행 계획이 근접하게 되면 병렬처리를 도입한다. 2-2 쿼리 개선으로 한계가 있을 때 사용하는 것이 병렬처리이다. 병렬처리를 사용하면 멀티 테스킹으로 작업속도가 많이 향상 된다. 2-3 마지막으로 생각해야 할 것이 고유의 데이터베이스 프레임워크의 단점을 개선하거나 Parameter 바인딩을 제거하여 프로그램의 수행의 장애물을 개선한다. 2-4 이런 후에 생각할 것이 물리뷰인데 물리뷰는 원격에서 데이터 관리 및 동기화를 위해서 사용하지만 내부적으로 물리뷰를 만드는 것은 속도를 개선하는 가장 확실한 방법이다. 물론 용량이나 관리의 문제점 같은 것은 감수해야 한다. 2-4-1 물리뷰를 만드는 것 대신에 테이블의 사용빈도가 적을 때에는 일반 테이블을 만들고 프로시저를 주기적으로 돌려 동기화하는 것도 나쁘지 않은 방법이기는 하다. 물리뷰의 FAST모드만큼 성능이 나오지 않지만 좋은 대안이 된다. 3. 쓸대없는 이야기는 그만하고 위의 2-1에 나오는 쿼리 튜닝의 중요한 규칙 중 하나는 모집단을 가지고 올 때 최대한 필터링을 해야 한다는 것을 강조하고 싶다. 3-1 아래를 보면 일반적인 대용량 쿼리의 구조이다. 3-2 cur1에서 inner join으로 최대한 적은 수의 테이블의 join으로 모집단을 추출한다. 3-3 그 모집단의 결과를 가지고 cur2에서 다른 테이블과 외부 조인으로 데이터를 붙여서 모든 필요한 데이터를 결정 3-4 cur2에서 수집한 모든 데이터를 가공하여 적절한 모양으로 정리한다. with cur1 as(
+  select  ...
+  from    Real1 inner join Real2... Real 10
+), cur2 as (
+  select  ...
+  from    cur1, outer join ...
+  where   ...
+)
+select  *
+from    cur2
+where   ... 4. 일반적인 대용량 데이터베이스 조회의 문제점은 cur1에서 모집단 추출에 시간이 너무 많이 든다는 점이다. 그렇기 때문에 가능한 경우 모집단을 수집할 때 모집단을 줄일 수 있는 쿼리를 cur1에 적용하는 것이 필요하다. 4-1 모집단이 줄어들면 cur2에서 추가로 데이터를 가지고 오는 경우에 훨씬 적은 부하로 join의 처리가 가능하게 된다. with cur1 as(
+  select  ...
+  from    Real1 inner join Real2... Real 10
+), cur2 as (
+  select  ...
+  from    cur1, outer join ...
+  where   ...
+    and   cur1.condition1 = #{a}
+    and   cur1.condition2 = #{b}
+    ...
+)
+select  *
+from    cur2
+where   ...
+
+
+cur1의 모집단 추출에 종속된 필터는 모두 cur1로 가져간다.
+
+
+
+with cur1 as(
+  select  ...
+  from    Real1 inner join Real2... Real 10
+    and   cur1.condition1 = #{a}
+    and   cur1.condition2 = #{b}  
+), cur2 as (
+  select  ...
+  from    cur1, outer join ...
+  where   ...
+    ...
+)
+select  *
+from    cur2
+where   ... 5. 수백만 건의 데이터베이스 검색은 이런 작은 조건의 위치의 변경만으로 조회시간이 몇 배가 차이가 날 수 있다. 5-1 아래는 세부적인 내용은 모두 변경했다. 구조만 참고하기 바란다. 5-2 최적화가 더 필요한 코드이지만 예시로 제시하였다. 중간에 적혀 있는 if 절들이 이동한 필터들이다. <select id="searchFor_List" resultType="searchFor_VO" parameterType="searchFor_VO">
+        with cur1
+          as (SELECT 
+          /*+ enable_parallel_dml */
+          /*+ full(_____) parallel(_____ 8) */
+            <choose>
+            <when test='dateSe == "A"'> -->
+               /*+ INDEX_DESC(_____ TM_______IDX4)  */
+            </when>
+            <when test='dateSe == "P"'> -->
+              /*+ INDEX_DESC(_____ TM_______PK)  */
+            </when>
+            <when test='dateSe == "C"'> -->
+              /*+ INDEX_DESC(_____ TM_______PK)  */
+            </when>
+            <otherwise> -->
+              /*+ INDEX_DESC(_____ TM_______PK)  */
+            </otherwise>          
+            </choose>
+              _____.*, addr.zipcode, addr.addr1, addr.addr2, addr.full_doro_addr, procnd.office_yn
+            FROM TM______ _____,
+              TM_______ADDR addr,
+              TM_______PROCND procnd
+          <if test="usrNm != null and usrNm != ''">              
+              ,TM_______MGRNO mgr
+          </if>
+            WHERE _____.INFO_KEY = addr.INFO_KEY
+            AND addr.INFO_KEY = procnd.INFO_KEY
+            
+            
+          -- cur2에 있던 필터를 cur1로 가져온 부분
+            
+            
+      <if test="searchCorpCd != null and searchCorpCd != ''">
+          AND _____.corp____ = #{searchCorpCd, jdbcType=VARCHAR}
+      </if>
+      <if test="acptNm != null and acptNm != ''">
+          AND _____.reg_id in ( select loginid from _____gperson_full where cn = #{acptNm})
+      </if>
+      <if test="mainKey != null and mainKey != ''">
+          AND _____.INFO_KEY = #{mainKey, jdbcType=VARCHAR}
+      </if>
+      <if test="mgrNo != null and mgrNo != ''">
+          AND _____.INFO_KEY IN (SELECT INFO_KEY FROM TM_______MGRNO WHERE DDD_R = LPAD(#{mgrNo, jdbcType=VARCHAR}, 9, '0'))
+      </if>
+      <if test="applyNm != null and applyNm != ''">
+          AND _____.apply_nm = #{applyNm, jdbcType=VARCHAR}
+      </if>
+      <if test="recSec != null and recSec != ''">
+          AND _____.rec_sec = #{recSec, jdbcType=VARCHAR}
+      </if>
+      <if test="officeYn != null and officeYn != ''">
+          AND _____.office_yn = #{officeYn, jdbcType=VARCHAR}
+      </if>                   
+      
+          -- cur2에 있던 필터를 cur1로 가져온 부분 끝
+      
+            <choose>
+            <when test='addrSe == "A" or doroSe == "A"'>
+              AND addr.______adres_ty = 'APPLY'
+              <if test="addr1 != null and addr1 != ''">
+                  AND addr.sigungu || addr.umd like '%' || #{addr1, jdbcType=VARCHAR} || '%'
+              </if>
+              <if test="addr2 != null and addr2 != ''">
+                  AND addr.bunji || '-' || addr.ho like '%' || #{addr2, jdbcType=VARCHAR} || '%'
+              </if>
+              <if test="doro1 != null and doro1 != ''">
+                  AND addr.doro_nm like '%' || #{doro1, jdbcType=VARCHAR} || '%'
+              </if>
+              <if test="doro2 != null and doro2 != ''">
+                  AND addr.bd_bon_num like '%' || #{doro2, jdbcType=VARCHAR} || '%'
+              </if>
+            </when>
+            <otherwise>
+              AND addr.______adres_ty = 'OWNER'
+              <if test="addr1 != null and addr1 != ''">
+                  AND addr.sigungu || addr.umd like '%' || #{addr1, jdbcType=VARCHAR} || '%'
+              </if>
+              <if test="addr2 != null and addr2 != ''">
+                  AND addr.bunji || '-' || addr.ho like '%' || #{addr2, jdbcType=VARCHAR} || '%'
+              </if>
+              <if test="doro1 != null and doro1 != ''">
+                  AND addr.doro_nm like '%' || #{doro1, jdbcType=VARCHAR} || '%'
+              </if>
+              <if test="doro2 != null and doro2 != ''">
+                  AND addr.bd_bon_num like '%' || #{doro2, jdbcType=VARCHAR} || '%'
+              </if>
+            </otherwise>
+          </choose>
+            AND addr.ord in (0, 1)
+          <if test="usrNm != null and usrNm != ''">            
+            AND mgr.INFO_KEY(+) = _____.INFO_KEY
+                AND mgr.ord(+) IN (
+                    0,
+                    1
+                )
+          </if>
+                <choose>
+            <when test='dateSe == "A"'> -->
+              <if test="mainKey =='' and dateFrom != null and dateFrom != '' and dateTo != null and dateTo != ''">
+                  AND _____.apply_____ BETWEEN REPLACE(#{dateFrom, jdbcType=VARCHAR}, '/', '') || '000000' AND REPLACE(#{dateTo, jdbcType=VARCHAR}, '/', '') || '235959'
+              </if>
+            </when>
+            <when test='dateSe == "P"'> -->
+              <if test="mainKey == '' and dateFrom != null and dateFrom != '' and dateTo != null and dateTo != ''">
+                  AND _____.expected_____ BETWEEN REPLACE(#{dateFrom, jdbcType=VARCHAR}, '/', '') || '000000' AND REPLACE(#{dateTo, jdbcType=VARCHAR}, '/', '') || '235959'
+              </if>
+            </when>
+            <when test='dateSe == "C"'> -->
+              <if test="mainKey == '' and dateFrom != null and dateFrom != '' and dateTo != null and dateTo != ''">
+                  AND _____.finish_____ BETWEEN REPLACE(#{dateFrom, jdbcType=VARCHAR}, '/', '') || '000000' AND REPLACE(#{dateTo, jdbcType=VARCHAR}, '/', '') || '235959'
+              </if>
+            </when>
+            <otherwise> -->
+              <if test="mainKey == '' and dateFrom != null and dateFrom != '' and dateTo != null and dateTo != ''">
+                  AND _____.acpt_____ BETWEEN REPLACE(#{dateFrom, jdbcType=VARCHAR}, '/', '') || '000000' AND REPLACE(#{dateTo, jdbcType=VARCHAR}, '/', '') || '235959'
+              </if>
+            </otherwise>
+          </choose>
+          <if test="usrNm != null and usrNm != ''">
+              AND mgr.DDD_R in ( SELECT arisu.mkey FROM ARISU.TN_CS_USR arisu WHERE arisu.now_usr_flag = 'Y' AND  arisu.nm like '%' || #{usrNm, jdbcType=VARCHAR} || '%')
+          </if>
+          ORDER BY _____.INFO_KEY DESC
+        ), cur2 as (
+        SELECT  INFO_KEY,
+           JOBBcd,
+           JOBBcd AS subsortOf,
+           STATE,
+           apply_nm,
+           treat______,
+           apply_____,
+           acpt_____,
+           expected_____,
+           lovebaby_nm,
+           JOBBnm,
+           step_nm,
+           adores,
+           adores_nm,
+           charger_id,
+           charger_nm,
+           case when remain_time &lt; emergency_time then 'Y' else 'N' end as emergency_yn,
+           case when remain_time &lt; imminent_time then 'Y' else 'N' end as imminent_yn,
+           apply_se,
+           office_yn,
+           receipt_nm,
+           addr,
+           full_doro_addr,
+           ______unity_no
+        FROM (
+          SELECT /*+ INDEX_DESC(unity idx_______unity_INFO_KEY) */ 
+            a.INFO_KEY,
+            a.JOBBcd,
+            a.STATE,
+            a.apply_nm,
+            a.treat______,
+            a.apply_____,
+            TO_CHAR(TO_DATE(a.acpt_____,'YYYYMMDDHH24MISS'), 'YYYY/MM/DD HH24:MI') acpt_____,
+            TO_CHAR(TO_DATE(a.expected_____,'YYYYMMDDHH24MISS'), 'YYYY/MM/DD HH24:MI') expected_____,
+            a.upd_date,
+            b.lovebaby_nm,
+            c.JOBBnm,
+            d.step_nm,
+            CASE WHEN f.adores IS NOT NULL THEN f.adores ELSE k.adores END AS adores,
+            CASE WHEN f.adores IS NOT NULL THEN j.cn ELSE j2.cn END AS adores_nm,
+            g.charger_id,
+            h.cn charger_nm,
+            c.emergency_time,
+            c.imminent_time,
+            ROUND((TO_DATE(a.expected_____,'YYYYMMDDHH24MISS')-sysdate)*24) as remain_time,
+            CASE WHEN a.office_yn = 'Y' THEN '직원신청'
+                 ELSE '시민신청'
+            END AS apply_se,
+            a.office_yn,
+            (SELECT 
+            /*+ INDEX_DESC(H HucM_______TRE_PK)  */
+            /*+ enable_parallel_dml */
+            /*+ full(tre) parallel(tre 8) */
+             tre.treat_charger_nm
+              FROM TM_TRE tre WHERE 1 = 1
+              AND tre.INFO_KEY = a.INFO_KEY
+              and tre.TREAT______ = 'KLEE3200'
+              AND ROWNUM = 1
+          )  AS receipt_nm,
+            SUBSTR(a.zipcode, 1, 3) || '-' || SUBSTR(a.zipcode, 4, 3) || ' ' || a.addr1 || '  ' || a.addr2 AS addr,
+                  a.full_doro_addr,
+                  unity.______unity_no
+                  ,a.reg_id
+        FROM
+            cur1 a,
+            PRE_NAME_STATE_CODE b,
+            TM_______DFN c,
+            PRE_NAME_STEP d,
+            TM_TRE_DEPT f,
+            TM_TRE_CHARGER g,
+            _____GPERSON_FULL h,
+            _____GDEPT_FULL j,
+            TM_______ASIGN_DEPT k,
+            _____GDEPT_FULL j2,
+            <if test="procResult != null and procResult != ''">
+              <choose>
+                <when test='sortOf == "RRR31"'>
+                  ___WASH_CONST m,
+                </when>
+                <when test='sortOf == "RRR32"'>
+                  ___MTR_CHNGBBC m,
+                </when>
+                <when test='sortOf == "RRR34"'>
+                  ___WASH_SOLTNBBC m,
+                </when>
+                <when test='sortOf == "RRR35"'>
+                  ____INHOUSABCDESPT m,
+                </when>
+                <when test='sortOf == "RRR36"'>
+                  ____OUTHOUSABCDESPT m,
+                </when>
+                <when test='sortOf == "RRR37"'>
+                  ____QLTWTR_CHK_CN m,
+                </when>
+                <when test='sortOf == "RRR39"'>
+                  ____DMGE_REWARD_CN m,
+                </when>
+                <when test='sortOf == "I10"'>
+                  ____MTR_RLOCBBC m,
+                  ____TUBE_RLOC m1,
+                </when>
+                <when test='sortOf == "RRR33"'>
+                  ____MTR_RLOCBBC m,
+                </when>
+                <when test='sortOf == "A10"'>
+                  ____TUBE_RLOC m,
+                </when>
+                <when test='sortOf == "A11"'>
+                  ____DRCCON_WASHBBC m,
+                </when>
+                <when test='sortOf == "A12"'>
+                  ___WASH_CNSLTBBC m,
+                </when>
+                <when test='sortOf == "A14"'>
+                  ____CT_PYMNTBBC m,
+                </when>
+                <when test='sortOf == "KLEE31"'>
+                  TBABCDEREDUCBBC m,
+                </when>
+                <when test='sortOf == "KLEE32"'>
+                  HucTYINDU_CHNGEBBC m,
+                </when>
+                <when test='sortOf == "KLEE33"'>
+                  HucPAY_PROOFBBC m,
+                </when>
+                <when test='sortOf == "KLEE34"'>
+                  HucNMCHNGE m,
+                </when>
+                <when test='sortOf == "KLEE35"'>
+                  HucEQP_CLSBBC m,
+                </when>
+                <when test='sortOf == "I06"'>
+                  HucWASH_STPGEBBC m,
+                  HucSTPGE_RELESBBC m1,
+                </when>
+                <when test='sortOf == "KLEE36"'>
+                  HucWASH_STPGEBBC m,
+                </when>
+                <when test='sortOf == "KLEE37"'>
+                  HucSTPGE_RELESBBC m,
+                </when>
+                <when test='sortOf == "KLEE38"'>
+                  HucWPRHB_RELESBBC m,
+                </when>
+                <when test='sortOf == "KLEE39"'>
+                  HucMTR_ATHRZ_FLUXBBC m,
+                </when>
+                <when test='sortOf == "I12"'>
+                  HucHM_PARTITNBBC m,
+                  HucONEROOM_PARTITNBBC m1,
+                </when>
+                <when test='sortOf == "B13"'>
+                  HucCHRG_SEPRAT m,
+                </when>
+                <when test='sortOf == "B14"'>
+                  HucAUTOPAY m,
+                </when>
+                <when test='sortOf == "B15"'>
+                  HucREADMTR_DE m,
+                </when>
+                <when test='sortOf == "C01"'>
+                  TC_ETC______ m,
+                </when>
+                <when test='sortOf == "D01"'>
+                  TD_SERVC_ACRSLT m,
+                </when>
+                <otherwise>
+                </otherwise>
+              </choose>
+            </if>
+            <if test='procStep == "003" or procStep == "004"'>
+              TM_______END_TIME end_t,
+            </if>
+            TM_______UNITY unity
+        WHERE
+            1 = 1
+          AND g.charger_sec(+) = 'M'
+          AND a.INFO_KEY = f.INFO_KEY(+)
+          AND a.INFO_KEY = g.INFO_KEY(+)
+          AND d.STATE = a.STATE
+          AND c.JOBBcd = a.JOBBcd
+          AND a.treat______ = b.treat______
+          AND a.JOBBcd = b.JOBBcd
+          AND h.loginid(+) = g.charger_id
+          AND j.hfuid(+) = f.adores
+          AND a.INFO_KEY = unity.INFO_KEY(+)
+          AND a.INFO_KEY = k.INFO_KEY (+)
+          AND j2.hfuid(+) = k.adores
+      <if test="chargerNm != null and chargerNm != ''">
+          AND h.cn like '%' || #{chargerNm, jdbcType=VARCHAR} || '%'
+      </if>
+      <if test="treatTeam != null and treatTeam != ''">
+          AND f.adores = #{treatTeam, jdbcType=VARCHAR}
+      </if>
+      <if test="sortOf != null and sortOf != ''">
+          <choose>
+            <when test='"I".equals(sortOf.substring(0,1)) '>
+                AND C.UP_JOBBCD = #{sortOf} 
+            </when>
+            <otherwise>
+                AND a.JOBBcd = #{sortOf}
+            </otherwise>
+        </choose>
+      </if>
+      <if test="procResult != null and procResult != ''">
+        <choose>
+        <when test="sortOf == 'RRR31'">
+        AND A.INFO_KEY = M.INFO_KEY(+)
+        AND M.CONST_TY = SUBSTR(#{procResult, jdbcType=VARCHAR}, 4)
+        </when>
+        <when test="sortOf == 'RRR32'">
+        AND A.INFO_KEY = M.INFO_KEY(+)
+        AND M.CHANGE_YN = #{procResult, jdbcType=VARCHAR}
+        </when>
+        <when test="sortOf == 'RRR34'">
+        AND A.INFO_KEY = M.INFO_KEY(+)
+        AND M.SPT_RSN____ = #{procResult, jdbcType=VARCHAR}
+        </when>
+        <when test="sortOf == 'RRR35'">
+        AND A.INFO_KEY = M.INFO_KEY(+)
+        AND M.LEAK_YN = #{procResult, jdbcType=VARCHAR}
+        </when>
+        <when test="sortOf == 'RRR36'">
+        AND A.INFO_KEY = M.INFO_KEY(+)
+        AND M.LEAK_YN = #{procResult, jdbcType=VARCHAR}
+        </when>
+        <when test="sortOf == 'RRR37'">
+        AND A.INFO_KEY = M.INFO_KEY(+)
+        AND M.DECISION = #{procResult, jdbcType=VARCHAR}
+        </when>
+        <when test="sortOf == 'RRR39'">
+        AND A.INFO_KEY = M.INFO_KEY(+)
+        AND M.REWARD_YN = #{procResult, jdbcType=VARCHAR}
+        </when>
+        <when test="sortOf == 'I10'">
+        AND A.INFO_KEY = M.INFO_KEY(+)
+        AND A.INFO_KEY = M1.INFO_KEY(+)
+        AND ((M.RLOC_YN = #{procResult, jdbcType=VARCHAR}) 
+            OR (M1.USE_DESC = #{procResult, jdbcType=VARCHAR}))
+        </when>
+        <when test="sortOf == 'RRR33'">
+        AND A.INFO_KEY = M.INFO_KEY(+)
+        AND M.RLOC_YN = #{procResult, jdbcType=VARCHAR}
+        </when>
+        <when test="sortOf == 'A10'">
+        AND A.INFO_KEY = M.INFO_KEY(+)
+        AND M.USE_DESC = #{procResult, jdbcType=VARCHAR}
+        </when>
+        <when test="sortOf == 'A11'">
+        AND A.INFO_KEY = M.INFO_KEY(+)
+        AND M.decision = #{procResult, jdbcType=VARCHAR}
+        </when>
+        <when test="sortOf == 'A12'">
+        AND A.INFO_KEY = M.INFO_KEY(+)
+        AND M.decision = #{procResult, jdbcType=VARCHAR}
+        </when>
+        <when test="sortOf == 'A14'">
+        AND A.INFO_KEY = M.INFO_KEY(+)
+        AND M.decision = #{procResult, jdbcType=VARCHAR}
+        </when>
+        <when test="sortOf == 'KLEE31'">
+        AND A.INFO_KEY = M.INFO_KEY(+)
+        AND M.YOGM_CHANGE_YN = #{procResult, jdbcType=VARCHAR}
+        </when>
+        <when test="sortOf == 'KLEE32'">
+        AND A.INFO_KEY = M.INFO_KEY(+)
+        AND M.CH_YN = #{procResult, jdbcType=VARCHAR}
+        </when>
+        <when test="sortOf == 'KLEE33'">
+        AND A.INFO_KEY = M.INFO_KEY(+)
+        AND M.PROC_YN = #{procResult, jdbcType=VARCHAR}
+        </when>
+        <when test="sortOf == 'KLEE34'">
+        AND A.INFO_KEY = M.INFO_KEY(+)
+        AND M.GUBUN = #{procResult, jdbcType=VARCHAR}
+        </when>
+        <when test="sortOf == 'KLEE35'">
+        AND A.INFO_KEY = M.INFO_KEY(+)
+        AND M.CLOSE_YN = #{procResult, jdbcType=VARCHAR}
+        </when>
+        <when test="sortOf == 'I06'">
+        AND A.INFO_KEY = M.INFO_KEY(+)
+        AND A.INFO_KEY = M1.INFO_KEY(+)
+        AND ((M.CLOSE_YN = #{procResult, jdbcType=VARCHAR})
+            OR (M1.OPEN_YN = #{procResult, jdbcType=VARCHAR}))
+        </when>
+        <when test="sortOf == 'KLEE36'">
+        AND A.INFO_KEY = M.INFO_KEY(+)
+        AND M.CLOSE_YN = #{procResult, jdbcType=VARCHAR}
+        </when>
+        <when test="sortOf == 'KLEE37'">
+        AND A.INFO_KEY = M.INFO_KEY(+)
+        AND M.OPEN_YN = #{procResult, jdbcType=VARCHAR}
+        </when>
+        <when test="sortOf == 'KLEE38'">
+        AND A.INFO_KEY = M.INFO_KEY(+)
+        AND M.CANCEL_YN = #{procResult, jdbcType=VARCHAR}
+        </when>
+        <when test="sortOf == 'KLEE39'">
+        AND A.INFO_KEY = M.INFO_KEY(+)
+        AND M.TEST_POSSIBILITY = #{procResult, jdbcType=VARCHAR}
+        </when>
+        <when test="sortOf == 'I12'">
+        AND A.INFO_KEY = M.INFO_KEY(+)
+        AND A.INFO_KEY = M1.INFO_KEY(+)
+        AND ((M.STATUS = #{procResult, jdbcType=VARCHAR})
+            OR (M1.DIV_PUT_YN = #{procResult, jdbcType=VARCHAR}))
+        </when>
+        <when test="sortOf == 'B13'">
+        AND A.INFO_KEY = M.INFO_KEY(+)
+        AND M.GUBUN = #{procResult, jdbcType=VARCHAR}
+        </when>
+        <when test="sortOf == 'B14'">
+        AND A.INFO_KEY = M.INFO_KEY(+)
+        AND M.AUTO_PAY = #{procResult, jdbcType=VARCHAR}
+        </when>
+        <when test="sortOf == 'B15'">
+        AND A.INFO_KEY = M.INFO_KEY(+)
+        AND M.GUM_INFO_TY = #{procResult, jdbcType=VARCHAR}
+        </when>
+        <when test="sortOf == 'C01'">
+        AND A.INFO_KEY = M.INFO_KEY(+)
+        AND M.APPEAL_SEC = #{procResult, jdbcType=VARCHAR}
+        </when>
+        <when test="sortOf == 'D01'">
+        AND A.INFO_KEY = M.INFO_KEY(+)
+        AND M.GUBUN = #{procResult, jdbcType=VARCHAR}
+        </when>
+        <otherwise>
+        </otherwise>
+        </choose>
+      </if>
+      <if test="procStep != null and procStep != ''">
+          <choose>
+          <when test='procStep == "001"'>
+            AND EXISTS (SELECT * FROM PRE_NAME_STEP s WHERE a.STATE = s.STATE AND s.SEC IN ('APPLY', 'RCEPT'))
+          </when>
+          <when test='procStep == "002"'>
+            AND EXISTS (SELECT * FROM PRE_NAME_STEP s WHERE a.STATE = s.STATE AND s.SEC <![CDATA[<>]]> 'END')
+          </when>
+          <when test='procStep == "003"'>
+              AND a.INFO_KEY = end_t.INFO_KEY(+) 
+              AND SUBSTR(a.TREAT______,1,1) <![CDATA[<>]]> 'F' 
+            AND SUBSTR(a.expected_____,1,12) <![CDATA[<]]>
+                CASE 
+                    WHEN a.JOBBcd IN ('RRR31','RRR34','A10','KLEE35') AND end_t.INFO_KEY is NOT NULL THEN SUBSTR(end_t.TREAT_DT||end_t.TREAT_TM,1,12)
+                    ELSE to_char(sysdate, 'yyyymmddhh24mi')
+                END
+            AND NOT EXISTS (SELECT * FROM TM_TRE s WHERE s.INFO_KEY = a.INFO_KEY AND s.treat______ like 'F92%')
+            AND NOT ( a.JOBBCD = 'KLEE39' AND a.TREAT______ IN ('E4920', 'E6920', 'E2520' ,'E0720') ) /* KLEE39민원중에 현상태가 E4920,E6920,E2520,E0720일 경우 임박,긴급,지연진행 판단에서 제외 */  
+          </when>
+          <when test='procStep == "004"'>
+            AND a.INFO_KEY = end_t.INFO_KEY(+)
+            AND d.SEC = 'END'
+            AND SUBSTR(a.expected_____,1,12) <![CDATA[<]]>
+                CASE 
+                    WHEN a.JOBBcd IN ('RRR31','RRR34','A10','KLEE35') AND end_t.INFO_KEY is NOT NULL THEN SUBSTR(end_t.TREAT_DT||end_t.TREAT_TM,1,12)
+                    ELSE SUBSTR(a.finish_____,1,12)
+                END  
+            AND NOT EXISTS (SELECT * FROM TM_TRE s WHERE s.INFO_KEY =  a.INFO_KEY AND s.treat______ like 'F92%')
+          </when>
+          <when test='procStep == "005"'>
+            AND EXISTS (SELECT * FROM PRE_NAME_STEP s WHERE a.STATE = s.STATE AND s.treat______ = 'FF')
+          </when>
+          <when test='procStep == "006"'>
+            AND EXISTS (SELECT * FROM PRE_NAME_STEP s WHERE a.STATE = s.STATE AND s.treat______ = 'F')
+          </when>
+                    <when test='procStep == "008"'>
+                        AND EXISTS (SELECT * FROM PRE_NAME_STEP s WHERE a.STATE = s.STATE AND s.treat______ = 'F0')
+                    </when>
+          <otherwise>
+            AND EXISTS (SELECT * FROM PRE_NAME_STEP s WHERE a.STATE = s.STATE AND s.SEC = 'END')
+          </otherwise>
+        </choose>
+      </if>
+      <if test="_____UnityNo != null and _____UnityNo != ''">
+          AND unity.______unity_no = #{_____UnityNo, jdbcType=INTEGER}
+      </if>
+      )
+      <if test="receiptNm != null and receiptNm != ''">
+        WHERE receipt_nm = #{receiptNm}
+    </if>
+    )                 
+    SELECT
+      Z.*
+    FROM (
+        SELECT
+          /*+ enable_parallel_dml */
+          /*+ full(Y) parallel(Y 8)*/ 
+          ROWNUM                        AS rnum, Y.*
+        FROM  (
+		        SELECT 
+		        /*+ enable_parallel_dml */
+		        /*+ full(cur2) parallel(cur2 8)*/
+		        (SELECT COUNT (*) FROM cur2) AS total_record_count,        
+		          cur2.*
+		        FROM cur2
+		        ORDER BY INFO_KEY DESC ) Y
+		    WHERE ROWNUM &lt; (#{firstIndex,jdbcType=NUMERIC} + 1) + #{recordCountPerPage,jdbcType=NUMERIC}
+    ) Z
+    WHERE Z.RNUM &gt; #{firstIndex,jdbcType=NUMERIC}
+    </select>

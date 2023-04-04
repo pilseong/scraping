@@ -1,0 +1,244 @@
+0. 이 포스트는 v3에서 만들다만 카트에 대한 상세 페이지 작성 및 주문페이지 작성에 관한 시리즈이다. 0-1 상품 리스트에 카트 담기 버튼 추가하기 0-2 카트 상세 페이지 작성하기 --> 이 포스트에서는 여기까지 작성한다. 0-3 카트 상품의 수량 증가, 감소 및 삭제 구현 0-4 주문 페이지 작성하기 1. 상품 리스트에 카드 담기 버튼 추가 1-1 현재 상품 상세 페이지에만 카드 담기 버튼이 있어 테스트하기 귀찮다. 그리고 리스트에 담기가 있으면 편리하다. 1-2 상품 리스트에서 표출되는 수량정보는 불필요해 보이기 때문에 대신 자리에 추가하기 버튼을 대신 붙인다. 1-3 product-list.component.html에서 아래처럼 가격의 위치를 한 칸 당기고 Add to Cart버튼을 추가한다. <div class="container-fluid">
+  <h4>{{ currentCategoryName }}</h4>
+  <hr>
+  <div class="row">
+    <table class="table">
+      <thead class="thead-dark">
+        <th class="text-center">Image</th>
+        <th class="text-center">Name</th>
+        <th class="text-center">Price</th>
+        <th class="text-center"></th>
+      </thead>
+      <tbody>
+        <tr *ngFor="let product of products">
+          <td class="text-center">
+            <a routerLink="/products/{{product.id}}">
+              <img src="{{ product.imageUrl }}" width="50px" alt="picture">
+            </a>
+          </td>
+          <td class="text-center">
+            <a routerLink="/products/{{product.id}}">{{ product.name }}</a>
+          </td>
+          <td class="text-center">{{ product.unitPrice | currency }}</td>
+          <td class="text-center">
+            <button class="btn btn-sm btn-primary" 
+              (click)="addToCart(product)">Add to Cart</button>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="mt-5 d-flex justify-content-center">
+    <ngb-pagination
+      [(page)]="pageInfo.number"
+      [pageSize]="pageInfo.size"
+      [collectionSize]="pageInfo.totalElements"
+      [maxSize]="5"
+      [boundaryLinks]="true"
+      (pageChange)="onPagechange()"
+    ></ngb-pagination>
+  </div>
+</div> 1-4 product.list.component.ts에서 카드 담기 버튼을 눌렀을 때 카트에 담는 메서드를 만든다. 1-4-1 기존의 상세페이지에 있는 메서드와 동일하고 CartService를 주입받아 사용한다. 1-4-2 제일 아래 3줄인데 귀찮아서 소스를 다 붙였다. import { Component, OnInit } from '@angular/core';
+import { Product } from 'src/app/common/product';
+import { ProductService } from 'src/app/services/product.service';
+import { ActivatedRoute } from '@angular/router';
+import { PageInfo } from 'src/app/common/page-info';
+import { CartService } from 'src/app/services/cart.service';
+
+@Component({
+  selector: 'app-product-list',
+  templateUrl: './product-list.component.html',
+  styleUrls: ['./product-list.component.css']
+})
+export class ProductListComponent implements OnInit {
+
+  products: Product[]
+
+  currentCategoryId: string = '1'
+  previousCategoryId: string = '1'
+
+  currentCategoryName: string;
+
+  pageInfo: PageInfo = new PageInfo()
+
+  constructor(
+    private productService: ProductService, 
+    private route: ActivatedRoute,
+    private cartService: CartService) { }
+
+  ngOnInit(): void {
+    this.route.paramMap.subscribe(
+      ()=> this.getProducts()
+    )
+  }
+
+  getProducts(): void {
+    if (this.route.snapshot.paramMap.has("keyword")) {
+      this.handleSearchProducts()
+    } else {
+      this.handleGetProducts()
+    }
+  } 
+
+  private handleSearchProducts() {
+    const keyword = this.route.snapshot.paramMap.get("keyword")
+    this.currentCategoryName = 'Search: ' + keyword
+    this.productService.getProuductsByName(keyword,
+      this.pageInfo.number-1, this.pageInfo.size).subscribe(data=> {
+
+        console.log(data);
+        this.products = data._embedded.products
+
+        this.pageInfo.totalElements = data.page.totalElements
+        this.pageInfo.totalPages = data.page.totalPages
+      }
+    )
+  }
+
+  private handleGetProducts() {
+    if (this.route.snapshot.paramMap.has("id")) {
+      this.currentCategoryId = this.route.snapshot.paramMap.get("id")
+      this.currentCategoryName = this.route.snapshot.paramMap.get("name")
+    } else {
+      this.currentCategoryId = "1"
+      this.currentCategoryName = "Books"
+    }
+
+    if (this.previousCategoryId !== this.currentCategoryId) {
+      this.pageInfo.number = 1
+    } 
+    this.previousCategoryId = this.currentCategoryId
+
+    this.productService.getProductsByCategoryId(this.currentCategoryId, 
+      this.pageInfo.number-1, this.pageInfo.size).subscribe(data => {
+        console.log(data);
+        this.products = data._embedded.products
+
+        this.pageInfo.totalElements = data.page.totalElements
+        this.pageInfo.totalPages = data.page.totalPages
+      } 
+    )
+  }
+
+  onPagechange() {
+    this.getProducts()
+  }
+
+  addToCart(product: Product) {
+    this.cartService.addToCart(product)
+  }
+} 1.5 수정된 페이지는 다음과 같다. 세번째 컬럼의 이름이 잘못되었다. Price이다. 2. 카트 상세 페이지 작성하기 2-1 우선 카트 상세 페이지 컴포넌트를 생성한다. $ ng generate component components/cart-details 2-2 이제 상세 페이지에 대해서 라우팅 테이블을 업데이트한다. 2-2-1 app.module.ts routes에 다음과 같이 추가한다. 제일 첫 줄이 추가되었다. const routes: Routes = [
+  { path: 'cart-details', component: CartDetailsComponent },
+  { path: 'search/:keyword', component: ProductListComponent },
+  { path: 'category/:id/:name', component: ProductListComponent },
+  { path: 'category', component: ProductListComponent },
+  { path: 'products/:id', component: ProductDetailsComponent },
+  { path: 'products', component: ProductListComponent },
+  { path: '', component: ProductListComponent },
+  { path: '**', component: ProductListComponent }
+] 2-3 cart-details.component.ts 코드를 다음과 같이 작성한다. 2-3-1 카트 상세페이지는 카트 서비스를 주입받아서 사용한다. 2-3-2 상세페이지는 어떤 상품을 담았는지를 표시하기 때문에 카트 서비스에서 관리하는 물건목록을 가져와야 한다. 2-3-3 총합계와 총수량도 표시되어야 되므로 카트 서비스의 제공하는 합계, 수량 subject를 구독한다. 2-3-4 computeTotals()은 subject에 총합계와 총수량을 보내달라고 요청하는 부분이다. 2-3-4-1 요청하지 않으면 초기값만 보이기 때문에 수동으로 computeTotals을 호출하여 값을 요청한다. import { Component, OnInit } from '@angular/core';
+import { CartService } from 'src/app/services/cart.service';
+import { CartItem } from 'src/app/common/cart-item';
+
+@Component({
+  selector: 'app-cart-details',
+  templateUrl: './cart-details.component.html',
+  styleUrls: ['./cart-details.component.css']
+})
+export class CartDetailsComponent implements OnInit {
+
+  cartItems: CartItem[] = []
+  totalPrice: number = 0.00
+  totalQuantity: number = 0
+
+  constructor(private cartService: CartService) { }
+
+  ngOnInit(): void {
+    this.cartItems = this.cartService.cartItems
+    this.cartService.totalPrice.subscribe(data => this.totalPrice = data)
+    this.cartService.totalQuantity.subscribe(data => this.totalQuantity = data)
+
+    this.cartService.computeTotals()
+  }
+} 2-3-5 위의 computeTotals이라는 메서드를 서비스에 작성한다. 2-3-5-1 사실 아래  코드의 수정 부분은 subject들에게 값을 요청하는 기능을 따로 빼낸 것이다. 2-3-5-2 카트에 담은 후에도 합계가 변경되기 때문에 subject가 값을 전송하도록 해야 한다. import { Injectable } from '@angular/core';
+import { CartItem } from '../common/cart-item';
+import { Subject } from 'rxjs';
+import { Product } from '../common/product';
+
+@Injectable({
+  providedIn: 'root'
+})
+export class CartService {
+  
+  cartItems: CartItem[] = []
+  
+  totalPrice: Subject<number> = new Subject()
+  totalQuantity: Subject<number> = new Subject()
+  
+  constructor() { }
+  
+  addToCart(product: Product) {
+
+    let item: CartItem = undefined
+    let alreadyIn: boolean = false;
+    item = this.cartItems.find(item=> item.id === product.id)
+
+    alreadyIn = item !== undefined;
+
+    if (alreadyIn) {
+      item.quantity++
+    } else {
+      this.cartItems.push(new CartItem(product))
+    }
+
+    this.computeTotals();
+  }
+
+  computeTotals() {
+    this.totalPrice.next(
+      this.cartItems
+        .map(item => item.quantity * item.unitPrice)
+        .reduce((acc, eachTotal) => acc + eachTotal, 0)
+    );
+
+    this.totalQuantity.next(
+      this.cartItems
+        .map(item => item.quantity)
+        .reduce((acc, quantity) => acc + quantity, 0)
+    );
+  }
+} 2-4 cart-details.component.html 파일을 다음과 같이 작성한다. 2-4-1 이제 설정할 값을 사용자 화면에 보여주는 부분이다. 2-4-2 상품이 없는 경우에 카드가 비었다는 메시지를 표출한다. 2-4-3 상품의 이름을 누르면 상품 상세 페이지로 넘어가도록 링크를 넣어주었다. <div class="section-content section-content-p30">
+  <p class="alert alert-warning" *ngIf="cartItems.length === 0">
+    There is no item in your cart
+  </p>
+  <table class="table table-bordered">
+    <tr>
+      <th width="20%">Product Image</th>
+      <th width="50%">Product Detail</th>
+      <th width="30%"></th>
+    </tr>
+    <tr *ngFor="let item of cartItems">
+      <td><img src="{{ item.imageUrl }}" class="img-responsive" width="150px"></td>
+      <td>
+        <p></p>
+        <p><a routerLink="/products/{{ item.id }}">{{item.name}}</a></p>
+        <p>{{item.unitPrice}}</p>
+      </td>
+      <td>
+        <div class="items">
+          <label>Quantity</label> {{item.quantity}} unit(s)
+        </div>
+        <p>Sub-total {{item.unitPrice * item.quantity | currency:'USD'}}</p>
+        <a href="#" class="primary-btn">Remove</a>
+      </td>
+    </tr>
+    <tr>
+      <td colspan="2"></td>
+      <td><b>Total Quantity:{{totalQuantity}}</b>
+        <p>Shipping FREE</p>
+        <b>Total Price: {{totalPrice | currency:'USD'}}</b><br>
+        <a href="checkout-page.html" class="primary-btn">Checkout</a>
+      </td>
+    </tr>
+  </table>
+</div> 2-5 결과 화면 2-5-1 카드에 상품이 있는 경우 2-5-2 상품이 없는 경우

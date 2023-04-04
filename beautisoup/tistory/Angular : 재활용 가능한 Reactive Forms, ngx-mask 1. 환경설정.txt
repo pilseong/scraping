@@ -1,0 +1,25 @@
+1. 이 포스트는 가장 많이 사용되는 Reactive Form에 대한 정리이다. 내용이 길어질 것 같아 시리즈로 작성한다. 1-1 Angular는 Reactive Forms와 Template Forms을 지원하고 있다. 2. Credit Card를 입력하는 Form을 가지고 설명한다. 2-1 프로젝트를 생성한다. 이름을 creditcard로 하였다. 2-2 카드 컴포넌트에 입력 form 구조를 생성한다. 3. 프로젝트 생성하기 3-0 나는 상상력이 부족해 이름을 다 똑같이 해버렸다. 3-1 credit-card-form은 credit card form을 보여주는 컴포넌트이다. 3-2 validator 컴포넌트는 각 form control의 검증을 담당하고 화면에 에러를 표출해 준다. 3-3 validator 서비스는 공용으로 사용하는 검증용 서비스이다. 3-4 ngx-mask 라이브러리는 입력받을 때 지정한 입력 양식에 맞게 화면에 보여 주는 기능을 한다. 3-5 bootstrap도 설치한다. 4. form 구조 생성하기 4-1 사용자가 입력할 항목을 만든다. 4-2 입력값은 사용자 이름, 카드번호, 유효년월, CVV 3자리로 한정한다. 4-3 credit card form의 화면부터 구성한다. 4-3-1 app 컴포넌트에서 credit card 컴포넌트를 아래와 같이 사용한다. 4-3-1-1 컨테이너로 감싸고 제목을 달았다. <div class="container">
+  <h1 class="my-5">Credit Card Form</h1>
+  <app-credit-card-form></app-credit-card-form>
+</div> 4-3-2 신용카드 화면을 다음과 같이 만든다. 4-3-2-1 그냥 bootstrap으로 만든 껍데기이다. <form>
+  <div class="form-group">
+    <label class="form-label">Name On Card</label>
+    <input type="text" class="form-control">
+  </div>
+  <div class="form-group">
+    <label class="form-label">Card Number</label>
+    <input type="text" class="form-control">
+  </div>
+  <div class="form-row">
+    <div class="form-group col-6">
+      <label class="form-label">Expiration</label>
+      <input type="text" class="form-control">
+    </div>
+    <div class="form-group col-6">
+      <label class="form-label">Security Code</label>
+      <input type="text" class="form-control">
+    </div>
+  </div>
+  <button class="btn btn-primary mr-2" type="submit">Submit</button>
+  <button class="btn btn-warning" type="reset">Reset</button>
+</form> 5. 결과화면

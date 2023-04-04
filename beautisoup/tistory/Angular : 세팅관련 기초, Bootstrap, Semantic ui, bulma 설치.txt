@@ -1,0 +1,21 @@
+0. Angular Cli 업데이트 0-0 Angular의 버전확인은 ng --version 0-1 @angular/cli 역시 npm 패키지 이므로 그냥 재설치 하면 된다. 0-2 global로 설치된 Angular의 버전을 올리고 싶은 경우 npm install -g @angular/cli 를 실행한다. 0-3 이미 생성된 프로젝트의 버전을 업데이트 하려면 // 업그레이트 명령
+ng update @angular/cli @angular/core
+
+// Angular 8에서 업데이트 문제가 발생할 경우
+// 에러 내용: Repository is not clean. Please commit or stash any changes before updating.
+
+ng update @angular/cli @angular/core --allow-dirty
+
+// 위의 명령어가 안되면 --force를 붙인다.
+ng update @angular/cli @angular/core --allow-dirty --force 1. Angular에서 Bootstrap 사용하기 1-1 보기에는 간단해 보일 수 있지만, Bootstrap은 JQuery와 Popper.js를 사용하고 있는데 1-2 Angular을 사용할 경우 JQuery같이 DOM을 직접 다루는 라이브러리는 포함하는 것이 좋지 않다. 1-3 그래서 결론은 최신버전의 angular를 사용하는 경우 Angular 7이상 버전에서 지원하는 ng add를 사용한다. 1-3-1 이 방법이 좋은 이유는 귀찮은 설정을 할 필요가 없고, JQuery 사용하지 않는다. 1-3-2 설치 후에 NgbModule이 appl.module.ts에 추가되고 1-3-3 bootstrap 뿐 아니라 ng-bootstrap프로젝트에서 제공하는 기능(예를 들면 pagenation)을 사용할 수 있다. // Angular 9버전 이상
+ng add @ng-bootstrap/ng-bootstrap
+
+// Angular 8버전 까지
+ng add @ng-bootstrap/schematics 2. static 파일 사용하기 2-1 Angular의 static 파일은 src/assets에 위치한다. 여기에 접근하려면 src를 기준으로 작성하면 된다. <div class="card" style="max-width: 18rem;">
+  <img src="assets/tree.jpeg" class="card-img-top" alt="tree">
+  <div class="card-body">
+    <h5 class="card-title">Neat Tree</h5>
+    <h5 class="card-subtitle">@nature</h5>
+    <p class="card-text">Saw this awecome tree during my hike today.</p>
+  </div>
+</div> 3. CSS의 적용 영역 3-1 Angular 프로젝트를 생성하면 src 폴더 아래에 styles.css와 index.html이 있다. 3-2 이 styles.css는 Global scope의 css를 정의하는 곳으로 외부 css라이브러리를 사용하는데 적합하다. 3-2-1 bootstrap이나 bulma같은 것을 세팅하기에 적절하다. 3-3 Angular는 component 단위로 개발하고 component 단위로 template과 style sheet를 가지고 있다. 3-3-1 컴포넌트 내에서 생성된 css파일은 소속된 컴포넌트의 template에만 영향을 미친다. 3-3-2 프로젝트 생성시 app컴포넌트가 생성되는데 3-3-2-1 app.component.css파일은 해당 app.component.html template에만 적용된다. 4. Semantic UI도 많이 사용하는 라이브러리이다. 설치하는 방법은 적어 놓는다. 4-1 우선 semantic ui css를 설치한다. 4-1-1 그냥 semantic-ui를 설치하면 gulp와 관련된 이슈를 해결해야 한다. 4-1-2 css만 사용하면 충분한 경우가 대부분이기 때문에 아래처럼 css부분만 설치한다. npm i --save semantic-ui-css 4-2 설치한 css를 사용하는 방법은 여러가지가 있겠지만 제일 간편한 것은 styles.css에 import하는 방법이다. @import 'semantic-ui-css/semantic.css' 5. bulma는 js 기능이 없는 순수 css  라이브러리이다. 5-1 설치방법은 동일하다. npm i --save bulma 5-2 styles.css에 import한다. @import 'bulma/css/bulma.css'

@@ -1,0 +1,214 @@
+1. 이 포스트는 Spring Web + Hibernate Delete와 연결되는 포스트이다. 2. 고객리스트에 first name으로 검색하는 기능을 추가한다. 2-1 list-customers.jsp에 검색하는 form을 추가한다. 2-2 CustomerDAO를 업데이트 한다. 2-3 CustomerService를 업데이트 한다. 2-4 CustomerController를 업데이트 한다. 3. 검색 기능을 위한 form을 추가한다. 3-1 bootstrap의 input-group을 사용하였다. 3-2 같은 mapping을 사용하여 list 뒤에 queryString을 추가할 수도 있지만 3-3 여기에서는 별도의 mapping 메소드를 추가하였다. <%@ taglib prefix="c" uri="http://java.sun.com/jsp/jstl/core"%>
+<%@ page language="java" contentType="text/html; charset=UTF-8"
+  pageEncoding="UTF-8"%>
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<link rel="stylesheet"
+  href="https://stackpath.bootstrapcdn.com/bootstrap/4.4.1/css/bootstrap.min.css"
+  integrity="sha384-Vkoo8x4CGsO3+Hhxv8T/Q5PaXtkKtu6ug5TOeNV6gBiFeWPGFN9MuhOf23Q9Ifjh"
+  crossorigin="anonymous">
+<link rel="stylesheet" href="${pageContext.request.contextPath}/resources/css/sytle.css"/>
+<title>List of Customers</title>
+</head>
+<body>
+  <div class="container">
+    <h2 class="mb-5 mt-5">CRM - Customer Relationship Manager</h2>
+    <a href="showAddCustomerForm" class="btn btn-secondary mb-3">Add Customer</a>
+    
+    <!-- added codes -->
+    <div>
+      <form method="GET" action="search" class="form-inline">
+        <div class="input-group mb-3">
+          <input type="text" class="form-control" placeholder="search first name" aria-label="search" name="search">
+          <div class="input-group-append">
+            <button class="btn btn-outline-secondary" type="submit">Search</button>
+          </div>
+        </div>       
+      </form>
+    </div>
+    <!-- added codes -->
+    
+    <table class="table">
+      <thead>
+        <tr>
+          <th>First Name</th>
+          <th>Last Name</th>
+          <th>Email</th>
+          <th>Action</th>
+        </tr>
+      </thead>
+      <tbody>
+        <c:forEach var="customer" items="${ customers }">
+          <c:url var="updateLink" value="showUpdateCustomerForm">
+            <c:param name="id" value="${ customer.id }"></c:param>
+          </c:url>
+          <c:url var="deleteLink" value="deleteCustomer">
+            <c:param name="id" value="${ customer.id }"></c:param>
+          </c:url>
+          
+          <tr>
+            <td>${ customer.firstName }</td>
+            <td>${ customer.lastName }</td>
+            <td>${ customer.email }</td>
+            <td>
+              <a href="${ updateLink }">Update</a> | 
+              <a href="${ deleteLink }" 
+                onclick="if (!confirm('Do you really want to delete?')) return false">Delete
+              </a>
+            </td>
+          </tr>
+        </c:forEach>
+      </tbody>
+    </table>
+  </div>
+  <script src="https://code.jquery.com/jquery-3.4.1.slim.min.js"
+    integrity="sha384-J6qa4849blE2+poT4WnyKhv5vZF5SrPo0iEjwBvKU7imGFAV0wwj1yYfoRSJoZ+n"
+    crossorigin="anonymous"></script>
+  <script
+    src="https://cdn.jsdelivr.net/npm/popper.js@1.16.0/dist/umd/popper.min.js"
+    integrity="sha384-Q6E9RHvbIyZFJoft+2mJbHaEWldlvI9IOYy5n3zV9zzTtmI3UksdQRVvoxMfooAo"
+    crossorigin="anonymous"></script>
+  <script
+    src="https://stackpath.bootstrapcdn.com/bootstrap/4.4.1/js/bootstrap.min.js"
+    integrity="sha384-wfSDF2E50Y2D1uUdj0O3uMBJnjuUD4Ih7YwaYd1iqfktj0Uod8GCExl3Og8ifwB6"
+    crossorigin="anonymous"></script>
+</body>
+</html> 최종화면 4. CustomDAO 인터페이스와 구현 클래스를 생성한다. 4-1 아래에서 바뀐 부분은 getCustomers 메소드에 String을 받고 있는 부분이다. 4-2 키워드를 포함한 first name만 반환한다. 기본값은 ""로 모든 열을 반환한다. 4-3 like를 사용한 named parameter 검색은 %을 검색 문자열에 포함시키는 것이 편리하다. 4-4 검색 내용이 null이거나 빈 공백의 경우는 전체를 반환한다. public interface CustomerDAO {
+  List<Customer> getCustomers(String search);
+  void saveCustomer(Customer customer);
+  Customer getCustomer(Long id);
+  void deleteCustomer(Long id);
+}
+
+@Repository
+public class CustomerDAOImpl implements CustomerDAO {
+
+  @Autowired
+  private SessionFactory sessionFactory;
+
+  @Override
+  public List<Customer> getCustomers(String search) {
+    Session session = this.sessionFactory.getCurrentSession();
+
+    Query<Customer> query = null;
+    String queryString = "from Customer order by firstName ";
+    if (search != null && search.trim().length() > 0) {
+      queryString = "from Customer where firstName like :search order by firstName ";
+      query = session.createQuery(queryString, Customer.class)
+        .setParameter("search", "%"+search+"%");
+    } else {
+      query = session.createQuery(queryString, Customer.class);
+    }
+    
+    return query.getResultList();
+  }
+
+  @Override
+  public void saveCustomer(Customer customer) {
+    Session session = this.sessionFactory.getCurrentSession();
+    
+    session.saveOrUpdate(customer);
+  }
+
+  @Override
+  public Customer getCustomer(Long id) {
+    Session session = this.sessionFactory.getCurrentSession();
+    
+    return session.get(Customer.class, id);
+  }
+
+  @Override
+  public void deleteCustomer(Long id) {
+    Session session = this.sessionFactory.getCurrentSession();
+    
+    String deleteQuery = "delete from Customer where id=:id";
+    session.createQuery(deleteQuery).setParameter("id", id).executeUpdate();
+  }
+} 5. CustomerService 수정 부분 5-1 getCustomers에 parameter가 추가된 것만 변경된 점이다. public interface CustomerService {
+  List<Customer> getCustomers(String search);
+  void saveCustomer(Customer customer);
+  Customer getCustomer(Long id);
+  void deleteCustomer(Long id);
+}
+
+
+@Service
+public class CustomerServiceImpl implements CustomerService {
+
+  @Autowired
+  private CustomerDAO customerDAO;
+  
+  @Override
+  @Transactional
+  public List<Customer> getCustomers(String search) {
+    return this.customerDAO.getCustomers(search);
+  }
+
+  @Override
+  @Transactional
+  public void saveCustomer(Customer customer) {
+    this.customerDAO.saveCustomer(customer);
+  }
+
+  @Override
+  @Transactional
+  public Customer getCustomer(Long id) {
+    return this.customerDAO.getCustomer(id);
+  }
+
+  @Override
+  @Transactional
+  public void deleteCustomer(Long id) {
+    this.customerDAO.deleteCustomer(id);
+  }
+} 6. CustomerController에서 검색 기능 매핑을 추가한다. 6-1 parameter로 name이 search인 element의 값을 받아와 검색요청한다. 6-2 listCustomers와 searchCustomers는 동일한 getCustomers(String) 메소드를 사용한다. @Controller
+@RequestMapping("/customer")
+public class CustomerController {
+  
+  @Autowired
+  private CustomerService customerService;
+  
+  @GetMapping("/list")
+  public String listCustomers(Model model) {
+    model.addAttribute("customers", this.customerService.getCustomers(""));
+    
+    return "list-customers";
+  }
+  
+  @GetMapping("/search")
+  public String searchCustomers(@RequestParam("search") String search, Model model) {
+    model.addAttribute("customers", this.customerService.getCustomers(search));
+
+    return "list-customers";
+  }
+  
+  @GetMapping("/showAddCustomerForm")
+  public String showAddCustomerForm(Model model) {
+    model.addAttribute("customer", new Customer());
+    
+    return "customer-form";
+  }
+  
+  @PostMapping("/saveCustomer")
+  public String saveCustomer(@ModelAttribute Customer customer) {
+    this.customerService.saveCustomer(customer);
+    
+    return "redirect:/customer/list";
+  }
+  
+  @GetMapping("/showUpdateCustomerForm")
+  public String showUpdateCustomerForm(@RequestParam("id") Long id, Model model) {
+    model.addAttribute("customer", this.customerService.getCustomer(id));
+    
+    return "customer-form";
+  }
+  
+  @GetMapping("/deleteCustomer")
+  public String deleteCustomer(@RequestParam("id") Long id) {
+    this.customerService.deleteCustomer(id);
+    
+    return "redirect:/customer/list";
+  }
+}

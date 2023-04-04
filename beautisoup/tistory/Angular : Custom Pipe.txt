@@ -1,0 +1,109 @@
+1. 이 포스트는 Pipe를  생성하는 방법에 대한 내용이다. 2. 개발 방법 2-1 pipe 추가 2-2 app.module.ts에 추가 2-3 pipe.ts 작성 2-4 사용하기 3. Pipe추가하기 3-1 아래처럼 추가하면 convert.pipe.ts파일이 생성되고 내부에 클래스 template이 만들어 진다. $ ng generate pipe convert 3-2 기본적으로 만들어지는 template은 다음과 같다 import { Pipe, PipeTransform } from '@angular/core';
+
+@Pipe({
+  name: 'convert'
+})
+export class ConvertPipe implements PipeTransform {
+
+  transform(value: unknown, ...args: unknown[]): unknown {
+    return null;
+  }
+
+} 4. app.module.ts에 추가하기 4-1 pipe를 사용하려면 사용할 module내에 다른 컴포넌트와 동일하게 선언을 해주어야 한다. 4-2 3항에서 설명했던 방식으로 파이프를 생성하면 자동으로 declarations에 포함된다. import { BrowserModule } from '@angular/platform-browser';
+import { NgModule } from '@angular/core';
+
+import { AppComponent } from './app.component';
+import { NgbModule } from '@ng-bootstrap/ng-bootstrap';
+import { ConvertPipe } from './convert.pipe';
+
+@NgModule({
+  declarations: [
+    AppComponent,
+    ConvertPipe
+  ],
+  imports: [
+    BrowserModule,
+    NgbModule
+  ],
+  providers: [],
+  bootstrap: [AppComponent]
+})
+export class AppModule { } 5. 파이프 작성 5-1 mile을 km으로 변환하는 간단한 파이프이다. 5-2 unit을 option으로 받고 있는데 설정한 옵션에 따라서 결과 값이 달라진다. 5-2-1 포멧은 miles | convert: 'km' 방식으로 지정되어 miles는 transform의 value로 km은 targetUnits으로 들어온다. <div class="col">
+      <label><b>Kilometers</b></label>
+      <div>{{ miles | convert: 'km' }}</div>
+    </div> 5-2-2 구현 소스이다. import { Pipe, PipeTransform } from '@angular/core';
+
+@Pipe({
+  name: 'convert'
+})
+export class ConvertPipe implements PipeTransform {
+
+  unit: number = 1.60934
+
+  transform(value: number, targetUnits: string): number | string {
+    if (!value) {
+      return ''
+    }
+
+    switch (targetUnits) {
+      case 'km':
+        return value * this.unit
+      case 'm':
+        return value * this.unit * 1000
+      case 'cm':
+        return value * this.unit * 1000 * 1000
+      default:
+        throw new Error('Target Unit is not supported')
+    }
+  }
+} 6. 사용하기 6-1 10 킬로 이상의 경우에만 값을 meter로 표시되도록 하였다. *ngIf내에 사용될 때는 ( ) 가 필요하다. 6-2 소수 두번째 자리까지만 표시되도록 decimalpipe을 사용하였다. import { Component } from '@angular/core';
+
+@Component({
+  selector: 'app-root',
+  template: `  
+  <div class="container">
+    <div class="row">
+      <div class="form-group col">
+        <label>Miles</label>
+        <input type="number" class="form-control" (input)="onMileChange($event.target.value)">
+      </div>
+      <div class="col" *ngIf="(miles | convert: 'km') > 10">
+        <label><b>Meters</b></label>
+        <div>{{ miles | convert: 'm' | number: '1.0-2' }}</div>
+      </div>
+    </div>
+  </div>
+`,
+  styleUrls: ['./app.component.css']
+})
+export class AppComponent {
+
+  miles: number = 0
+
+  onMileChange(value: string) {
+    this.miles = parseFloat(value)
+  }
+} 6-3 화면 7. 위의 pipe를 가지고 각 단위별로 값을 출력할 수 있다. 7-1 m단위로 1킬로가 넘어가면 km 단위, 1m 이상 1킬로 미만은 m 단위, 1m 미만은 cm로 표시한다. <div class="row">
+    <div class="form-group col">
+      <label>Miles</label>
+      <input type="number" class="form-control" (input)="onMileChange($event.target.value)">
+    </div>
+    <div class="col">
+      <ng-container *ngIf="(miles | convert: 'm') >= 1000; then km"></ng-container>
+      <ng-container *ngIf="(miles | convert: 'm') > 1 && (miles | convert: 'm') < 1000; then m"></ng-container>
+      <ng-container *ngIf="(miles | convert: 'm') < 1; then cm"></ng-container>
+
+      <ng-template #km>
+        <b>Kilometers</b>
+        <div>{{ miles | convert: 'km' | number: '1.0-2' }}km</div>
+      </ng-template>
+      <ng-template #m>
+        <b>Meters</b>
+        <div>{{ miles | convert: 'm' | number: '1.0-2' }}m</div>
+      </ng-template>
+      <ng-template #cm>
+        <b>Centimeters</b>
+        <div>{{ miles | convert: 'cm' | number: '1.0-2' }}cm</div>
+      </ng-template>
+    </div>
+  </div>

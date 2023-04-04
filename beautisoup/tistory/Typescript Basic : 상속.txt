@@ -1,0 +1,160 @@
+1. Typescipt는 Java와 유사하게 보이는 상속과 인터페이스를 지원한다. 1-1 공공연한 사실이지만 내부적으로 Javascript는 prototype inheritance를 사용하기 때문에 1-2 완전히 다른 방식의 구현을 가지고 있다. 1-3 복잡한 생각할 필요없이 자바처럼 그냥 쓰면 된다. 2. Typescript는 Java언어와 동일하게 한 부모 상속을 지원한다. 1-1. 상속의 예시 1-2. 특이해 보이는 부분은 Driver.ts의 Shape 타입의 shapes 배열로 Shape을 상속한 클래스를 저장하고 있다. 1-2-1 polymorphism이다. 동일하게 동작함을 알 수 있다. // 부모 클래스 Shape.ts 파일
+export class Shape {
+  constructor(private _x: number, private _y: number) {}
+  
+  public get x(): number {
+    return this._x;
+  }
+  public set x(value: number) {
+    this._x = value;
+  }
+
+  public get y(): number {
+    return this._y;
+  }
+  public set y(value: number) {
+    this._y = value;
+  }
+
+  toString(): string {
+    return `x=${this._x}, y=${this._y}`
+  }
+}
+
+// Rectangle.ts 파일
+import { Shape } from './Shape'
+
+export class Rectangle extends Shape {
+  constructor(x: number, y: number, private _width: number, private _length: number) {
+    super(x, y)
+  }
+
+  public get length(): number {
+    return this._length
+  }
+  public set length(value: number) {
+    this._length = value
+  }
+
+  public get width(): number {
+    return this._width
+  }
+  public set width(value: number) {
+    this._width = value
+  }
+
+  toString(): string {
+    return super.toString() + `, width=${this._width}, length=${this._length}`
+  }
+}
+
+// Circle.ts 파일
+import { Shape } from './Shape'
+
+export class Circle extends Shape {
+  constructor(x: number, y: number, private _raidus: number) {
+    super(x, y)
+  }
+  public get raidus(): number {
+    return this._raidus
+  }
+  public set raidus(value: number) {
+    this._raidus = value
+  }
+
+  toString(): string {
+    return super.toString() + `, radius=${this._raidus}` 
+  }
+}
+
+// 실행할 코드를 담고 있는 Driver.ts 파일
+import { Shape } from './Shape'
+import { Circle } from './Circle'
+import { Rectangle } from './Rectangle'
+
+
+let shape: Shape = new Shape(10, 50)
+let circle: Circle = new Circle(10, 50, 5.5)
+let rectangle: Rectangle = new Rectangle(10, 50, 10, 10)
+
+let shapes: Shape[] = [];
+
+shapes.push(shape)
+shapes.push(circle)
+shapes.push(rectangle)
+
+shapes.forEach(shape=> console.log(shape.toString()))
+
+
+// 실행 결과 
+$ node Driver.js
+x=10, y=50
+x=10, y=50, radius=5.5
+x=10, y=50, width=10, length=10 3. 추상 클래스(abstract class) 3-1 추상 클래스는 정의 그대로 객체를 생성을 할 수 없는 클래스이다. 3-2 상속하는 클래스는 모든 추상 메소드를 구현해야 한다. 3-3 template string에서 ${ } 내에는 변수 뿐 아니라 expression도 올 수 있다. 3-4 아래는 위의 예를 약간 수정하여 추상 클래스의 사용을 예시로 보여주고 있다. // Shape.ts 클래스 정의에 abstract가 추가되었다.
+export abstract class Shape {
+  constructor(private _x: number, private _y: number) {}
+  
+  public get x(): number {
+    return this._x;
+  }
+  public set x(value: number) {
+    this._x = value;
+  }
+
+  public get y(): number {
+    return this._y;
+  }
+  public set y(value: number) {
+    this._y = value;
+  }
+
+  toString(): string {
+    return `x=${this._x}, y=${this._y}`
+  }
+
+  // 추상 메소드를 추가하였다.
+  abstract calculateArea(): string;
+}
+
+// Circle.ts
+import { Shape } from './Shape'
+
+export class Circle extends Shape {
+  
+  ...
+  
+  calculateArea(): string {
+    return `Area=${Math.PI * Math.pow(this._raidus, 2)}`
+  }
+}
+
+// Rectangle.ts
+import { Shape } from './Shape'
+
+export class Rectangle extends Shape {
+ 
+  ...
+  calculateArea(): string {
+    return `Area=${this._width * this._length}`
+  }
+}
+
+// 실행 파일 Driver.ts
+import { Shape } from './Shape'
+import { Circle } from './Circle'
+import { Rectangle } from './Rectangle'
+
+let circle: Circle = new Circle(10, 50, 5.5)
+let rectangle: Rectangle = new Rectangle(10, 50, 10, 10)
+
+let shapes: Shape[] = [];
+
+shapes.push(circle)
+shapes.push(rectangle)
+
+shapes.forEach(shape=> console.log(`${shape.toString()} ${shape.calculateArea()}`))
+
+// 결과
+$ node Driver.js
+x=10, y=50, radius=5.5 Area=95.03317777109125
+x=10, y=50, width=10, length=10 Area=100

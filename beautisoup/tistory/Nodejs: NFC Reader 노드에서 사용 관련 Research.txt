@@ -1,0 +1,191 @@
+1. nfc 접근 라이브러리 1-1 nfc-pcsc 라이브러리  - pcsc lite를 사용한 nfc를 간편하게 사용할 수 있게 하는 라이브러리 1-1-1 편의용 라이브러리이기 때문에 100% 자바 스크립트로 작성됨 2-1-2 예제를 포함하고 있어 사용법을 쉽게 이해할 수 있다. https://github.com/nodejs/node-gyp#installation GitHub - nodejs/node-gyp: Node.js native addon build tool Node.js native addon build tool. Contribute to nodejs/node-gyp development by creating an account on GitHub. github.com 1-2 node-pcsclite - nfc-pcsc의 기반이 되는 pcsclite 프로토콜을 구현하고 usb 드라이버를 구현한 c++ addon 라이브러리 1-2-1 addon이므로 c++로 구현되어 있다. nan 라이브러리를 사용한다. 1-2-2 문제는 addon이기 때문에 node버전에 따라 컴파일이 필요하다. 현재 노드 13버전까지만 지원 1-2-3 유지보수를 위해서는 addon 수정이 필요한 경우를 고려해야 한다. https://github.com/pokusew/node-pcsclite GitHub - pokusew/node-pcsclite: Bindings over pcsclite to access Smart Cards Bindings over pcsclite to access Smart Cards. Contribute to pokusew/node-pcsclite development by creating an account on GitHub. github.com 2. 트러블 슈팅 2-1 카드를 접촉하자 마자 아래의 에러가 발생하였다. 읽기에서 문제가 생겼는데 카드 타입에 따라 생긴 문제라고 한다. 2-1-1 참고 페이지 1. Mifare classic 카드를 사용할 경우는 접근할 모든 블록에 인증을 해야 한다. https://github.com/pokusew/nfc-pcsc/issues/16#issuecomment-304989178 Mifare Classic 1K: Authentication Error after Multiple Writes · Issue #16 · pokusew/nfc-pcsc Hi @pokusew, Something weird is happening when attempting multiple writes. I have the following simple script that (1) Authenticates Blocks 4-7, Reads Blocks 4-7 and then Writes to Blocks 4-7. It s... github.com 2. reader나 write시에 3번 파라메터로 블럭 사이즈를 지정해야 한다. https://github.com/pokusew/nfc-pcsc/issues/25 Write operation failed: Status code: 0x6300 · Issue #25 · pokusew/nfc-pcsc A very simple program that just writes to a card: const { NFC } = require('nfc-pcsc'); const nfc = new NFC(); nfc.on('reader', (reader) => { reader.on('card', async (card... github.com https://github.com/ryanolf/node-sonos-nfc/issues/2 [0] ReadError: Read operation failed: Status code: 0x6300 · Issue #2 · ryanolf/node-sonos-nfc Hi raynolf, I am getting an error message when reading NFC cards ("ReadError: Read operation failed: Status code: 0x6300"). Reader is recognized, as you can see in the log. When holding a... github.com https://stackoverflow.com/questions/55691191/error-6800-on-reading-2nd-sector-and-more-of-a-mifare-classic-card Error 6800 on reading 2nd sector and more of a MIFARE Classic card I use nfc-pcsc to read a MIFARE Classic 1K card with the ACR122U reader (USB connection). But I often get a 0x6800 error: Sometimes when I read 1st sector (blocks 4-5-6) Always when I read 2nd sec... stackoverflow.com https://github.com/pokusew/nfc-pcsc/issues/80 MIFARE Classic example is misleading · Issue #80 · pokusew/nfc-pcsc Note that this issue is also discussed on StackOverflow: Error 6800 on reading 2nd sector and more of a MIFARE Classic card. The current example for MIFARE Classic is misleading with regard to auth... github.com 3. mifare classic 관련 기본 동작 - mifare classic 기준으로 작성되어 있다. 3-1 기억할 것들 3-1-1 authencation은 블록을 읽을 때 마다 검증을 해야 한다. 3-1-2 하나의 섹터에 authenticate를 하면 같은 섹터의 다른 블록에 접근 가능하다. 3-1-2-1 0번 섹터는 블록 0~3까지를 가지고 있는데 1번 블록으로 인증을 받아도 2번 블록 접근 가능하다는 의미다. 3-2 nfc-pcsc 라이브러리는 실제 블록 번호와는 다르게 누적된 블록 번호를 사용한다. 3-2-1 실제 spec 문서에는 아래처럼 0번 섹터의 0~3번 블록 31번 섹터의 0~3번 블록이라고 정의하지만 3-2-2 nfc-pcsc는 0번 섹터의 0~3번 블로 31번 섹터의 125번 블록으로 계산한다. "use strict";
+
+// #############
+// Example: MIFARE Classic
+// - should work well with any compatible PC/SC card reader
+// - what is covered:
+//   - authentication
+//   - reading data from card
+//   - writing data to card
+// - what is NOT covered yet:
+//   - using sector trailers to update access rights
+// #############
+
+// ## Note about the card's data structure
+//
+// ### MIFARE Classic EV1 1K
+// - 1024 × 8 bit EEPROM memory
+// - 16 sectors of 4 blocks
+// - see https://www.nxp.com/docs/en/data-sheet/MF1S50YYX_V1.pdf
+//
+// ### MIFARE Classic EV1 4K
+// - 4096 × 8 bit EEPROM memory
+// - 32 sectors of 4 blocks and 8 sectors of 16 blocks
+// - see https://www.nxp.com/docs/en/data-sheet/MF1S70YYX_V1.pdf
+//
+// One block contains 16 bytes.
+// Don't forget specify the blockSize argument blockSize=16 in reader.read and reader.write calls.
+// The smallest amount of data to write is one block. You can write only the entire blocks (card limitation).
+//
+// sector 0
+// 	block 0 - manufacturer data (read only)
+// 	block 1 - data block
+// 	block 2 - data block
+// 	block 3 - sector trailer 0
+// 		bytes 00-05: Key A (default 0xFFFFFFFFFFFF) (6 bytes)
+// 		bytes 06-09: Access Bits (default 0xFF0780) (4 bytes)
+// 		bytes 10-15: Key B (optional) (default 0xFFFFFFFFFFFF) (6 bytes)
+// sector 1:
+// 	block 4 - data block
+// 	block 5 - data block
+// 	block 6 - data block
+// 	block 7 - sector trailer 1
+// sector 2:
+// 	block 8 - data block
+// 	block 9 - data block
+// 	block 10 - data block
+// 	block 11 - sector trailer 2
+// ... and so on ...
+
+import { NFC, TAG_ISO_14443_3, TAG_ISO_14443_4, KEY_TYPE_A, KEY_TYPE_B } from '../src/index.js';
+import pretty from './pretty-logger.js';
+
+
+const nfc = new NFC(); // const nfc = new NFC(pretty); // optionally you can pass logger to see internal debug logs
+
+nfc.on('reader', async reader => {
+
+	pretty.info(`device attached`, reader.name);
+
+	reader.on('card', async card => {
+
+		// MIFARE Classic is ISO/IEC 14443-3 tag
+		// skip other standards
+		if (card.type !== TAG_ISO_14443_3) {
+			return;
+		}
+
+		pretty.info(`card detected`, reader, card);
+
+		// Reading and writing data from/to MIFARE Classic cards (e.g. MIFARE 1K) ALWAYS requires authentication!
+
+		// How does the MIFARE Classic authentication work?
+		// 1. You authenticate to a specific sector using a specific key (key + keyType).
+		// 2. After the successful authentication, you are granted permissions according to the access conditions
+		//    for the given key (access conditions are specified in the trailer section of each sector).
+		//    Depending on the access conditions, you can read from / write to the blocks of this sector.
+		// 3. If you want to access data in another sectors, you have to authenticate to that sector.
+		//    Then you can access the data from the block within that sector (only from that sector).
+		// summary: MIFARE Classic will only grant permissions based on the last authentication attempt.
+		//          Consequently, if multiple reader.authenticate(...) commands are used,
+		//          only the last one has an effect on all subsequent read/write operations.
+
+		// reader.authenticate(blockNumber, keyType, key, obsolete = false)
+		// - blockNumber - the number of any block withing the sector we want to authenticate
+		// - keyType - type of key - either KEY_TYPE_A or KEY_TYPE_B
+		// - key - 6 bytes - a Buffer instance, an array of bytes, or 12-chars HEX string
+		// - obsolete - (default - false for PC/SC V2.07) use true for PC/SC V2.01
+
+		// Don't forget to fill YOUR keys and types! (default ones are stated below)
+		const key = 'FFFFFFFFFFFF'; // key must be a 12-chars HEX string, an instance of Buffer, or array of bytes
+		const keyType = KEY_TYPE_A;
+
+		try {
+
+			// we want to authenticate sector 1
+			// authenticating one block within the sector will authenticate all blocks within that sector
+			// so in our case, we choose block 4 that is within the sector 1, all blocks (4, 5, 6, 7)
+			// will be authenticated with the given key
+			await reader.authenticate(1, keyType, key);
+
+			// Note: writing might require to authenticate with a different key (based on the sector access conditions)
+
+			pretty.info(`sector 1 successfully authenticated`, reader);
+
+		} catch (err) {
+			pretty.error(`error when authenticating block 4 within the sector 1`, reader, err);
+			return;
+		}
+
+
+		// example reading 16 bytes (one block) assuming containing 32bit integer
+		// !!! note that we don't need 16 bytes - 32bit integer takes only 4 bytes !!!
+		try {
+
+			// reader.read(blockNumber, length, blockSize = 4, packetSize = 16)
+			// - blockNumber - memory block number where to start reading
+			// - length - how many bytes to read
+			// - blockSize - 4 for MIFARE Ultralight, 16 for MIFARE Classic
+			// ! Caution! length must be divisible by blockSize
+			// ! Caution! MIFARE Classic cards have sector trailers
+			//   containing access bits instead of data, each last block in sector is sector trailer
+			//   (e.g. block 3, 7, 11, 14)
+			//   see memory structure above or https://github.com/pokusew/nfc-pcsc/issues/16#issuecomment-304989178
+
+			let data = await reader.read(1, 16, 16); // blockSize=16 must specified for MIFARE Classic cards
+
+			pretty.info(`data read`, reader, data);
+
+			let payload = data.readInt32BE(0);
+
+			pretty.info(`data converted`, reader, payload);
+
+
+			await reader.authenticate(1, keyType, key);
+			data = await reader.read(2, 16, 16); // blockSize=16 must specified for MIFARE Classic cards
+
+			pretty.info(`data read`, reader, data);
+
+			 payload = data.readInt32BE(0);
+
+			pretty.info(`data converted`, reader, payload);
+
+		} catch (err) {
+			pretty.error(`error when reading data`, reader, err);
+		}
+
+
+		// example write 16 bytes containing 32bit integer
+		// // !!! note that we don't need 16 bytes - 32bit integer takes just 4 bytes !!!
+		// try {
+
+		// 	// reader.write(blockNumber, data, blockSize = 4, packetSize = 16)
+		// 	// - blockNumber - memory block number where to start writing
+		// 	// - data - what to write
+		// 	// - blockSize - 4 for MIFARE Ultralight, 16 for MIFARE Classic
+		// 	// ! Caution! data.length must be divisible by blockSize
+		// 	// ! Caution! MIFARE Classic cards have sector trailers
+		// 	//   containing access bits instead of data, each last block in sector is sector trailer
+		// 	//   (e.g. block 3, 7, 11, 14)
+		// 	//   ee memory structure above or https://github.com/pokusew/nfc-pcsc/issues/16#issuecomment-304989178
+
+		// 	const data = Buffer.allocUnsafe(16);
+		// 	data.fill(0);
+		// 	const randomNumber = Math.round(Math.random() * 1000);
+		// 	data.writeInt32BE(randomNumber, 0);
+
+		// 	await reader.write(4, data, 16); // blockSize=16 must specified for MIFARE Classic cards
+
+		// 	pretty.info(`data written`, reader, randomNumber, data);
+
+		// } catch (err) {
+		// 	pretty.error(`error when writing data`, reader, err);
+		// }
+
+
+	});
+
+	reader.on('error', err => {
+		pretty.error(`an error occurred`, reader, err);
+	});
+
+	reader.on('end', () => {
+		pretty.info(`device removed`, reader);
+	});
+
+
+});
+
+nfc.on('error', err => {
+	pretty.error(`an error occurred`, err);
+});

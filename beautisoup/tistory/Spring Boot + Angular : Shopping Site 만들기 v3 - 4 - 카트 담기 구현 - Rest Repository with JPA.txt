@@ -1,0 +1,183 @@
+0. 이 포스트는 사용자가 세부 페이지에서 담기를 눌렀을 경우에 0-1 카트에 물건이 담기고 현재 카트에 있는 상품의 가격과 수량이 표시 좌측 상단에 표기되도록 하는 내용이다. 1. 동작 방식 1-0 카트 정보는 공유를 위한 CartService에서 관리한다. 1-1 카트에 물건을 담았을 때 카트에 물건이 담기고 그 물건이 포함된 총 가격과 수량이 CartInfo 컴포넌트에 표기된다. 1-2 담는 이벤트가 발생했을 때, CartService의 총가격과 총수량이라는 두 개의 subject는 그 정보를 emit 하게 되고 1-3 이 두 개의 subject를 subscribe 하는 객체는 해당 데이터를 Observable을 통해서 수신하게 된다. 2. CartService 서비스, CartItem 클래스, CartInfoComponent 생성하기 $ ng generate service services/cart
+
+$ ng generate class common/CartItem
+
+$ ng generate component components/cart-info 2-1 CartItem 클래스를 아래처럼 작성한다. 상품정보와 비슷한 데 쓸데없는 것은 빼고 수량 정보는 추가하였다. 2-1-1 수량정보가 주어지지 않으면 수량은 기본 값이 1이다. 2-1-2 product를 받아서 매핑하도록 작성하였다. import { Product } from './product'
+
+export class CartItem {
+  id: string
+  name: string
+  imageUrl: string
+  unitPrice: number
+  quantity: number = 1
+
+  constructor(product: Product) {
+    this.id = product.id
+    this.name = product.name
+    this.imageUrl = product.imageUrl
+    this.unitPrice = product.unitPrice
+  }
+} 2-2 CartService를 아래처럼 작성한다. 2-2-0 카트에 담길 물건 정보를 저장하기 위해 cartItems 속성을 생성한다. 2-2-1 총 가격, 총수량 정보를 보내 낼 2개의 Subject를 생성한다. 2-2-2 addToCart 함수는 사용자가 담기 버튼을 눌렀을 때 실행하는 메서드로 2-2-2-1 그 물건이 이미 담긴 물건인지를 확인 후 존재하는 경우 수량만 1 증가시키고 2-2-2-2 새로운 물건 일 경우 cartitems에 포함시킨다. 2-2-3 물건이 추가되었으면 총 가격과 총수량을 계산하여 그 결과 값을 각 Subject는 next 메서드를 통해 보낸다. 2-2-3-1 map은 결과 타입을 변경하고, reduce는 숫자 값을 계산하여 하나의 값으로 돌려주는 배열의 내장함수이다. 2-2-3-2 reduce를 사용할 때, 두 번째 인자 값인 초기화 값을 지정해야 한다. empty 배열의 경우 에러가 발생한다. import { Injectable } from '@angular/core';
+import { CartItem } from '../common/cart-item';
+import { Subject } from 'rxjs';
+import { Product } from '../common/product';
+
+@Injectable({
+  providedIn: 'root'
+})
+export class CartService {
+  
+  cartItems: CartItem[] = []
+  
+  totalPrice: Subject<number> = new Subject()
+  totalQuantity: Subject<number> = new Subject()
+  
+  constructor() { }
+  
+  addToCart(product: Product) {
+
+    let item: CartItem = undefined
+    let alreadyIn: boolean = false;
+    item = this.cartItems.find(item=> item.id === product.id)
+
+    alreadyIn = item !== undefined;
+
+    if (alreadyIn) {
+      item.quantity++
+    } else {
+      this.cartItems.push(new CartItem(product))
+    }
+
+    this.totalPrice.next(
+      this.cartItems
+        .map(item=> item.quantity * item.unitPrice)
+        .reduce((acc, eachTotal)=> acc + eachTotal, 0)
+    )
+
+    this.totalQuantity.next(
+      this.cartItems
+        .map(item=> item.quantity)
+        .reduce((acc, quantity)=> acc + quantity, 0)
+    )
+  }
+} 2-3 CartInfo 컴포넌트를 작성한다. 2-3-1 이 컴포넌트는 아래의 파란 네모 부분으로 app.component.html에서 일부를 잘라서 옮겨온다. 2-3-2 cart-info.component.ts파일이다. 2-3-2-1 중요한 부분은 CartService를 주입받아서 총 가격, 총수량 속성에 subscribe 하는 것이다. 2-3-2-2 이렇게 하면 카트에 물건이 추가되었을 때 발생하는 총 가격, 총 수량 정보를 바로 수신하게 된다. 2-3-2-3 html에서 보여주기 위한 로컬 속성 totalPrice, totalQuantity를 생성하였다. import { Component, OnInit } from '@angular/core';
+import { CartService } from 'src/app/services/cart.service';
+
+@Component({
+  selector: 'app-cart-info',
+  templateUrl: './cart-info.component.html',
+  styleUrls: ['./cart-info.component.css']
+})
+export class CartInfoComponent implements OnInit {
+
+  totalPrice: number = 0.00
+  totalQuantity: number = 0
+
+  constructor(private cartService: CartService) { }
+
+  ngOnInit(): void {
+    this.cartService.totalPrice.subscribe(data=> this.totalPrice = data)
+    this.cartService.totalQuantity.subscribe(data=> this.totalQuantity = data)
+  }
+} 2-3-3 cart-info.component.html은 다음과 같다. 2-3-3-1 별 다른 내용은 없고 컴포넌트에서 수신한 정보를 가져와 보여주고 있다. <div class="cart-area d-n">
+  <a href="shopping-detail.html">
+    <div class="total">{{totalPrice | currency: 'USD'}} <span> {{totalQuantity}}</span></div> 
+    <i class="fa fa-shopping-cart" aria-hidden="true"></i>
+  </a>
+</div> 2-3-3-2 app.component.html은 cart-info 코드가 옮겨가고 대신 컴포넌트를 사용하는 태그가 들어간다. <div class="page-wrapper">
+
+	  <app-product-category-menu></app-product-category-menu>
+
+	  <!-- PAGE CONTAINER-->
+	  <div class="page-container">
+	    <!-- HEADER DESKTOP-->
+	    <header class="header-desktop">
+	      <div class="section-content section-content-p30">
+	        <div class="container-fluid">
+	          <div class="header-wrap">
+	            <app-product-search></app-product-search>
+	            <app-cart-info></app-cart-info>
+	          </div>
+	          <!-- <div class="account-wrap"></div> -->
+	        </div>
+	      </div>
+	    </header>
+	    <!-- END HEADER DESKTOP-->
+
+	    <!-- MAIN CONTENT-->
+	    <div class="main-content">
+	      <router-outlet></router-outlet>
+	    </div>
+
+	    <!-- END MAIN CONTENT-->
+
+	  </div>
+	</div>
+	<!-- END PAGE CONTAINER-->
+
+	<footer>
+	  <ul>
+	    <li><a href="#">About Us</a></li>
+	    <li><a href="#">Contact Us</a></li>
+	    <li><a href="#">Help</a></li>
+	  </ul>
+	</footer> 3. 카트에 물건을 넣는 부분에서 연동하는 코드를 작성한다. 3-1 ProductDetail 컴포넌트에 Add to cart 버튼이 있다. 3-1-1 우선 컴포넌트 코드의 맨 아래에 addToCart 메서드가 추가되었고 현재 상품을 카트 서비스로 담는다. import { Component, OnInit } from '@angular/core';
+import { Product } from 'src/app/common/product';
+import { ProductService } from 'src/app/services/product.service';
+import { ActivatedRoute } from '@angular/router';
+import { Location } from '@angular/common'
+import { CartService } from 'src/app/services/cart.service';
+
+@Component({
+  selector: 'app-product-details',
+  templateUrl: './product-details.component.html',
+  styleUrls: ['./product-details.component.css']
+})
+export class ProductDetailsComponent implements OnInit {
+
+  product: Product = new Product()
+
+  constructor(
+    private productService: ProductService,
+    private cartService: CartService,
+    private route: ActivatedRoute,
+    private location: Location) { }
+
+  ngOnInit(): void {
+    this.route.paramMap.subscribe(()=> this.getProduct())
+  }
+
+  private getProduct() {
+    this.productService.getProduct(this.route.snapshot.paramMap.get('id')).subscribe(
+      data=> this.product = data
+    )
+  }
+
+  goToLastPage() {
+    this.location.back()
+  }
+
+  addToCart() {
+    this.cartService.addToCart(this.product);
+  }
+} 3-1-2 뷰 코드 product-detail.component.html 코드이다. 3-1-2-1 기존 Add to cart 더미 링크를 버튼으로 바꾸고 클릭이벤트 발생 시 addToCart를 호출하도록 설정한다. <div class="section-content section-content-p30">
+  <div class="container">
+    <div class="row">
+
+      <div>
+        <img src="{{product.imageUrl}}" class="img-responsive" width="40%">
+
+        <h3>{{product.name}}</h3>
+        <div class="price">{{product.unitPrice | currency: 'USD'}}</div>
+        <button class="btn btn-primary" (click)="addToCart()">Add to cart</button>
+
+        <h4 class="mt-4">Product Description</h4>
+        <p>{{product.description}}</p>
+
+        <div class="text-right">
+          <button class="mt-5 btn btn-dark" (click)='goToLastPage()'>Back to Product List</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div> 4. 결과 화면

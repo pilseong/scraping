@@ -1,0 +1,57 @@
+1. 이 포스트는 Spring Boot : REST Hibernate CRUD 구현의 연속이다. Spring Boot : REST + Hibernate CRUD 구현 1. 지난 Spring : REST + Hibernate with Java Config - CRUD 포스트와 동일한 기능을 Spring Boot으로 구현한다. 1-1 데이터베이스와 전반적인 내용은 아래 링크를 참조한다. Spring : REST + Hibernate with Jav.. kogle.tistory.com 2. Spring Data JPA로 CRUD를 작성할 때 필요한 것 2-1 데이터베이스 설정 파일 2-2 Entity 클래스 생성 2-3 JpaRepository를 상속한 DAO 인터페이스 정의 2-4 Service 구현 2-5 Controller와 Error 처리로직 구현 3. 여기서는 1번 항목링크의 REST + Hibernate CRUD 구현에서 다른 부분만 추가한다. 4. CustomerRepository 생성 4-1 JpaRepository를 상속하고 있으며 Generic Type은 첫번째는 다루는 Entity타입, 두번째는 ID의 타입이다. package pe.pilseong.bootcustomerspringdata;
+
+import org.springframework.data.jpa.repository.JpaRepository;
+
+import pe.pilseong.bootcustomerspringdata.entity.Customer;
+
+public interface CustomerRepository extends JpaRepository<Customer, Long> {
+
+} 5. 서비스의 구현 5-1 서비스의 구현은 조금 달라지는데 Spring Data Jpa에서 자동생성하는 메소드를 사용한다. 5-1-1 JPA 메소드와 Hibernate 메소드를 섞어 놓은 것 같은데 읽어오기에는 find, 저장, 삭제는 save, delete을 쓴다. 5-2 @Transactional annotation이 사라졌다. Spring Data JPA가 내부적으로 자동 처리한다. 5-3 Optional을 사용하는데, 이것은 null pointer exception을 방지하기 위한 개념으로 자바 8에 추가되었다. package pe.pilseong.bootcustomerspringdata.service;
+
+import java.util.List;
+import java.util.Optional;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+
+import pe.pilseong.bootcustomerspringdata.CustomerRepository;
+import pe.pilseong.bootcustomerspringdata.entity.Customer;
+
+@Service
+public class CustomerServiceImpl implements CustomerService {
+
+  @Autowired
+  private CustomerRepository customerRepository;
+  
+  @Override
+  public List<Customer> getCustomers() {
+    return this.customerRepository.findAll();
+  }
+
+  @Override
+  public Customer getCustomer(Long id) {
+    Optional<Customer> customer = this.customerRepository.findById(id);
+    
+    if (customer.isEmpty()) {
+      throw new RuntimeException("Customer not found");
+    }
+    
+    return customer.get();
+  }
+
+  @Override
+  public void saveCustomer(Customer customer) {
+    this.customerRepository.save(customer);
+  }
+
+  @Override
+  public void deleteCustomer(Long id) {
+    Optional<Customer> customer = this.customerRepository.findById(id);
+    
+    if (customer.isEmpty()) {
+      throw new RuntimeException("Customer not found");
+    }
+    
+    this.customerRepository.delete(customer.get());
+  }
+} 5. 나머지는 모두 동일하다.

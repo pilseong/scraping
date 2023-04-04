@@ -1,0 +1,94 @@
+1. 이 포스트는 HIbernate에서 Set을 사용하는 방법에 대한 내용이다. 1-1 Set은 순서가 없고 중복을 허용하지 않는 데이터의 집합이다. 1-2 용도는 순서가 중요하지 않고 존재여부가 중요한 경우에 사용한다. 1-2-1 예약명부에 이름이 있는지를 결정할 때나 1-2-2 포커게임의 카드들이 Set에 해당한다. 2. Annotation 설명 2-1 @ElementCollection 2-1-0 속성에 지정한다. 2-1-1 지정된 속성이 컬렉션을 저장할 것이라고 설정한다. 2-1-2 컬렉션의 저장될 정보는 별도의 테이블에 존재한다. 2-2 @CollectionTable 2-2-1 데이터를 가지고 있는 테이블의 이름을 지정한다. 2-2-2 메인 테이블을 참조하는 join column을 지정해야 한다. 2-3 @Column - 정보를 가지고 있는 테이블에 매핑할 컬럼 이름을 지정한다. 3. @ElementCollection을 사용하는 경우 3-0 Entity가 아닌 단순한 형태의 객체 집합을 정의하고 관리하는 방법이다. 3-1 한 테이블에서 연관된 다른 테이블에 대한 정보를 다룬다. One-To-Many 관계를 다룬다. 3-1-1 @Embeddable 객체와 관계를 정의하여 사용할 수 있다. 3-1-2 자바의 primitive와 그들의 wrapper클래스들와 관계를 정의하는데 사용한다.( Integer, Double, ...) 3-1-2-1 @Entity 를 받는 속성을 정의할 수 없다. 그렇게 하려면 @OneToMany를 사용해야 한다. 3-1-3 이 말은 이 방식으로는 아래와 같은 형식의 간단한 Collection의 타입만을 사용할 수 있다는 말이다. private Set<String> courses = new HashSet<String>();
+
+private List<Integer> results = new ArrayList<>(); 3-2 보통 관계하는 테이블을 별도의 자바 Entity로 구성하지 않는 경우에 사용한다. 3-2-1 물론 별도의 Entity를 구성해도 사용이 가능하지만 그럴 경우 Entity에 @Id를 지정해야 하니 귀찮아진다. 3-3 이 annotation이 설정된 속성은 부모 클래스와 별도로 저장하거나 테이블에서 가져올 수 없다. 3-3-1 그렇게 하려면 @Entity로 Entity를 생성해야 한다. 3-4 cascade 옵션을 제공하지 않는다. 3-5 관계 테이블의 데이터는 무조건 항상 부모와 함께 저장되고 삭제되고 관리된다. 3-5-1 아래의 경우 course 테이블의 정보는 항상 Student 클래스와 함께 관리되어야 한다는 의미가 된다. 4. Student Entity 클래스 4-1 course 테이블 정보와 매핑하여 데이터를 가지고 오기 위해 @ElementCollection을 설정한다. 4-2 @CollectionTable의 name은 데이터를 가지고 오거나 저장할 테이블의 관계 테이블이름을 가리킨다. 4-2-1 @JoinColums는 데이터를 저장하는 테이블의 어떤 field가 주 테이블과 join 할지를 지정(외래키)한다. 4-3 @Column은 실제 저장될 정보(즉 collection에 저장될 값)를 가져올 테이블의 field를 지정한다. 4-4 위의 정보는 hbm2ddl을 사용하여 생성하기 때문에 모두 자동적으로 생성된다. 4-4-1 @CollectionTable의 name은 생성될 테이블의 이름이 되고,  @JoinColumn의 field는 외래키 이름이 된다. 4-4-2 @Column에 지정된 이름은 데이터가 저장되어 있는 field의 이름으로 지정된다. package pe.pilseong.hibernateset.entity;
+
+import java.util.HashSet;
+import java.util.Set;
+
+import javax.persistence.CollectionTable;
+import javax.persistence.Column;
+import javax.persistence.ElementCollection;
+import javax.persistence.Entity;
+
+import javax.persistence.GeneratedValue;
+import javax.persistence.GenerationType;
+import javax.persistence.Id;
+import javax.persistence.JoinColumn;
+import javax.persistence.Table;
+
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+@Entity
+@Table(name = "student")
+@Data
+@NoArgsConstructor
+public class Student {
+
+  public Student(String firstName, String lastName, String email) {
+    this.firstName = firstName;
+    this.lastName = lastName;
+    this.email = email;
+  }
+
+  @Id
+  @GeneratedValue(strategy = GenerationType.IDENTITY)
+  private Long id;
+  
+  @Column(name = "first_name")
+  private String firstName;
+  
+  @Column(name = "last_name")
+  private String lastName;
+  
+  @Column(name = "email")
+  private String email;
+  
+  @ElementCollection
+  @CollectionTable(
+      name = "course",
+      joinColumns = @JoinColumn(name = "student_id")
+  )
+  
+  @Column(name = "course_name")
+  private Set<String> courses = new HashSet<>();
+} 5. 실행 클래스 5-0 하이버네이트 hbm2ddl을 create로 하여 실행하였다. 5-0-1 create는 기존 테이블을 drop한 후 새로 테이블을 만들어서 실행하는 설정이다. 5-0-2 데이터베이스 생성 후 처음 실행하면 테이블이 없다는 오류가 뜨지만 정상적으로 동작한다. 5-1 아래의 소스 중 중요한 부분은 SessionFactory를 가져올 때 AnnotatedClass가 Student밖에 없는 점이다. 5-1-1 보통 @ElementCollection은 이와 같이 관계하는 테이블의 Entity 클래스를 생성하지 않고 사용할 때 쓴다. 5-1-2 Course를 Entity를 지정하는 경우는 중복이 없는 field에 @Id를 별도로 설정해야 한다. 귀찮다. 5-2 Set을 끌어오기 때문에 중복이 허용되지 않는다. 아래의 경우 테이블을 조회해보면 JPA가 한 번만 들어있다. package pe.pilseong.hibernateset;
+
+import java.util.Set;
+
+import org.hibernate.Session;
+import org.hibernate.SessionFactory;
+import org.hibernate.cfg.Configuration;
+
+import pe.pilseong.hibernateset.entity.Student;
+
+/**
+ * Hello world!
+ *
+ */
+public class App {
+  public static void main(String[] args) {
+    SessionFactory factory = new Configuration().configure()
+        .addAnnotatedClass(Student.class)
+        .buildSessionFactory();
+    
+    Student student = new Student("Pilseong", "Heo", "heops79@gmail.com");
+    Set<String> courses = student.getCourses();
+    courses.add("Java");
+    courses.add("Hibernate");
+    courses.add("JPA");
+    courses.add("JPA");
+    
+    Session session = factory.getCurrentSession();
+    
+    session.beginTransaction();
+    
+    session.persist(student);
+    
+    
+    session.getTransaction().commit();
+    
+    factory.close();
+    
+  }
+} 5-3 결과 테이블 5-4 테이블 구조도

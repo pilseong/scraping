@@ -1,0 +1,1 @@
+1. $ git rm -r .gradle git에 있는 .gradle 폴더를 삭제한다. 2. 이것과 함께 .gitignore에 .gradle/ 을 추가해 주어야 한다.

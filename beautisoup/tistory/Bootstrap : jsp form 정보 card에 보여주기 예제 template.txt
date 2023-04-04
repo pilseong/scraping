@@ -1,0 +1,105 @@
+<%@ taglib prefix="form" uri="http://www.springframework.org/tags/form"%>
+<%@ taglib prefix="c" uri="http://java.sun.com/jsp/jstl/core" %>
+<%@ page language="java" contentType="text/html; charset=UTF-8" pageEncoding="UTF-8"%>
+<!doctype html>
+<html lang="en">
+
+<head>
+  <!-- Required meta tags -->
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+
+  <!-- Bootstrap CSS -->
+  <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.0/css/bootstrap.min.css"
+    integrity="sha384-9aIt2nRpC12Uk9gS9baDl411NQApFmC26EwAOH8WgZl5MYYxFfc+NcPb1dKGj7Sk" crossorigin="anonymous">
+
+  <title>Flight Reservation Confirm</title>
+</head>
+
+<body>
+  <div class="container">
+    <h1 class="text-center mb-5">Flight Reservation Details</h1>
+    <div class="row">
+      <div class="col-2"></div>
+      <div class="col-8">
+        <div class="card">
+          <h5 class="card-header">Flight Information</h5>
+          <div class="card-body">
+            <div class="row d-flex justify-content-between">
+              <h5 class="card-title mr-3">Operating Aline</h5>
+                <span class="card-text">${ flight.operatingAirlines }</span>
+            </div>
+            <div class="row d-flex justify-content-between">
+              <h5 class="card-title mr-3">Departure City</h5>
+                <span class="card-text">${ flight.departureCity }</span>
+            </div>
+            <div class="row d-flex justify-content-between">
+              <h5 class="card-title mr-3">Arrival City</h5>
+                <span class="card-text">${ flight.arrivalCity }</span>
+            </div>
+            <div class="row d-flex justify-content-between">
+              <h5 class="card-title mr-3">Date Of Deaprture</h5>
+                <span class="card-text">${ flight.deteOfDeparture }</span>
+            </div>
+            <div class="row d-flex justify-content-between">
+              <h5 class="card-title mr-3">Estimated Departure Time</h5>
+                <span class="card-text">${ flight.estimatedDepartureTime }</span>
+            </div>
+          </div>
+        </div>
+        <div class="card">
+          <h5 class="card-header">Passenger Information</h5>
+          <div class="card-body">
+            <div class="row d-flex justify-content-between">
+              <h5 class="card-title mr-3">First Name</h5>
+                <span class="card-text">${ passenger.firstName }</span>
+            </div>
+            <div class="row d-flex justify-content-between">
+              <h5 class="card-title mr-3">Last Name</h5>
+                <span class="card-text">${ passenger.lastName }</span>
+            </div>
+            <div class="row d-flex justify-content-between">
+              <h5 class="card-title mr-3">Email</h5>
+                <span class="card-text">${ passenger.email }</span>
+            </div>
+            <div class="row d-flex justify-content-between">
+              <h5 class="card-title mr-3">Phone</h5>
+                <span class="card-text">${ passenger.phone }</span>
+            </div>
+          </div>
+        </div>
+        <div class="card">
+          <h5 class="card-header">Checkin Form</h5>
+          <form:form modelAttribute="update" action="processCheckIn" method="POST">
+            <form:input type="hidden" path="id" />
+            <div class="card-body">
+              <div class="row d-flex justify-content-between">
+                <h5 class="card-title mr3">Number Of Bags</h5>
+                <form:input class="form-control-inline" type="text" path="numberOfBags" />
+              </div>
+              <div class="form-group mt-2 text-center">
+                <input type="submit" value="Check In" class="btn btn-primary">
+              </div>
+            </div>
+          </form:form>
+        </div>
+      </div>
+      <div class="col-2"></div>
+    </div>
+  </div>
+  <div>
+  </div>
+  <!-- Optional JavaScript -->
+  <!-- jQuery first, then Popper.js, then Bootstrap JS -->
+  <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"
+    integrity="sha384-DfXdz2htPH0lsSSs5nCTpuj/zy4C+OGpamoFVy38MVBnE+IbbVYUew+OrCXaRkfj" crossorigin="anonymous">
+  </script>
+  <script src="https://cdn.jsdelivr.net/npm/popper.js@1.16.0/dist/umd/popper.min.js"
+    integrity="sha384-Q6E9RHvbIyZFJoft+2mJbHaEWldlvI9IOYy5n3zV9zzTtmI3UksdQRVvoxMfooAo" crossorigin="anonymous">
+  </script>
+  <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.0/js/bootstrap.min.js"
+    integrity="sha384-OgVRvuATP1z7JjHLkuOU7Xw704+h835Lr+6QL9UvYjZE3Ipu6Tp75j7Bh/kR0JKI" crossorigin="anonymous">
+  </script>
+</body>
+
+</html>

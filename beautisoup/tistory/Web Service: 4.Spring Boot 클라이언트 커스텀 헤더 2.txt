@@ -1,0 +1,68 @@
+자바와 같은 static 타입 시스템은 개발할 때 편의성이 높지만 메시지를 주고 받는 것에 있어서는 불편한 점이 많다. 모든 메시지의 타입이 미리 지정이 되어 있어야 컴파일 오류가 생기지 않기 때문이다. nodejs로 개발한 것과 비교하면 차원이 다른 불편함이다. 아래는 자바스크립트(타입스크립트)로 작성된 예약정보를 가지고 오는 구문이다. fetchBooking이 서비스 이름이고 내부적으로는 _fetchBooking을 실행하여 동작한다. request에 들어갈 데이터를 만드는 부분을 보면 _setFetchBooking인데 아주 단순하다. 그냥 자바스크립트 객체를 자유롭게 만들면 된다. 그리고 만들어진 데이터를 _fetchBooking에서 보듯 함수에 넣어 보내면 된다. 더 황당한 부분은 client.addSoapHeader인데 그냥 헤더 객체를 넣고 있다. Soap Envelope를 완성한 후에 실제 메시지를 보내기 직전에 xml로 변환하기 때문에 이런 식의 개발이 가능하다. 자바에서도 이런 식의 접근을 하면 아주 간단할 건데 왜 발송과정 중에 메시지를 콜백으로 가로채서 헤더를 추가해야 하는지 이해하기 힘들다. 단순하게 설명하면 자바스크립트 Body, Header 작성 -> Envelop 완성 -> 발송 -> xml변환 -> 네트워크 Spring WS Body 작성 -> 발송 xml변환 -> 콜백에서 헤더를 xml변하여 추가 -> 메시지에 헤더 추가 -> 네트워크 예전 Jaxws의 경우는 헤더를 추가해 주는 부분이 없어 바인더를 만들어서 <OGHeader ... 식으로 추가해야 주어야 한다. 아래는 자바스크립트에서 하나의 서비스를 호출하는 예시다. 정말 간단하다. 타입이 필요가 없다. // 상세 예약정보 조회
+async function fetchBooking(params: any = {}) {
+  const data = await _setFetchBooking(params);
+  Utils.log(data);
+  return _fetchBooking(data);
+}
+
+function _setFetchBooking(params: any) {
+  return {
+    ... params.confirmation_number && {
+      ConfirmationNumber: {
+        attributes: {
+          type: "INTERNAL", // 중요하지 않음, EXTERNAL도 발송됨
+        },
+        $value: params.confirmation_number,
+      },
+    },
+    ... params.resv_name_id && {
+      ResvNameId: {
+        attributes: {
+          type: "INTERNAL", // 중요하지 않음, EXTERNAL도 발송됨
+        },
+        $value: params.resv_name_id,
+      },
+    }    
+  };
+}
+
+async function _fetchBooking(data: any) {
+  const client = await soap.createClientAsync(RESERVATION_URL);
+  
+  client.addSoapHeader(unauthHeader);
+  const fetchBooking = util.promisify(client.ReservationService.ReservationServiceSoap.FetchBooking);
+  try {
+    return await fetchBooking(data);
+  } catch (err) {
+    console.log(err);
+  }
+} 자바 스프링으로 작업을 하면 아래와 같이 수많은 클래스를 생성하여 개발해야 한다. 아래의 캡처는 서비스 하나에서 만들어진 300여개에 달하는 클래스의 처음의 일부이다. 아래의 자바 로직을 보면 정말 단순한 것을 알 수 있다. 물론 파라메터 메핑 부분을 제대로 처리하지 않아서 더욱 그렇게 보인다. 헤더를 붙이는 부분도 자바스크립트 처럼 콜백 구현한 클래스로 만들어 필요할 때 마다 헤더를 간단히 교체해서 사용할 수 있게 만들었다. 이걸 스프링에서 왜 안해 주는 지 모르겠다. 아래 코드의 - 부분은 보안 상 내부 정보를 삭제한 부분이다. UnauthHeader 클래스에 대해서는 이전 포스트에 소스가 나와 있다. 콜백을 구현하는 클래스를 정의하였다. public class ReservationClient extends WebServiceGatewaySupport {
+  private static final Logger log = LoggerFactory.getLogger(ReservationClient.class);
+
+  public FutureBookingSummaryResponse futureBookingSummary() throws Exception {
+    var request = new FutureBookingSummaryRequest();
+    var soapAction = "-";
+
+    return (FutureBookingSummaryResponse) JAXBIntrospector.getValue(
+        getWebServiceTemplate().marshalSendAndReceive(
+          "-",
+          request,
+          new UnauthHeader(soapAction)));
+  }
+
+  public FetchBookingResponse fetchBooking(String resvId) throws Exception{
+    var request = new FetchBookingRequest();	// 직접생성. FactoryObject사용하면 안된다.
+    var uid = new UniqueID();
+    uid.setValue(resvId);
+    uid.setType(UniqueIDType.INTERNAL);
+    request.setConfirmationNumber(uid);
+
+    var soapAction = "-";
+
+    return (FetchBookingResponse) JAXBIntrospector.getValue(
+      getWebServiceTemplate().marshalSendAndReceive(
+        "-",
+        new ObjectFactory().createFetchBookingRequest(request),	// XmlRootElement처리
+        new UnauthHeader(soapAction)));
+  }
+}

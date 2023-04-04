@@ -1,0 +1,94 @@
+0. 이 포스트는 v2 버전에 클라이언트 기능을 추가한 내용이다. 0-1 v3에서는 세부페이지를 생성하고, -> 이 포스트에서 작성할 내용이다. 0-2 페이지 네비게이션을 추가하고, 카테고리별 페이지 검색 및 검색 결과 내에 페이지 탐색을 구현한다. 0-3 카트에 아이템을 추가하고 합산 값을 실시간으로 표시한다. 1. 서버 쪽에는 별다르게 손댈 부분이 없다. 2. 상세페이지를 생성한다. 2-0 상세 페이지는 별도의 ProductList 위치에 위치할 세로운 페이지 컴포넌트으므로 새로 생성한다. $ ng generate component components/product-details 2-1 화면의 제품 리스트의 사진이나 이름을 눌렀을 때 세부페이지로 이동하게 한다. 2-1-1 product-list.component.html에 가서 링크 페이지를 설정한다. 2-1-2 routeLink로 감싸 정상적으로 routing이 동작하도록 설정한다. <div class="container-fluid">
+  <h4>{{ currentCategoryName }}</h4>
+  <hr>
+  <div class="row">
+    <table class="table">
+      <thead class="thead-dark">
+        <th class="text-center">Image</th>
+        <th class="text-center">Name</th>
+        <th class="text-center">Units in Stock</th>
+        <th class="text-center">Price</th>
+      </thead>
+      <tbody>
+        <tr *ngFor="let product of products">
+          <td class="text-center">
+            <a routerLink="/products/{{product.id}}">
+              <img src="{{ product.imageUrl }}" width="50px" alt="picture">
+            </a>
+          </td>
+          <td class="text-center">
+            <a routerLink="/products/{{product.id}}">{{ product.name }}</a>
+          </td>
+          <td class="text-center">{{ product.unitsInStock }}</td>
+          <td class="text-center">{{ product.unitPrice | currency }}</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</div> 2-2 라우팅 테이블에 products/:id를 ProductDetailsComponent에 매핑하여 실제 동작하도록 변경한다. 2-2-1 app.module.ts 파일의 라우팅 테이블은 다음과 같다. 중간에 products/:id 설정이 있다. const routes: Routes = [
+  { path: 'search/:keyword', component: ProductListComponent },
+  { path: 'category/:id/:name', component: ProductListComponent },
+  { path: 'category', component: ProductListComponent },
+  { path: 'products/:id', component: ProductDetailsComponent },
+  { path: 'products', component: ProductListComponent },
+  { path: '', component: ProductListComponent },
+  { path: '**', component: ProductListComponent }
+] 2-2-2 페이지 선택 시 다음처럼 보여진다. 2-3 상세 페이지에서 products/:id를 받는 부분을 구현한다. 2-3-1 url이 변경되면 설정한대로 ProductDetailsComponent가 호출된다. 2-3-2 ProductList 컴포넌트와 동일하게 서비스를 활용하여 id에 지정된 상품정보를 가지고 온다. 2-3-3 ProductService에 하나의 상품을 id를 가지고 가지고 오는 메소드를 작성한다. 2-3-3-1 REST Api로 호출 시 다음과 같은 값을 얻게 된다. 2-3-3-2 구조를 보면 wrapper없이 그냥 id 부터 데이터가 주어지기 때문에 별도의 매핑 없이 Product를 사용한다. 2-3-3-3 ProductService에 추가된 코드 getProduct(id: string): Observable<Product> {
+    const targetUrl = `${this.baseUrl}/products/${id}`
+
+    return this.httpClient.get<Product>(targetUrl)
+  }
+} 2-3-4 이젠 이 서버스를 사용하여 데이터를 가지고 오는 부분을 상세페이지 컴포넌트에 작성한다. 2-3-4-1 ActivatedRoute를 통해서 URL변화를 감지해서 상품정보를 가지고 온다. 2-3-4-2 데이터 수신을 위해 생성자에 ActivatedRoute, ProductService를 주입받고 있다. 2-3-4-3 이전 페이지로 돌아가는 기능을 위해 Location 객체도 주입받고 있고 goToLastPage 메소드에서 사용된다. import { Component, OnInit } from '@angular/core';
+import { Product } from 'src/app/common/product';
+import { ProductService } from 'src/app/services/product.service';
+import { ActivatedRoute } from '@angular/router';
+import { Location } from '@angular/common'
+
+@Component({
+  selector: 'app-product-details',
+  templateUrl: './product-details.component.html',
+  styleUrls: ['./product-details.component.css']
+})
+export class ProductDetailsComponent implements OnInit {
+
+  product: Product = new Product()
+
+  constructor(
+    private productService: ProductService,
+    private route: ActivatedRoute,
+    private location: Location) { }
+
+  ngOnInit(): void {
+    this.route.paramMap.subscribe(()=> this.getProduct())
+  }
+
+  private getProduct() {
+    this.productService.getProduct(this.route.snapshot.paramMap.get('id')).subscribe(
+      data=> this.product = data
+    )
+  }
+
+  goToLastPage() {
+    this.location.back()
+  }
+} 2-4 이제 html작성만 남아 있다. 2-4-1 {{ }} interpolation을 사용하여 데이터를 표출한다. 2-4-2 Back to Product List는 이전 페이지로 돌아가는 기능을 호출한다. <div class="section-content section-content-p30">
+  <div class="container">
+    <div class="row">
+
+      <div>
+        <img src="{{product.imageUrl}}" class="img-responsive" width="40%">
+
+        <h3>{{product.name}}</h3>
+        <div class="price">{{product.unitPrice | currency: 'USD'}}</div>
+        <a href="shopping-detail.html" class="primary-btn">Add to cart</a>
+
+        <h4 class="mt-4">Product Description</h4>
+        <p>{{product.description}}</p>
+
+        <div class="text-right">
+          <button class="mt-5 btn btn-info" (click)='goToLastPage()'>Back to Product List</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div> 3. 결과 페이지

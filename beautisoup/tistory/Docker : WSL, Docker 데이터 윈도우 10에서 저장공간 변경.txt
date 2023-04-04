@@ -1,0 +1,50 @@
+1. 윈도우에서 Docker Desktop은 내부적으로 wsl2를 사용하고 있다. 그렇기 때문에 Docker의 데이터를 이동하려면 wsl의 설치공간을 이동해야 한다. 1-1 설치된 wsl 리스트를 보려면 wsl -l 명령어를 사용하면 된다. 1-2 나의 경우는 기본 wsl을 우분투로 설치해 놓았고, Docker에서도 역시 두개의 wsl distro를 사용하고 있다. 1-3 도커의 기본공간을 변경하려면 아래 docker-destop-data, docker-desktop을 이동해야 한다. 1-3-1 나의 경우 외장 SSD인 D 드라이브로 옮겼다. 외장하드의 공간이 훨씬 넓고 포멧시에도 안전하기 때문이다. 2. 사실 나는 윈도우 powershell 스크립트 같은 것에 관심이 전혀 없다. 동작만 하면 된다. 잘하는 사람에게 맡기면 된다. 2-0 우선 모든 Distro의 상태를 Stop으로 변경해야 한다. Docker를 shutdown한다. wsl을 옮길 때도 종료한다. 2-1 인터넷을 검색하니 https://github.com/pxlrbt/move-wsl 를 발견했다. 아래처럼 동작한다. 사실 이게 전부다. 2-2 그래도 잠깐 보면 2-1 wsl --export %WSL_NAME% "%TEMP_FILE%" 목적지 폴더에 백업데이터를 tar 파일로 옮긴다. 2-2 wsl --unregister %WSL_NAME% >nul 2>&1 기존의 위치의 WSL distro의 등록을 해제한다. 2-2-1 목적지에 있는 distro를 등록할 때 기존과 동일한 distro이름을 사용해야 하기 때문이다. 2-3 wsl --import "%WSL_NAME%" "%WSL_TARGET%" "%TEMP_FILE%" 복사한 tar파일을 import 및 등록한다. 2-4 IF EXIST "%TEMP_FILE%" DEL "%TEMP_FILE%" 임시 tar파일을 삭제한다. @echo off
+SETLOCAL
+
+SET WSL_NAME=%~1
+SET WSL_TARGET=%~2
+
+IF %WSL_TARGET:~-1%==\ SET WSL_TARGET=%WSL_TARGET:~0,-1%
+SET TEMP_FILE=%WSL_TARGET%\%WSL_NAME%.tar
+
+SET /P PROMPT="Move WSL '%WSL_NAME%' to '%WSL_TARGET%'? (Y|n) "
+IF /I "%PROMPT%" NEQ "Y" GOTO :EOF
+
+IF NOT EXIST "%WSL_TARGET%" (
+    ECHO Creating target dir "%WSL_TARGET%" ...
+    SETLOCAL enableextensions
+    MD "%WSL_TARGET%"
+    ENDLOCAL
+)
+
+ECHO Exporting VHDX to "%TEMP_FILE%" ...
+wsl --export %WSL_NAME% "%TEMP_FILE%"
+
+IF %ERRORLEVEL% EQU 0 IF EXIST "%TEMP_FILE%" (
+    ECHO Export successful.
+    GOTO :UNREGISTER
+)
+ECHO ERROR: Export failed!
+CALL :CLEANUP
+GOTO :EOF
+
+:UNREGISTER
+ECHO Unregistering WSL ...
+wsl --unregister %WSL_NAME% >nul 2>&1
+
+ECHO Importing "%WSL_NAME%" at "%WSL_TARGET%" ...
+wsl --import "%WSL_NAME%" "%WSL_TARGET%" "%TEMP_FILE%"
+
+ECHO Validating import ...
+IF NOT EXIST "%WSL_TARGET%\ext4.vhdx"  (
+    IF NOT EXIST "%WSL_TARGET%\rootfs"  (
+        ECHO ERROR: Import failed! Target file not found. Export file at '%TEMP_FILE%'
+        GOTO :EOF
+    )
+)
+
+:CLEANUP
+ECHO Cleaning up ...
+IF EXIST "%TEMP_FILE%" DEL "%TEMP_FILE%"
+
+ECHO Done! 3. 이렇게 하고 나면 잘 동작할 것이다. 4. 그런데 wsl을 옮길 경우에는 기본 유저로 들어가지 않고 무조건 root id로만 로그인 된다. 4-1 이럴 경우 root로 로그인 하고 /etc/wsl.conf 파일을 아래와 같이 작성해서 기본 유저를 설정한다. 4-2 윈도우에서 wsl -t Ubuntu로 종료하고 다시 wsl을 재기동하면 이제 기본 유저로 로그인 된다. 4-3 혹시 유저이름을 모를 경우는 아래의 shell 명령어를 쓰면 된다. eval getent passwd {$(awk '/^UID_MIN/ {print $2}' /etc/login.defs)..$(awk '/^UID_MAX/ {print $2}' /etc/login.defs)} | cut -d: -f1 5. 기본 wsl distro를 설정하는 방법은 아래의 명령어를 사용하면 된다. wsl --setdefault Ubuntu

@@ -1,0 +1,130 @@
+0. 이 포스트는 Table Per Class 정책에 대해서 설명한다. 1. Table Per Class 1-1 이 정책을 사용하면 자식 클래스(non-abstract class)들이 생성된다. 1-2 부모의 속성도 같이 테이블에 포함되어 생성된다. 1-3 부모클래스에서 ID 생성 정책을 TABLE로 사용하여 자식클래스의 ID를 동기화 시킨다. 1-3-1 별도의 sequence 테이블이 생성되고 여기에서 사용한 id가 관리 된다. 1-4 여러 개의 쓰레드가 ID테이블을 접근할 수 있으므로 스레드풀 갯수를 늘여줘야한다. 2. Table Per Class 장단점 2-1 장점 2-1-1 간단하고 직관적인 구현방식이다. 2-1-2 각 자식클래스에 대한 query 수행이 빠른 편이다. 2-2 단점 2-2-1 부모 클래스를 위한 query의 수행 속도는 느린 편이다. 2-2-2 ID 생성시에 스퀀스 테이블을 사용하기 때문에 대용량 데이터베이스를 사용하기에 동기화 부담이 있다. 3. Table Per Class 정책을 사용하려면 아래의 설정이 필요하다. 3-1 부모클래스의 상속 설정에서 Table per class를 지정한다. @Inheritance(strategy = InheritanceType.TABLE_PER_CLASS) 3-2 이전 블로그에서 지정한 @Discriminator- 관련은 필요가 없다. 3-3 hibernate.cfg.xml에서 아래와 같이 스레드 개수를 늘려 준다. <property name="connection.pool_size">10</property> 4. Entity 클래스 4-1 User Entity 4-1-1 상속 정책이 TABLE_PER_CLASS이다. 4-1-2 ID 생성 속성이 GenerationType.TABLE 이다. package pe.pilseong.tableperclass.entity;
+
+import javax.persistence.Column;
+import javax.persistence.Entity;
+import javax.persistence.GeneratedValue;
+import javax.persistence.GenerationType;
+import javax.persistence.Id;
+import javax.persistence.Inheritance;
+import javax.persistence.InheritanceType;
+import javax.persistence.Table;
+
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+@Entity
+@Table(name = "user")
+@Inheritance(strategy = InheritanceType.TABLE_PER_CLASS)
+@Data
+@NoArgsConstructor
+public abstract class User {
+  
+  @Id
+  @GeneratedValue(strategy = GenerationType.TABLE)
+  private Long id;
+  
+  @Column(name = "firstName")
+  private String firstName;
+  
+  @Column(name = "lastName")
+  private String lastName;
+  
+  @Column(name = "email")
+  private String email;
+
+  public User(String firstName, String lastName, String email) {
+    this.firstName = firstName;
+    this.lastName = lastName;
+    this.email = email;
+  }
+} 4-2 Student Entity 4-2-1 일반적인 @Entity클래스다. 4-2-2 @DiscriminatorValue가 붙지 않는다. package pe.pilseong.tableperclass.entity;
+
+import javax.persistence.Column;
+import javax.persistence.Entity;
+import javax.persistence.EnumType;
+import javax.persistence.Enumerated;
+import javax.persistence.Table;
+
+import lombok.Data;
+import lombok.EqualsAndHashCode;
+import lombok.NoArgsConstructor;
+
+@Entity
+@Table(name = "student")
+@Data
+@EqualsAndHashCode(callSuper=false)
+@NoArgsConstructor
+public class Student extends User {
+
+  @Enumerated(EnumType.STRING)
+  @Column(name = "schoo_level")
+  private Level level;
+  
+  @Column(name = "course")
+  private String course;
+
+  public Student(String firstName, String lastName, String email, Level level, String course) {
+    super(firstName, lastName, email);
+    this.level = level;
+    this.course = course;
+  }
+} 4-3 Teacher Entity 4-3-1 일반적인 @Entity클래스다. 4-3-2 @DiscriminatorValue가 붙지 않는다. package pe.pilseong.tableperclass.entity;
+
+import javax.persistence.Column;
+import javax.persistence.Entity;
+import javax.persistence.Table;
+
+import lombok.Data;
+import lombok.EqualsAndHashCode;
+
+@Entity
+@Table(name = "teacher")
+@Data
+@EqualsAndHashCode(callSuper=false)
+public class Teacher extends User {
+
+  @Column(name = "salary")
+  private Double salary;
+
+  public Teacher(String firstName, String lastName, String email, Double salary) {
+    super(firstName, lastName, email);
+    this.salary = salary;
+  }  
+} 5 실행 결과 5-1 실행 코드 - 전 포스트와 동일하다. package pe.pilseong.tableperclass;
+
+import org.hibernate.Session;
+import org.hibernate.SessionFactory;
+import org.hibernate.cfg.Configuration;
+
+import pe.pilseong.tableperclass.entity.Level;
+import pe.pilseong.tableperclass.entity.Student;
+import pe.pilseong.tableperclass.entity.Teacher;
+import pe.pilseong.tableperclass.entity.User;
+
+/**
+ * Hello world!
+ *
+ */
+public class App {
+  public static void main(String[] args) {
+    SessionFactory factory = new Configuration().configure()
+        .addAnnotatedClass(User.class)
+        .addAnnotatedClass(Student.class)
+        .addAnnotatedClass(Teacher.class)
+        .buildSessionFactory();
+    
+    Session session = factory.getCurrentSession();
+    session.beginTransaction();
+    
+    Student student = new Student("Pilseong", "Heo", "heops79@gmail.com", Level.TERIARY, "Software Engineering");
+    Teacher teacher = new Teacher("Suel", "Heo", "suel@gmai.com", 1000000D);
+   
+    session.save(student);
+    session.save(teacher);
+    
+    session.getTransaction().commit();
+    
+    factory.close();
+    
+  }
+} 5-2 테이블 결과 5-2-1 자식 클래스와 매핑되는 2개의 테이블과 sequence를 저장하는 테이블이 생성되었다. 5-3 테이블 구조 5-3-1 세 개의 테이블이 생성되지만 테이블 간 관계는 없다. 5-3-2 코드 상 각 자식 테이블이 id를 조회해서 사용할 뿐이다.

@@ -1,0 +1,24 @@
+Spring Data JPA를 사용하다 보면 쿼리를 직접 사용할 경우가 있다. 1. Spring Data의 DAO는 대부분의 경우 JpaRepository를 상속한 인터페이스를 정의하여 사용한다. 2. 사용자가 직접 query를 사용하고 싶으면 인터페이스에 직접 메소드를 정의할 수 있다. 2-1 원하는 형식의 메소드를 정의하면서 필요한 인자값과 반환 타입을 지정한다. 2-1-1 특정타입인 경우 특정타입, Collection일 경우 Set, List, Map 등을 사용한다. 2-2 메소드에 @Query Annotation을 사용한다. 2-3-1 @Query annotation에 들어갈 field 이름은 테이블이 아닌 Entity 클래스와 Entity의 속성이름이다. 2-3-2 즉 Entity클래스 이름이 Location이고 Table 이름이 locations이면 Location을 사용해야만 동작한다. 2-3-3 field이름도 Entity의 property가 들어가야 한다. table의 column이름이 들어가면 동작하지 않는다. 2-3 Query에서 사용할 Named Parameter값들은 인터페이스의 인자로 받는다. 2-3-1 받을 때 @Param annotation을 붙이고 named parameter이름을 괄호에 명기한다. 아래 코드를 참고하다. 2-3-2 query문 내부에 named parameter를 지정할 때 :parameter 형식을 사용한다. 2-3-2-1 ':'과 변수이름 사이에 공백이 있으면 안된다. package pe.pilseong.flightreservation.repositories;
+
+import java.util.Date;
+import java.util.List;
+
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
+
+import pe.pilseong.flightreservation.entities.Flight;
+
+public interface FlightRepository extends JpaRepository<Flight, Long> {
+
+  @Query("from Flight "
+      + "where  departureCity= :departureCity and "
+      + "       arrivalCity= :arrivalCity and "
+      + "       dateOfDeparture= :dateOfDeparture")
+  List<Flight> findFlights (
+      @Param("departureCity") String from, 
+      @Param("arrivalCity") String to, 
+      @Param("dateOfDeparture") Date departureDate
+  );
+
+}

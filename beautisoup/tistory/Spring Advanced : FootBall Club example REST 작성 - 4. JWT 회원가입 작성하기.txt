@@ -1,0 +1,439 @@
+football-server.zip 0.08MB 1. 오랜 만에 들어와서 작성한다. 이 블로그는 사적인 공간이고 그냥 글을 공개해 놓은 것 뿐이다. 1-1 한번씩 다시 읽을 때마다 느끼지만 의식의 흐름에 따라 작성한 것이라 오타도 많고 무슨 말인지 알수도 없는 부분이 많아 다른 사람들이 보기에는 적절하지 않다. 1-2 머리가 점점 나빠지고 쉽게 잊어버리는 것 같아서 적어놓는 용도일 뿐이다. 남들에게도 도움이 되었으면 좀 더 기쁘겠지만, 그건 이 블로그의 핵심 가치는 아니다. 2. 이 포스트에서 할 내용 2-1 인증을 위한 서비스 모듈을 리팩토링한다. 2-2 회원가입을 로직을 작성한다. 2-3 관련된 예외처리를 한다. 3. 인증부분을 좀 더 모듈화하기 위해 AuthService를 작성하여 그곳으로 모든 로직을 옮긴다. 3-1 Controller의 소스는 최대한 간결한 것이 좋고 서비스에서 받아온 정보를 반환하는 역활만 하는 것이 좋다. 3-2 예외의 서비스나 Repository에서 예외를 발생시키고 전역 예외처리자나 AuthEntryPoint에서 처리하는 것이 좋다. 3-3 서비스 인터페이스 package pe.pilseong.footballserver.service;
+
+import pe.pilseong.footballserver.dto.AuthenticationRequest;
+import pe.pilseong.footballserver.dto.AuthenticationResponse;
+import pe.pilseong.footballserver.dto.RegistrationRequest;
+
+public interface AuthService {
+
+  AuthenticationResponse authenticate(AuthenticationRequest request);
+
+  AuthenticationResponse register(RegistrationRequest request);
+
+} 3-4 서비스 구현 클래스 3-4-1 authenticate은 로그인 인증 메소드인데 Controller의 로직을 그대로 사용하고 있다. 3-4-2 다만 jwt을 생성하는 메소드를 별도로 빼내어 회원가입에도 재활용하고 있다. 3-4-3 register은 회원가입을 위한 메소드이다. 3-4-3-1 RegistrationRequest를 받아와 Username 중복체크 후 유저권한을 추가하여 회원정보를 저정한다. 3-4-3-2 RegistrationRequest의 toUser 메소드로 User 객체를 생성하고 User객체에 권한 정보를 추가하고 있다. 3-4-3-3 이 권한 정보를 추가하는 addRole메소드는 편의를 위해 만든 것으로 뒤에 있는 변경된 소스를 참고한다. 3-4-4 generateJWT는 JWT을 생성하는 메소드로 3-4-4-1 회원가입의 경우는 방금 생성한 유저정보를 사용하고 3-4-4-2 로그인은 Username을 사용한다. 3-4-4-3 두 경우 모두 JWT정보를 포함하는 AuthenticationResponse 클래스를 반환 도구로 사용하고 있다. package pe.pilseong.footballserver.service;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.BadCredentialsException;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.stereotype.Service;
+
+import lombok.extern.slf4j.Slf4j;
+import pe.pilseong.footballserver.dto.AuthenticationRequest;
+import pe.pilseong.footballserver.dto.AuthenticationResponse;
+import pe.pilseong.footballserver.dto.RegistrationRequest;
+import pe.pilseong.footballserver.exception.DuplicatedUsernameException;
+import pe.pilseong.footballserver.model.Role;
+import pe.pilseong.footballserver.model.User;
+import pe.pilseong.footballserver.repository.RoleRepository;
+import pe.pilseong.footballserver.repository.UserRepository;
+import pe.pilseong.footballserver.util.JwtUtil;
+
+@Service
+@Slf4j
+public class AuthServiceImpl implements AuthService {
+
+  @Autowired
+  private AuthenticationManager authenticationManager;
+
+  @Autowired
+  private PasswordEncoder passwordEncoder;
+
+  @Autowired
+  private UserRepository userRepository;
+
+  @Autowired
+  private RoleRepository roleRepository;
+
+  @Autowired
+  private JwtUtil jwtUtil;
+  
+  @Override
+  public AuthenticationResponse authenticate(AuthenticationRequest request) {
+    log.info("authenticate in AuthService :: " + request.toString());
+    
+    try {
+      this.authenticationManager
+          .authenticate(new UsernamePasswordAuthenticationToken(
+            request.getUsername(), 
+            request.getPassword()));
+
+    } catch (Exception e) {
+      throw new BadCredentialsException("Incorrect username or password" + e);
+    }
+    return generateJWT(request.getUsername(), null);
+  }
+
+  private AuthenticationResponse generateJWT(String username, User user) {
+    String jwt = null;
+    if (user == null) {
+      UserDetails userDetails = this.userRepository.findByUsername(username);
+      jwt = jwtUtil.generateToken(userDetails);
+    } else {
+      jwt = jwtUtil.generateToken(user);
+    }
+
+    log.info("generateJWT in AuthService jwt is :: " + jwt);
+    return new AuthenticationResponse(jwt, 
+      user.getUsername(), 
+      user.getFullname(), 
+      user.getPhoneNumber());
+  }
+
+
+  @Override
+  public AuthenticationResponse register(RegistrationRequest request) {
+    log.info(("register in AuthService :: " + request.toString()));
+
+    if (this.userRepository.findByUsername(request.getUsername()) != null) {
+      throw new DuplicatedUsernameException("username '" + request.getUsername() + 
+      	"' is already taken");
+    }
+
+    Role role = this.roleRepository.findByName("ROLE_USER");
+    User user = request.toUser(this.passwordEncoder);
+    user.addRole(role);
+    user = this.userRepository.save(user);
+
+    return generateJWT(request.getUsername(), user);
+  }
+} 3-4-4-4 위의 소스를 보면 role 이름으로 role을 검색하는 RoleRepository의 findByName 메소드를 사용하고 있다. 3-4-4-4-1 아래처럼 간단하게 추가한다. package pe.pilseong.footballserver.repository;
+
+import org.springframework.data.jpa.repository.JpaRepository;
+
+import pe.pilseong.footballserver.model.Role;
+
+public interface RoleRepository extends JpaRepository<Role, Long> {
+  
+  Role findByName(String name);
+  
+} 3-4-5 RegistrationRequest 클래스 3-4-5-1 특이한 부분은 addUser 메소드로 RegistrationRequest 클래스로 User 클래스를 만들어 주고 있다. package pe.pilseong.footballserver.dto;
+
+import java.util.HashSet;
+
+import javax.validation.constraints.NotBlank;
+
+import org.springframework.security.crypto.password.PasswordEncoder;
+
+import lombok.Data;
+import pe.pilseong.footballserver.model.Address;
+import pe.pilseong.footballserver.model.User;
+
+@Data
+public class RegistrationRequest {
+  private Long id;
+
+  @NotBlank
+  private String username;
+
+  @NotBlank
+  private String password;
+
+  @NotBlank
+  private String matchingPassword;
+
+  @NotBlank
+  private String fullname;
+
+  @NotBlank
+  private String phoneNumber;
+
+  @NotBlank
+  private String street;
+
+  @NotBlank
+  private String city;
+
+  @NotBlank
+  private String state;
+
+  @NotBlank
+  private String country;
+
+  public User toUser(PasswordEncoder encoder) {
+    return new User(username, 
+      encoder.encode(password), 
+      fullname, phoneNumber, 
+      new Address(street, city, state, country), 
+      new HashSet<>());
+  }
+} 3-4-6 유저 Entity 클래스에 Role을 추가하기 쉽도록 아래처럼 변경하였다. 3-4-6-1 addRole 메소드를 참고한다. 3-4-7 RegistrationRequest의 toUser메소드에서 User를 생성하기 위해 @AllArgsContructor를 추가하고 있다. 3-4-8 @AllArgsConstructor가 추가되면 Entity 경우 당연히 @NoArgsConstructor도 추가되어야 한다. package pe.pilseong.footballserver.model;
+
+import java.util.Collection;
+import java.util.HashSet;
+import java.util.Set;
+
+import javax.persistence.Column;
+import javax.persistence.Embedded;
+import javax.persistence.Entity;
+import javax.persistence.FetchType;
+import javax.persistence.JoinColumn;
+import javax.persistence.JoinTable;
+import javax.persistence.ManyToMany;
+import javax.persistence.Table;
+import javax.validation.Valid;
+
+import org.springframework.security.core.GrantedAuthority;
+import org.springframework.security.core.userdetails.UserDetails;
+
+import lombok.AllArgsConstructor;
+import lombok.Data;
+import lombok.EqualsAndHashCode;
+import lombok.NoArgsConstructor;
+@Entity
+@Table(name = "users")
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+@EqualsAndHashCode(callSuper=false)
+public class User extends AbstractEntity implements UserDetails {
+
+  private static final long serialVersionUID = 1L;
+
+  @Column
+  private String username;
+
+  @Column
+  private String password;
+
+  @Column
+  private String fullname;
+
+  @Column(name = "phone_number")
+  private String phoneNumber;
+
+  @Embedded
+  @Valid
+  private Address address;
+
+  @ManyToMany(fetch = FetchType.EAGER)
+  @JoinTable(
+    joinColumns = @JoinColumn(name = "user_id"),
+    inverseJoinColumns = @JoinColumn(name = "role_id")
+  )
+  private Set<Role> roles;
+
+
+  @Override
+  public Collection<? extends GrantedAuthority> getAuthorities() {
+    return this.roles;
+  }
+
+  @Override
+  public boolean isAccountNonExpired() {
+    return true;
+  }
+
+  @Override
+  public boolean isAccountNonLocked() {
+    return true;
+  }
+
+  @Override
+  public boolean isCredentialsNonExpired() {
+    return true;
+  }
+
+  @Override
+  public boolean isEnabled() {
+    return true;
+  }
+  
+  public void addRole(Role role) {
+    if (this.roles == null) {
+      this.roles = new HashSet<>();
+    }
+
+    this.roles.add(role);    
+  }
+
+} 3-5 인증 컨트롤러 클래스를 아래처럼 간략하게 재작성하였다. 3-5-1 모든 알고리즘은 서비스에서 처리하므로 정상적인 로직에 대한 결과 회신부분만 작성하면 된다. package pe.pilseong.footballserver.controller;
+
+import javax.validation.Valid;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+
+import lombok.extern.slf4j.Slf4j;
+import pe.pilseong.footballserver.dto.AuthenticationRequest;
+import pe.pilseong.footballserver.dto.AuthenticationResponse;
+import pe.pilseong.footballserver.dto.RegistrationRequest;
+import pe.pilseong.footballserver.service.AuthService;
+
+@RestController
+@RequestMapping("/api/auth")
+
+@Slf4j
+public class AuthenticationController {
+
+  @Autowired
+  private AuthService authService;
+
+  @PostMapping("/authenticate")
+  public ResponseEntity<AuthenticationResponse> authenticate(
+      @Valid @RequestBody AuthenticationRequest request) {
+
+    log.info("authenticate :: AuthenticationController :: " + request.toString());
+    return ResponseEntity.ok()
+      .contentType(MediaType.APPLICATION_JSON)
+      .body(authService.authenticate(request));
+  }
+
+  @PostMapping("/register")
+  public ResponseEntity<AuthenticationResponse> processRegistration(
+      @Valid @RequestBody RegistrationRequest request) 
+      
+    log.info("register :: AuthenticationController :: " + request.toString());
+    return ResponseEntity.ok()
+      .contentType(MediaType.APPLICATION_JSON)
+      .body(authService.register(request));
+  }
+} 4. 가입시 사용자 이름이 중복인 경우를 처리하는 메소드를 전역 handler에 정의한다. 4-1 DuplicatedUsernameException이다. package pe.pilseong.footballserver.exception;
+
+public class DuplicatedUsernameException extends RuntimeException {
+  private static final long serialVersionUID = 1L;
+
+  public DuplicatedUsernameException(String message) {
+    super(message);
+  }
+} package pe.pilseong.footballserver.exception;
+
+import java.util.ArrayList;
+import java.util.Date;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
+
+import javax.validation.ConstraintViolation;
+import javax.validation.ConstraintViolationException;
+
+import org.springframework.dao.EmptyResultDataAccessException;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.bind.annotation.ControllerAdvice;
+import org.springframework.web.bind.annotation.ExceptionHandler;
+import org.springframework.web.context.request.WebRequest;
+import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExceptionHandler;
+
+import lombok.extern.slf4j.Slf4j;
+
+@ControllerAdvice
+@Slf4j
+public class CustomGlobalExceptionHandler extends ResponseEntityExceptionHandler {
+
+  // Custom exception
+  @ExceptionHandler(value = SkillNotFoundException.class)
+  public ResponseEntity<Map<String, String>> skillNotFoundException(SkillNotFoundException ex, 
+    WebRequest reqeust) {
+    log.info("SkillNotFoundException is concerned");
+    
+    return notFoundHandler(ex);
+  }
+
+  // Custom exception
+  @ExceptionHandler(value = DuplicatedUsernameException.class)
+  public ResponseEntity<Map<String, String>> duplicatedUsernameExceptionHandler(DuplicatedUsernameException ex, 
+    WebRequest reqeust) {
+    log.info("DuplicatedUsernameException is concerned");
+    
+    return badRequestHandler(ex);
+  }
+
+  // for DeleteMapping
+  // updateSkill when not a valid enum type
+  @ExceptionHandler(value = EmptyResultDataAccessException.class)
+  public ResponseEntity<Map<String, String>> deleteTargetNotFoundHandler(EmptyResultDataAccessException ex,
+      WebRequest reqeust) {
+    log.info("EmptyResultDataAccessException is concerned");
+    return notFoundHandler(ex);
+  }
+
+  // to check valid enum type when udpating
+  @ExceptionHandler(value = IllegalArgumentException.class)
+  public ResponseEntity<Map<String, String>> illegalArgumentExceptionHandler(IllegalArgumentException ex,
+      WebRequest reqeust) {
+    log.info("illegalArgumentExceptionHandler is concerned");
+    return badRequestHandler(ex);
+  }
+
+  private ResponseEntity<Map<String, String>> badRequestHandler(RuntimeException ex) {
+    Map<String, String> body = new LinkedHashMap<>();
+    body.put("timestamp", new Date().toString());
+    body.put("status", HttpStatus.BAD_REQUEST.toString());
+    body.put("errors", ex.getMessage());
+
+    return new ResponseEntity<>(body, HttpStatus.BAD_REQUEST);
+  }
+
+  private ResponseEntity<Map<String, String>> notFoundHandler(RuntimeException ex) {
+    Map<String, String> body = new LinkedHashMap<>();
+    body.put("timestamp", new Date().toString());
+    body.put("status", HttpStatus.NOT_FOUND.toString());
+    body.put("errors", ex.getMessage());
+
+    return new ResponseEntity<>(body, HttpStatus.NOT_FOUND);
+  }
+
+  // @Validated @Min check - to check index is at least larger than 0
+  @ExceptionHandler({ ConstraintViolationException.class })
+  public ResponseEntity<Object> handleConstraintViolation(ConstraintViolationException ex, WebRequest request) {
+    log.info("ConstraintViolationException is concerned");
+    List<String> errors = new ArrayList<String>();
+    for (ConstraintViolation<?> violation : ex.getConstraintViolations()) {
+      errors.add(
+          violation.getRootBeanClass().getName() + " " + violation.getPropertyPath() + ": " + violation.getMessage());
+    }
+    ExceptionResponse apiError = new ExceptionResponse(HttpStatus.BAD_REQUEST, ex.getLocalizedMessage(),
+        new Date().toString(), errors);
+    return new ResponseEntity<Object>(apiError, new HttpHeaders(), apiError.getStatus());
+  }
+
+  // to check required fields are missing
+  @Override
+  protected ResponseEntity<Object> handleMethodArgumentNotValid(MethodArgumentNotValidException ex, 
+    HttpHeaders headers, HttpStatus status, WebRequest request) {
+
+    log.info("handleMethodArgumentNotValid method is invoked");
+
+    Map<String, Object> body = new LinkedHashMap<>();
+    body.put("timestamp", new Date().toString());
+    body.put("status", status.value());
+
+    List<String> errors = ex.getBindingResult().getFieldErrors().stream().map(error -> error.getDefaultMessage())
+        .collect(Collectors.toList());
+
+    body.put("errors", errors);
+
+    return new ResponseEntity<>(body, headers, status);
+  }
+
+  // @Valid check to avoid having invalid enum type when posting
+  @Override
+  protected ResponseEntity<Object> handleHttpMessageNotReadable(HttpMessageNotReadableException ex, 
+    HttpHeaders headers, HttpStatus status, WebRequest request) {
+
+    log.info("handleHttpMessageNotReadable method is invoked");
+
+    Map<String, Object> body = new LinkedHashMap<>();
+    body.put("timestamp", new Date().toString());
+    body.put("status", status.value());
+
+    String error = ex.getMostSpecificCause().getMessage();
+
+    body.put("error", error);
+
+    return new ResponseEntity<>(body, headers, status);
+  }
+
+} 5. 결과화면 5-1 회원가입 request 5-2 수신 받은 jwt를 가지고 데이터를 요청 결과

@@ -1,0 +1,74 @@
+1. OpenAPI 3.0은 swagger 3.0의 다른 이름이다. 2. maven에 단 하나의 라이브러리만 추가하면 된다. 아래 내용만 추가하면 swagger ui도 같이 사용할 수 있다. <dependency>
+      <groupId>org.springdoc</groupId>
+      <artifactId>springdoc-openapi-ui</artifactId>
+      <version>1.4.6</version>
+    </dependency> 3. 기본적인 접근경로는 이전과 동일하다. 3-1 JSON -> http://localhost:8080/v3/api-docs/ 3-2 swagger ui -> http://localhost:8080/swagger-ui.html 4. 기본설정 4-1 OpenAPI 3.0이 되면서 기본설정이 훨씬 간단해 졌다. 4-1-1 만일 하나의 Docket이 필요한 경우는 아래처럼 application.properties에서 지정할 수 있다. 4-1-1 이것도 그냥 기본루트가 '/'이고 패키지 전체를 사용할 경우 아예 생략할 수 있다. 즉 config가 없어도 돌아간다. springdoc.packagesToScan=package1, package2
+springdoc.pathsToMatch=/v1, /api/balance/** 4-2 만일 두 개 이상의 문서가 필요한 경우는 아래처럼 예전 방식대로 config 클래스를 지정해야 한다. 4-2-1 위의 2개의 @Bean이 각 문서를 정의하는 부분이다. v2보다 훨씬 간결하다. 4-2-2 springShopOpenAPI 함수는 OpenAPI객체를 생성하는데 metaData를 생성해주는 부분이다. 4-2-2-1 예전의 ApiInfo객체를 생성하는 부분과 유사하다. package pe.pilseong.restdemo.config;
+
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+
+import io.swagger.v3.oas.models.ExternalDocumentation;
+import io.swagger.v3.oas.models.OpenAPI;
+import io.swagger.v3.oas.models.info.Info;
+import io.swagger.v3.oas.models.info.License;
+
+@Configuration
+
+public class SwaggerConfig {
+
+  // @Bean
+  // public GroupedOpenApi publicApi() {
+  //     return GroupedOpenApi.builder()
+  //             .group("springshop-public")
+  //             .pathsToMatch("/public/**")
+  //             .build();
+  // }
+
+  // @Bean
+  // public GroupedOpenApi adminApi() {
+  //     return GroupedOpenApi.builder()
+  //             .group("springshop-admin")
+  //             .pathsToMatch("/admin/**")
+  //             .build();
+  // }
+
+  @Bean
+  public OpenAPI springShopOpenAPI() {
+      return new OpenAPI()
+              .info(new Info().title("SpringShop API")
+              .description("Spring shop sample application")
+              .version("v0.0.1")
+              .license(new License().name("Apache 2.0").url("http://springdoc.org")))
+              .externalDocs(new ExternalDocumentation()
+              .description("SpringShop Wiki Documentation")
+              .url("https://springshop.wiki.github.org/docs"));
+  }
+
+
+  // @Bean
+  // public Docket api() {
+  //   return new Docket(DocumentationType.OAS_30)
+  //     .select()
+  //     .apis(RequestHandlerSelectors.any())
+  //     .paths(PathSelectors.any())
+  //     .build()
+  //     .pathMapping("/")
+  //     .tags(new Tag("customers", "Swagger Customer Controller"))
+  //     .apiInfo(metaData());
+  // }
+
+  // private ApiInfo metaData() {
+  //   Contact contact = new Contact("Pilseong Heo", "", "heops79@gmail.com");
+
+  //   return new ApiInfo(
+  //     "Spring REST demo", 
+  //     "Spring Boot REST Demo", 
+  //     "1.0", 
+  //     "Terms of Service",
+  //     contact, 
+  //     "Nothing", 
+  //     "No limitation", 
+  //     new ArrayList<>());
+  // }
+} 5. v2와 달라진 annotation들 @Api -> @Tag @ApiIgnore -> @Parameter(hidden = true) or @Operation(hidden = true) or @Hidden @ApiImplicitParam -> @Parameter @ApiImplicitParams -> @Parameters @ApiModel -> @Schema @ApiModelProperty(hidden = true) -> @Schema(accessMode = READ_ONLY) @ApiModelProperty -> @Schema @ApiOperation(value = "foo", notes = "bar") -> @Operation(summary = "foo", description = "bar") @ApiParam -> @Parameter @ApiResponse(code = 404, message = "foo") -> @ApiResponse(responseCode = "404", description = "foo")

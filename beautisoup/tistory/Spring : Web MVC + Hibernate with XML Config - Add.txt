@@ -1,0 +1,145 @@
+1. 지난 Spring Web + Hibernate의 연속 포스팅이다. 2. 고객을 추가하는 모듈이다. 2-1 우선 고객을 추가하는 form을 제공하는 jsp를 생성한다. 2-2 form을 보여주는 Controller mapping 메소드를 작성한다. 2-3 CustomerDAO에 데이터베이스 Customer 저장 메소드를 만든다. 2-4 ServiceDAO에 Customer를 저장하는 서비스 메소드를 만든다. 2-5 입력된 form을 처리하는 Controller 메소드를 만든다. 3. 고객 추가를 위한 form을 제공하는 jsp 소스 3-1 bootstrap 때문에 쓸대 없이 복잡해 보이지만 중요한 부분은 form:form 같은 form validation처리이다. 3-2 일반적인 form 입력 jsp이다. <%@ taglib prefix="c" uri="http://java.sun.com/jsp/jstl/core"%>
+<%@ taglib prefix="form" uri="http://www.springframework.org/tags/form" %>
+<%@ page language="java" contentType="text/html; charset=UTF-8"
+  pageEncoding="UTF-8"%>
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<link rel="stylesheet"
+  href="https://stackpath.bootstrapcdn.com/bootstrap/4.4.1/css/bootstrap.min.css"
+  integrity="sha384-Vkoo8x4CGsO3+Hhxv8T/Q5PaXtkKtu6ug5TOeNV6gBiFeWPGFN9MuhOf23Q9Ifjh"
+  crossorigin="anonymous">
+<link rel="stylesheet" href="${pageContext.request.contextPath}/resources/css/sytle.css"/>
+<title>Add Customer</title>
+</head>
+<body>
+  <div class="container">
+    <h2 class="mb-3 mt-5">CRM - Customer Relationship Manager</h2>
+    <h3>Save Customer</h3>
+    <form:form modelAttribute="customer" method="POST" action="saveCustomer">
+      <div class="form-group">
+        <label for="firstname">First Name:</label>
+        <form:input class="form-control" path="firstName" id="firstname"/>
+      </div>
+      <div class="form-group">
+        <label for="lastname">Last Name:</label>
+        <form:input class="form-control" path="lastName" id="lastname"/>
+      </div>
+      <div class="form-group">
+        <label for="email">Email:</label>
+        <form:input class="form-control" path="email" id="email"/>
+      </div>
+      <button type="submit" class="btn btn-secondary">Save</button>
+    </form:form>
+    <p class="lead mt-4">
+      <a href="${ pageContext.request.contextPath }/customer/list">Back To List</a>
+    </p>
+  </div>
+  <script src="https://code.jquery.com/jquery-3.4.1.slim.min.js"
+    integrity="sha384-J6qa4849blE2+poT4WnyKhv5vZF5SrPo0iEjwBvKU7imGFAV0wwj1yYfoRSJoZ+n"
+    crossorigin="anonymous"></script>
+  <script
+    src="https://cdn.jsdelivr.net/npm/popper.js@1.16.0/dist/umd/popper.min.js"
+    integrity="sha384-Q6E9RHvbIyZFJoft+2mJbHaEWldlvI9IOYy5n3zV9zzTtmI3UksdQRVvoxMfooAo"
+    crossorigin="anonymous"></script>
+  <script
+    src="https://stackpath.bootstrapcdn.com/bootstrap/4.4.1/js/bootstrap.min.js"
+    integrity="sha384-wfSDF2E50Y2D1uUdj0O3uMBJnjuUD4Ih7YwaYd1iqfktj0Uod8GCExl3Og8ifwB6"
+    crossorigin="anonymous"></script>
+</body>
+</html> 4. Controller에서 form을 보여주는 메소드와 form을 처리하는 메소드 소스 4-0 form을 보여주는 메소드 showAddCutomerForm과 결과를 처리하는 saveCustomer 메소드이다. 4-1 입력을 처리한 후 /customer/list로 redirect하여 결과를 보여준다. @Controller
+@RequestMapping("/customer")
+public class CustomerController {
+  
+  @Autowired
+  private CustomerService customerService;
+  
+  @GetMapping("/list")
+  public String listCustomers(Model model) {
+    
+    model.addAttribute("customers", this.customerService.getCustomers());
+    
+    return "list-customers";
+  }
+  
+  @GetMapping("/showAddCustomerForm")
+  public String showAddCustomerForm(Model model) {
+    model.addAttribute("customer", new Customer());
+    
+    return "customer-form";
+  }
+  
+  @PostMapping("/saveCustomer")
+  public String saveCustomer(@ModelAttribute Customer customer) {
+    
+    this.customerService.saveCustomer(customer);
+    return "redirect:/customer/list";
+  }
+} 5. 저장 기능을 추가한 CustomerDAO 인터페이스와 구현 클래스 public interface CustomerDAO {
+  List<Customer> getCustomers();
+  void saveCustomer(Customer customer);
+}
+
+
+@Repository
+public class CustomerDAOImpl implements CustomerDAO {
+
+  @Autowired
+  private SessionFactory sessionFactory;
+
+  @Override
+  public List<Customer> getCustomers() {
+    Session session = this.sessionFactory.getCurrentSession();
+
+    return session.createQuery("from Customer order by firstName", Customer.class).getResultList();
+  }
+
+  @Override
+  public void saveCustomer(Customer customer) {
+    Session session = this.sessionFactory.getCurrentSession();
+    
+    session.save(customer);
+  }
+} 6. 저장 기능을 추가한 CustomerService 인터페이스와 구현 클래스 package pe.pilseong.hibernateweb.service;
+
+import java.util.List;
+
+import pe.pilseong.hibernateweb.entity.Customer;
+
+public interface CustomerService {
+  List<Customer> getCustomers();
+  void saveCustomer(Customer customer);
+}
+
+
+package pe.pilseong.hibernateweb.service;
+
+import java.util.List;
+
+import javax.transaction.Transactional;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+
+import pe.pilseong.hibernateweb.dao.CustomerDAO;
+import pe.pilseong.hibernateweb.entity.Customer;
+
+@Service
+public class CustomerServiceImpl implements CustomerService {
+
+  @Autowired
+  private CustomerDAO customerDAO;
+  
+  @Override
+  @Transactional
+  public List<Customer> getCustomers() {
+    return this.customerDAO.getCustomers();
+  }
+
+  @Override
+  @Transactional
+  public void saveCustomer(Customer customer) {
+    this.customerDAO.saveCustomer(customer);
+  }
+}

@@ -1,0 +1,86 @@
+1. 이 포스트는 Spring : AOP with Java Config 시리즈의 연속이다. 2. 종종 어떤 메소드를 실행 전후에 해당 메소드의 parameter에 접근해 데이터를 참조하거나 수정할 필요가 있다. 3. Apect 클래스에서 method argument에 접근하는 방법은 java reflect를 이용한 JoinPoint Aspectj 클래스를 사용한다. 3-1 이 예제는 복잡함을 줄이기 위해 @Order를 설정한 직전 포스트의 Aspect클래스를 사용하지 않는다. 3-2 JoinPoint클래스를 advice 메소드의 parameter로 설정하여 호출 대상 메소드의 정보를 받아온다. 3-2-1 Java reflect를 사용하기 때문에 해당 클래스에 관련 메타데이터 정보를 JoinPoint에서 가져올 수 있다. 3-2-2 getSignature 메소드를 통해 메소드 이름 정보를 받아올 수 있다. 3-2-3 getArgs 메소드를 통해서 타겟 메소드의 arguement를 받아 올 수 있다. 3-2-3-1 받아온 argument는 Object 배열로 받아와 세부정보를 사용할 수 있다. // point cut 설정 클래스
+@Aspect
+@Component
+public class AopExpressions {
+  @Pointcut(value = "execution(* pe.pilseong.spring_aop_review.dao.*.*(..))")
+  public void forDAOPackage() {}
+  
+  @Pointcut(value = "execution(* pe.pilseong.spring_aop_review.dao.*.get*(..))")
+  public void getter() {}
+  
+  @Pointcut(value = "execution(* pe.pilseong.spring_aop_review.dao.*.set*(..))")
+  public void setter() {}
+  
+  @Pointcut(value = "forDAOPackage() && !(getter() || setter())")
+  public void forDAOPackageNoGetterSetter() {}
+  
+}
+
+// point cut 사용 Aspect 클래스
+@Aspect
+@Component
+public class LoggingAspect {  
+  @Before(value = "pe.pilseong.spring_aop_review.aspect.AopExpressions.forDAOPackageNoGetterSetter()")
+  public void beforeAdvice(JoinPoint joinPoint) {
+    System.out.println("\nExecuting in beforeAdvice @Before advice on forDAOPackage() && !(getter() || setter())");
+    
+    MethodSignature methodSignature = (MethodSignature) joinPoint.getSignature();
+    System.out.println("Method :: " + methodSignature.toString());
+    
+    System.out.println("-- Method arguments start ");
+    for (Object arg: joinPoint.getArgs()) {
+      if (arg instanceof Account) {
+        Account account = (Account) arg;
+        System.out.println("Account name :: " +  account.getName());
+        System.out.println("Account level :: " + account.getLevel());
+      } else {
+        System.out.println(arg.toString());
+      }
+    }
+//    Object[] args = joinPoint.getArgs();
+//    Arrays.stream(args).forEach(System.out::println);
+    System.out.println("-- Method arguments end");
+  }
+}
+
+// 실행 클래스
+public class App {
+  public static void main(String[] args) {
+    AnnotationConfigApplicationContext context = 
+        new AnnotationConfigApplicationContext(JavaConfig.class);
+    
+    AccountDAO accountDAO = context.getBean("accountDAO", AccountDAO.class);
+    accountDAO.getAccount();
+    
+    Account account = new Account();
+    account.setName("Pilseong");
+    account.setLevel("Admin");
+    accountDAO.addAccount(account, true);
+    
+    MembershipDAO membershipDAO = context.getBean("membershipDAO", MembershipDAO.class);
+    membershipDAO.membership();
+    
+    context.close();
+  }
+}
+
+
+// 실행 결과
+class pe.pilseong.spring_aop_review.dao.AccountDAO: getAccount() with No Parameter. Doing my DB work: getting an account
+
+
+Executing in beforeAdvice @Before advice on forDAOPackage() && !(getter() || setter())
+Method :: void pe.pilseong.spring_aop_review.dao.AccountDAO.addAccount(Account,boolean)
+-- Method arguments start 
+Account name :: Pilseong
+Account level :: Admin
+true
+-- Method arguments end
+class pe.pilseong.spring_aop_review.dao.AccountDAO: addAccount() with Account, boolean Parameter. Doing my DB work: Adding an account
+
+
+Executing in beforeAdvice @Before advice on forDAOPackage() && !(getter() || setter())
+Method :: void pe.pilseong.spring_aop_review.dao.MembershipDAO.membership()
+-- Method arguments start 
+-- Method arguments end
+class pe.pilseong.spring_aop_review.dao.MembershipDAO: membership() with No parameter. Doing my DB work: membership method is doing something

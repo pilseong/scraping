@@ -1,0 +1,149 @@
+1. 이 포스트는 Email Client를 작성하는 시리즈의 일부이다 1-1 여기에서는 공용 검증 에러메시지 처리를 위한 서비스와 컴포넌트를 생성한다. 1-2 이것과 관련된 자세한 포스트는 아래 링크를 참조한다. Angular : 재활용 가능한 Reactive Forms, ngx-mask 4. form 에러처리하기 0. 이 포스트는 가장 많이 사용되는 Reactive Form에 대한 정리 시리즈이다. 1. 이제 모두 설정했으니 에러 결과를 가지고 적절하게 화면에 안내구문을 표출하는 것만 남았다. 1-1 근데 이 부분이 제일 kogle.tistory.com 2. 검증메시지를 위한 서비스와 컴포넌트를 생성한다. 2-1 shared 모듈에 생성했으니 exports 해야 다른 모듈에서 사용가능하다. 2-1-1 Shared.module.ts 파일 import { NgModule } from '@angular/core';
+import { CommonModule } from '@angular/common';
+import { ValidationMessageComponent } from './validation-message/validation-message.component';
+
+
+
+@NgModule({
+  declarations: [ValidationMessageComponent],
+  imports: [
+    CommonModule
+  ],
+  exports: [
+    ValidationMessageComponent
+  ]
+})
+export class SharedModule { } 2-1-2 이 모듈을 사용할 auth 모듈에서 Shared모듈을 import 해야 한다. import { NgModule } from '@angular/core';
+import { CommonModule } from '@angular/common';
+import { SignInComponent } from './sign-in/sign-in.component';
+import { SignUpComponent } from './sign-up/sign-up.component';
+import { AuthRoutingModule } from './auth.routing.module';
+import { ReactiveFormsModule } from '@angular/forms';
+import { SharedModule } from '../shared/shared.module';
+
+
+@NgModule({
+  declarations: [SignInComponent, SignUpComponent],
+  imports: [
+    CommonModule,
+    AuthRoutingModule,
+    ReactiveFormsModule,
+    SharedModule
+  ]
+})
+export class AuthModule { } 3. 검증 서비스 작성 3-1 하나의 객체를 공유하면서 재활용하기 위한 용도이기 때문에 서비스가 적합해 보여 서비스로 작성했다. 3-1-1 더 좋은 구조가 있을 것 같은데 우선 생각나는대로 작성했다. 3-1-2 가입과 로그인에서 사용하는 모든 에러를 다 등록했다. 3-1-2-1 비밀번호 불일치, 없는 유저이름, 인터넷 연결 없음과 관련된 내용도 미리 추가했다. import { Injectable, Input } from '@angular/core';
+
+@Injectable({
+  providedIn: 'root'
+})
+export class ValidationMessageService {
+  getErrorMessage(propertyName: string, errors: any) {
+
+    console.log(errors);
+    console.log(`${propertyName} in service`);
+    switch (propertyName) {
+      case 'required':
+        return 'Required'
+      case 'minlength':
+        return this.minLengthMessage(errors.requiredLength, errors.actualLength)
+      case 'maxlength':
+        return this.maxLengthMessage(errors.requiredLength, errors.actualLength)
+      case 'notMatch':
+        return 'Passwords not match'
+      case 'duplication':
+        return 'Username taken'
+      case 'wrongPassword':
+        return 'Password not matched. try again.'
+      case 'usernameNotFound':
+        return 'Username not Found'
+      case 'noInternet':
+        return 'No Internet Connection'
+    }
+    return
+  }
+
+  private minLengthMessage(arg1: any, arg2: any) {
+    return `Minimun Length is ${arg1}, entered ${arg2}`
+  }
+
+  private maxLengthMessage(arg1: any, arg2: any) {
+    return `Maximun Length is ${arg1}, entered ${arg2}`
+  }
+} 3-2 이 서비스를 사용하는 검증 메시지 컴포넌트를 작성한다. 3-2-0 에러 내용을 받기 위해서 AbstractControl로 Control을 받아온다. 3-2-1 template은 아주 간단해서 파일이 아닌 template 속성으로 추가하였다. 3-2-2 검증메시지 서비스를 주입받아서 검증에 사용한다. 3-2-3 주의 해서 볼 부분은 errorMessage 함수인데, getter로 tempate에서 사용하고 있다. 3-2-3-1 신기한 점은 구독하지도 않았는데도 control의 정보가 변화되면 자동으로 호출된다. 3-2-3-2 onChanges 대신으로 사용하기 좋다. import { Component, OnInit, Input } from '@angular/core';
+import { AbstractControl } from '@angular/forms';
+import { ValidationMessageService } from '../validation-message.service';
+
+@Component({
+  selector: 'app-validation-message',
+  template: `
+    <div>
+      <small class="text-muted">{{ errorMessage }}</small>
+    </div>
+  `,
+  styleUrls: ['./validation-message.component.css'],
+})
+export class ValidationMessageComponent {
+  @Input() control: AbstractControl;
+
+  constructor(private validationMessageService: ValidationMessageService) {}
+
+  get errorMessage() {
+    for (let propertyName in this.control.errors) {
+      if (this.control.touched) {
+        return this.validationMessageService.getErrorMessage(
+          propertyName,
+          this.control.errors[propertyName]
+        );
+      }
+      console.log(propertyName);
+    }
+
+    return null;
+  }
+} 4. 검증메시지 컴포넌트를 사용하여 메시지를 로그인과 회원가입 화면을 처리한다. 4-1 로그인 template <h1 class="my-5">Log In</h1>
+<form class="col-sm-8" [formGroup]="loginGroup">
+  <div class="form-group">
+    <label class="form-label" for="username">Username</label>
+    <input id="username" class="form-control" type="text" formControlName="username">
+    <app-validation-message [control]="loginGroup.get('username')"></app-validation-message>
+  </div>
+  <div class="form-group">
+    <label class="form-label" for="password">Password</label>
+    <input id="password" class="form-control" type="password" formControlName="password">
+    <app-validation-message [control]="loginGroup.get('password')"></app-validation-message>
+  </div>
+  <div class="my-3">
+    <button type="submit" class="btn btn-secondary mr-2" [disabled]="!loginGroup.valid">Submit</button>
+    <button type="reset" class="btn btn-warning">Reset</button>
+  </div>
+</form> 4-1-2 결과화면 4-2 회원가입 template 4-2-1 중요한 부분은 각 control 뿐아니라 FormGroup을 위한 검증메시지 컴포넌트가 있다. 4-2-1-1 이렇게 해야 패스워드 매칭 에러를 확인할 수 있다. <h1 class="my-5">Create an Account</h1>
+<form class="col-sm-8" [formGroup]="registrationGroup">
+  <div class="form-group">
+    <label class="form-label" for="username">Username</label>
+    <input id="username" class="form-control" type="text" formControlName="username">
+    <app-validation-message [control]="registrationGroup.get('username')"></app-validation-message>
+  </div>
+  <div class="form-group">
+    <label class="form-label" for="password">Password</label>
+    <input id="password" class="form-control" type="password" formControlName="password">
+    <app-validation-message [control]="registrationGroup.get('password')"></app-validation-message>
+  </div>
+  <div class="form-group">
+    <label class="form-label" for="passwordConfirmation">Password Confirmation</label>
+    <input id="passwordConfirmation" class="form-control" type="password" formControlName="passwordConfirmation">
+    <app-validation-message [control]="registrationGroup.get('passwordConfirmation')"></app-validation-message>
+    <app-validation-message [control]="registrationGroup"></app-validation-message>
+  </div>
+  <div class="my-4">
+    <button type="submit" class="btn btn-secondary mr-2" [disabled]="!registrationGroup.valid">Submit</button>
+    <button type="reset" class="btn btn-warning">Reset</button>
+  </div>
+</form>
+
+<hr>
+
+<div>
+  valid : {{ registrationGroup.valid }}<br>
+  errors : {{ registrationGroup.errors | json }}<br>
+  username errors: {{ registrationGroup.controls.username.errors | json }}
+</div> 4-2-2 결과화면

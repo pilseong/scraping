@@ -1,0 +1,97 @@
+0. 이 포스트는 가장 많이 사용되는 Reactive Form에 대한 정리 시리즈이다. 0-1 여기서는 화면의 사용자 입력과 매핑되는 form control을 생성한다. 1. 작성 순서는 1-1 신용카드 class에서 form group, form control 생성 1-2 생성한 form 속성을 신용카드 template에 매핑한다. 2. 화면을 만들었으니 이제 입력을 관리할 수 있는 form-control이 필요하다. 2-1 이것을 만드는 이유는 입력에 대해서 세부적으로 조작을 하기 위한 것이다. 2-2 서버로 보내기 전에 미리 입력값을 검증하고 어떤 문제가 있는지를 표출하는 부분은 중요하다. 2-3 form group과 form control은 form builder로 만든다. 2-4 우선 app.module.ts에 Reactive Form을 사용하기 위해 관련 ReactiveFormsModule을 import한다. import { BrowserModule } from '@angular/platform-browser';
+import { NgModule } from '@angular/core';
+
+import { AppComponent } from './app.component';
+import { CreditCardFormComponent } from './credit-card-form/credit-card-form.component';
+import { NgbModule } from '@ng-bootstrap/ng-bootstrap';
+import { NgxMaskModule, IConfig } from 'ngx-mask'
+import { ValidatorComponent } from './validator/validator.component';
+import { ReactiveFormsModule } from '@angular/forms';
+
+export const options: Partial<IConfig> | (() => Partial<IConfig>) = {}
+
+@NgModule({
+  declarations: [
+    AppComponent,
+    CreditCardFormComponent,
+    ValidatorComponent
+  ],
+  imports: [
+    BrowserModule,
+    NgbModule,
+    NgxMaskModule.forRoot(options),
+    ReactiveFormsModule
+  ],
+  providers: [],
+  bootstrap: [AppComponent]
+})
+export class AppModule { } 2-5 이제 신용카드 클래스에서 form builder를 주입 받아 화면 입력 부분과 매핑 한다. 2-5-1 creditFormGroup이 전체 데이터를 가지는 FormGroup객체이다. 2-5-2 주입받은 form builder로 4개의 form control을 생성하였고, 초기값을 '' 빈공백을 설정하였다. 2-5-2-1 각 form control의 속성의 값은 배열이 들어가고 배열의 첫번째는 초기값 두번째는 Validators 배열이다. 2-5-3 각 control 속성의 두번째 배열인 Validator 설정에는 원하는 검증자를 사용할 수 있다. 2-5-3-1 입력제약이 이미 설정되었기 때문에, 보통 필수값 입력, 길이 검증과 패턴검증이 주로 수행한다. 2-5-3-2 expiration의 pattern은 regex가 지정되며 앞숫자 두개는 0으로 시작할 때 1로 시작할 때 경우로 구분했다. import { Component, OnInit } from '@angular/core';
+import { FormGroup, FormBuilder, Validators } from '@angular/forms';
+
+@Component({
+  selector: 'app-credit-card-form',
+  templateUrl: './credit-card-form.component.html',
+  styleUrls: ['./credit-card-form.component.css']
+})
+export class CreditCardFormComponent implements OnInit {
+
+  creditFormGroup: FormGroup
+
+  constructor(private formBuilder: FormBuilder) {
+    this.creditFormGroup = this.formBuilder.group({
+      nameOnCard: ['', [
+        Validators.required,
+        Validators.minLength(3),
+        Validators.maxLength(45)
+      ]],
+      cardNumber: ['', [
+        Validators.required,
+        Validators.minLength(16),
+        Validators.maxLength(16)
+      ]],
+      expiration: ['', [
+        Validators.required,
+        Validators.minLength(4),
+        Validators.maxLength(4),
+        Validators.pattern(/(^0[1-9]|1[0-2])\d{2}/)
+      ]],
+      securityCode: ['', [
+        Validators.required,
+        Validators.minLength(3),
+        Validators.maxLength(3)
+      ]],
+    })
+  }
+
+  ngOnInit(): void {
+  }
+} 3. 이제 작성된 form 구조를 사용자 화면과 매핑한다. 3-1 제일 아래 부분은 입력 검증 상황을 파악하기 위한 코드이다. 어떻게 돌아가는지 알아야 정상동작인지 알 수 있다. 3-2 제일 위의 form에 formGroup을 지정하고 각 입력항목에 formControlName을 통해 form control을 지정한다. <form [formGroup]="creditFormGroup">
+  <div class="form-group" >
+    <label class="form-label">Name On Card</label>
+    <input type="text" class="form-control" formControlName="nameOnCard">
+  </div>
+  <div class="form-group">
+    <label class="form-label">Card Number</label>
+    <input type="text" class="form-control" mask="0000-0000-0000-0000" formControlName="cardNumber">
+  </div>
+  <div class="form-row">
+    <div class="form-group col-6">
+      <label class="form-label">Expiration</label>
+      <input type="text" class="form-control" mask="00/00" formControlName="expiration">
+    </div>
+    <div class="form-group col-6">
+      <label class="form-label">Security Code</label>
+      <input type="text" class="form-control" mask="000" formControlName="securityCode">
+    </div>
+  </div>
+  <button class="btn btn-primary mr-2" type="submit">Submit</button>
+  <button class="btn btn-warning" type="reset">Reset</button>
+</form>
+<div>
+
+  name on card errors : {{ creditFormGroup.controls.nameOnCard.errors | json }}<br>
+  card number errors : {{ creditFormGroup.controls.cardNumber.errors | json }}<br>
+  excpiration errors : {{ creditFormGroup.controls.expiration.errors | json }}<br>
+  securiy errors : {{ creditFormGroup.controls.securityCode.errors | json }}<br>
+  valid : {{creditFormGroup.valid}}
+</div> 4. 입력시 오류 검증화면 4-1 화면을 보면 아래 이름의 길이가 45를 넘어갔음을 알 수 있다. 4-2 카드 번호가 16자리인데 14자리만 있음을 알 수 있다. 4-3 만료일 입력이 13월이 들어가면 안되는데 들어갔다고 나온다. expiration 오타가 있다. 4-4 보안 번호가 3자리인데 2자리만 입력되었다. 4-5 전체 검증은 통과하지 못한 것을 알 수 있다.

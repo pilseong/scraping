@@ -1,0 +1,131 @@
+1. H2는 스프링 부트에서 기본적으로 지원하는 메모리 기반 데이터베이스이다. nodejs의 sqlite와 유사한데 데이터 파일이 로컬에 생성되지는 않는다. 2. 스프링 부트에서 h2를 사용은 간단하다. 예전에는 그냥 pom.xml에 의존성만 추가하면 사실 동작하였다. 하지만 최근의 스프링 부트에서는 그렇게 하면 웹으로 데이터를 볼 수가 없다. 3. 스프링 부트 3.0.1을 기준으로 3-1 최근 버전의 Spring Security는 기본적으로 보안의 이유로 iframe을 지원하지 않는다. 그래서 추가적인 설정이 필요하다. 3-2 우선 일반적으로 하듯 아래처럼 application.yml에 아래처럼 spring h2 설정한다. logging:
+  level:
+    org.springframework.security: DEBUG
+
+spring:
+  h2:
+    console:
+      path: /h2-console
+      enabled: true
+
+  datasource:
+    url:  jdbc:h2:mem:testdb
+    username: sa 3-3 아래 처럼 SecurityFilterChain을 설정해야 한다. 3-3-1 SecurityFilterChain은 어떤 보안 절차를 스프링 부트가 사용할지를 정해주는 필터의 집합이다. 3-3-2 아래처럼 필터 체인에서 사용할 frameOptions을 disable하거나 같은 orgin에서만 동작하는 sameOrigin으로 설정해야 한다. 3-3-3 cross site request forgery 설정도 disable해 주어야 동작한다. 해당 iframe내에서 csrf 토큰 생성과 적용이 되지 않아 해지를 해야 사용할 수 있다. package com.example.securitydemo.config;
+
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.security.config.annotation.web.builders.HttpSecurity;
+import org.springframework.security.web.SecurityFilterChain;
+
+@Configuration
+public class WebSecuirtyConfiguration {
+  
+  @Bean
+  SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+    http.csrf().disable();
+    http.headers().frameOptions().sameOrigin();
+
+    return http.build();
+  }
+} 3-3-4 위의 configuration에 왜 @EnableWebSecurity 가 없는 것을 지적할 수 있는데 사실 자동으로 붙게 된다. 내부적으로 default configuration이 설정되거나 custom security를 설정했는데 붙이는 걸 잊어버린 경우 자동으로 붙게 된다. 3-3-5 auto configuration을 disable하는 거랑 surpassing하는 것은 차이가 있다. disable은 아예 기능을 끄는 부분이고 surpassing은 특정 일부부분만 다른 설정으로 변경하는 것이다. 일반적으로 surpassing하는 것이 일반적이다. 3-3-6 즉 위의 예에서 한 것처럼 우리가 SecurityFilterChain을 custome으로 만든다고 default Security Auto-configuration을 disable을 하는 것이 아니라는 말을 하고 싶어서 덮 붙이다 보니 내용이 길어진다. 물론 아는 사람들이 더 많겠지만 노파심에 적어본다. 3-3-7 아래가 사실 @EnableWebSecurity가 자동으로 설정되는 부분인데 보면 알겠지만 주석내용을 읽고 혼동이 되는 경우가 있을 것 같아서 적어본다. 3-3-8 이것도 대부분이 아는 내용이겠지만, 위처럼 코딩한 이유는 스프링부트 3에서는 WebSecurityConfigurerAdaptor가 deprecated되어서 FilterChain을 직접 설정해야 하기 때문이다. @Configuration(proxyBeanMethods = false)
+@ConditionalOnWebApplication(type = Type.SERVLET)
+class SpringBootWebSecurityConfiguration {
+
+	/**
+	 * The default configuration for web security. It relies on Spring Security's
+	 * content-negotiation strategy to determine what sort of authentication to use. If
+	 * the user specifies their own {@link SecurityFilterChain} bean, this will back-off
+	 * completely and the users should specify all the bits that they want to configure as
+	 * part of the custom security configuration.
+	 */
+	@Configuration(proxyBeanMethods = false)
+	@ConditionalOnDefaultWebSecurity
+	static class SecurityFilterChainConfiguration {
+
+		@Bean
+		@Order(SecurityProperties.BASIC_AUTH_ORDER)
+		SecurityFilterChain defaultSecurityFilterChain(HttpSecurity http) throws Exception {
+			http.authorizeHttpRequests().anyRequest().authenticated();
+			http.formLogin();
+			http.httpBasic();
+			return http.build();
+		}
+
+	}
+
+	/**
+	 * Adds the {@link EnableWebSecurity @EnableWebSecurity} annotation if Spring Security
+	 * is on the classpath. This will make sure that the annotation is present with
+	 * default security auto-configuration and also if the user adds custom security and
+	 * forgets to add the annotation. If {@link EnableWebSecurity @EnableWebSecurity} has
+	 * already been added or if a bean with name
+	 * {@value BeanIds#SPRING_SECURITY_FILTER_CHAIN} has been configured by the user, this
+	 * will back-off.
+	 */
+	@Configuration(proxyBeanMethods = false)
+	@ConditionalOnMissingBean(name = BeanIds.SPRING_SECURITY_FILTER_CHAIN)
+	@ConditionalOnClass(EnableWebSecurity.class)
+	@EnableWebSecurity
+	static class WebSecurityEnablerConfiguration {
+
+	}
+
+} 4. 실제 enpoint를 제한할 경우에도 h2-console에 접근하고 싶은 경우는 다음 처럼 하면 된다. 4-1 아래의 중요한 부분은 requestMatchers 부분인데, 허용하는 url에 /h2-console/** 를 추가하면 된다. 물론 h2-console은 config 파일에 있는 접근 경로와 일치 시켜야 한다. 4-2 아래의 경우 profile/**은 인증을 거치면 표시되고, /admin/** 은 인증 + admin 롤 등등이고 아래 정의된 경로 이외는 인증을 성공해도 모두 403으로 접근이 불가하다. 4-3 h2-console의 경우는 자체적으로 보안이 걸려 있어 /*로도 permit 먹지 않는다. /h2-console/ 로 접근해야 한다. 마지막 '/' 가 꼭 필요하다. package com.example.securitydemo.config;
+
+import javax.sql.DataSource;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.security.config.annotation.web.builders.HttpSecurity;
+import org.springframework.security.crypto.password.NoOpPasswordEncoder;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.security.provisioning.JdbcUserDetailsManager;
+import org.springframework.security.web.SecurityFilterChain;
+
+@Configuration
+public class WebSecuirtyConfiguration {
+
+  @Bean
+  SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+    http.csrf().disable();
+    http.headers().frameOptions().sameOrigin();
+
+    http.authorizeHttpRequests()
+    .requestMatchers("/profile/**").authenticated()
+    .requestMatchers("/admin/**").hasRole("ADMIN")
+    .requestMatchers("/management/**").hasAnyRole("ADMIN", "MANAGER")
+    .requestMatchers("/api/public/**").authenticated()
+    .requestMatchers("/*", "/h2-console/**").permitAll(); // h2-console은 보안에 걸려 있다. h2-console/ 로 접근해야 한다.
+
+    // http.httpBasic();
+    http.formLogin();
+
+    return http.build();
+  }
+
+  // @Bean
+  // public InMemoryUserDetailsManager inMemoryUserDetailsManager() {
+  // return new InMemoryUserDetailsManager(
+  // User.withUsername("pilseong").password(passwordEncoder().encode("qwe123")).roles("USER").build(),
+  // User.withUsername("suel").password(passwordEncoder().encode("qwe123")).roles("USER").build());
+  // }
+
+  @Bean
+  public PasswordEncoder passwordEncoder() {
+    return NoOpPasswordEncoder.getInstance();
+  }
+
+  // @Bean
+  // public PasswordEncoder bcryptEncoder() {
+  //   return new BCryptPasswordEncoder();
+  // }
+
+  @Autowired
+  private DataSource dataSource;
+
+  @Bean
+  protected JdbcUserDetailsManager userdetailsService() {
+    return new JdbcUserDetailsManager(dataSource);
+  }
+}

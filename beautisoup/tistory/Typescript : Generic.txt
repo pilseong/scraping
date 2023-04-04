@@ -1,0 +1,23 @@
+1. Generic은 자바 언어처럼 하나의 클래스를 다양한 목적의 타입에 활용할 수 있도록 해주는 기능을 제공한다. 2. 두가지 용도가 있으며 class에 활용하는 것과 function에 적용할 수 있다. 3. 첫번째 예시는 class generic이다. class ValueHolder<T> {
+  value: any
+}
+
+const numberHolder: ValueHolder<number> = new ValueHolder();
+numberHolder.value = 10
+
+const stringHolder: ValueHolder<string> = new ValueHolder();
+stringHolder.value = "Hello"
+
+
+console.log(numberHolder.value);
+console.log(stringHolder.value); 4. 두번째는 function generic 이다. 4-1 아래의 예제처럼 타입이 자명한 경우에는 굳이 타입을 명기할 필요는 없다. const valueWrapper = <T>(value: T): T[] => {
+  return [value]
+}
+
+console.log(valueWrapper<number>(100);
+
+console.log(valueWrapper(1000);
+
+console.log(valueWrapper<string>('I love you');
+
+console.log(valueWrapper("Good day");

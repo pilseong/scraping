@@ -1,0 +1,32 @@
+0. 사용된 lambda 0-1 limit 처음 몇 개를 컷 0-2 filter true 조건만 통과 0-3 sorted 알파벳 순 정렬 1. 이 문제도 String을 다루는 법에 대한 문제이다. Given an array of strings products and a string searchWord. We want to design a system that suggests at most three product names from products after each character of searchWord is typed. Suggested products should have common prefix with the searchWord. If there are more than three products with a common prefix return the three lexicographically minimums products. Return list of lists of the suggested products after each character of searchWord is typed. Example 1: Input: products = ["mobile","mouse","moneypot","monitor","mousepad"], searchWord = "mouse" Output: [ ["mobile","moneypot","monitor"], ["mobile","moneypot","monitor"], ["mouse","mousepad"], ["mouse","mousepad"], ["mouse","mousepad"] ] Explanation: products sorted lexicographically = ["mobile","moneypot","monitor","mouse","mousepad"] After typing m and mo all products match and we show user ["mobile","moneypot","monitor"] After typing mou, mous and mouse the system suggests ["mouse","mousepad"] Example 2: Input: products = ["havana"], searchWord = "havana" Output: [["havana"],["havana"],["havana"],["havana"],["havana"],["havana"]] Example 3: Input: products = ["bags","baggage","banner","box","cloths"], searchWord = "bags" Output: [["baggage","bags","banner"],["baggage","bags","banner"],["baggage","bags"],["bags"]] Example 4: Input: products = ["havana"], searchWord = "tatiana" Output: [[],[],[],[],[],[],[]] Constraints: 1 <= products.length <= 1000 There are no repeated elements in products. 1 <= Σ products[i].length <= 2 * 10^4 All characters of products[i] are lower-case English letters. 1 <= searchWord.length <= 1000 All characters of searchWord are lower-case English letters. 2. 문제를 다시 써보면 2-1 product 배열에 담겨있는 제품이름 중에 keyword로 입력된 문자열로 시작하는 것을 반환한다. 2-2 keyword는 한자 한자 마다 결과를 받아 List<String>으로 만들어야 한다. 2-3 결과적으로 입력하는 문자 마다 List<String>이 만들어 진다. 3. 해법 3-1 해법이라고 할 것도 없이 그냥 substring 해서 startsWtih로 찾으면 끝난다. 3-1-1 lexicographically 정렬하기 때문에 그냥 sorted를 사용하면 된다. 3-1-2 처음 3개만 컷하면 되므로 limit을 사용하면 된다. 3-2 조건을 보면 제품배열과 문자열은 데이터가 있음을 보장하므로 null 체크도 필요없다. 3-3 모든 문자들이 모두 소문자라서 별도의 case를 고려할 필요도 없다. import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
+import java.util.stream.Collectors;
+
+public class App {
+  public static void main(String[] args) throws Exception {
+    Solution sol = new Solution();
+    String[] products = { "mobile", "mouse", "moneypot", "monitor", "mousepad" };
+    System.out.println(sol.suggestedProducts(products, "mouse"));
+  }
+}
+
+class Solution {
+  public List<List<String>> suggestedProducts(String[] products, String searchWord) {
+
+    List<List<String>> result = new ArrayList<>();
+
+    for (int i = 1; i <= searchWord.length(); i++) {
+      String substr = searchWord.substring(0, i);
+      result.add(
+        Arrays.stream(products)
+          .filter(product -> product.startsWith(substr))
+          .sorted()
+          .limit(3)
+          .collect(Collectors.toList())
+      );
+    }
+
+    return result;
+  }
+} 4. 결과

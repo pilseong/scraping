@@ -1,0 +1,83 @@
+1. 이 포스트는 Email Client를 작성하는 시리즈의 일부이다 1-1 여기서는 지금 하드코딩된 메일목록 대신 실제 데이터를 읽어와서 목록을 보여주는 코드를 작성한다. 2. 구현 방법 2-1 우선 url이 /inbox 으로 검색이 되는 경우 현재 email 모듈의 home 컴포넌트가 로딩이된다. 2-2 이 home 컴포넌트가 생성 시 email 서비스로 접근하여 데이터를 가지고 와서 email-list 컴포넌트로 넘겨준다. 3. email 서버는 수신한 이메일에 대한 목록을 보내주는 api가 있다 3-1 get 메소드로 https://api.angular-email.com/emails 로 접근하면 된다. 3-2 회신 시 아래와 같은 구조로 넘어오기 때문에 별도의 클래스를 생성하였다. export class EmailListItem {
+  id: string = ''
+  subject: string = ''
+  from: string = ''
+} 4. 코드를 작성한다. 4-1 이메일 서비스 파일을 작성한다. 4-1-1 이메일 목록을 요청하는 메소드를 getEmailList로 하였고 반환결과는 EmailListItem 배열로 받고 있다. import { Injectable } from '@angular/core';
+import { HttpClient } from '@angular/common/http';
+import { Observable } from 'rxjs';
+import { EmailListItem } from './email-list-item';
+
+@Injectable({
+  providedIn: 'root'
+})
+export class EmailService {
+
+  url = 'https://api.angular-email.com/emails'
+
+  constructor(private http: HttpClient) { }
+
+  getEmailList(): Observable<EmailListItem[]> {
+    return this.http.get<EmailListItem[]>(`${this.url}`)
+  }
+} 4-2 이메일을 데이터를 요청하는 home 컴포넌트의 코드 4-2-1 template에서 email-list 컴포넌트로 이메일 목록 데이터를 전달한다. <div class="row">
+  <div class="col-sm-4">
+    <app-email-compose></app-email-compose>
+    <app-email-list [emailList]="emailList"></app-email-list>
+  </div>
+  <div class="col-sm-8">
+    <router-outlet></router-outlet>
+  </div>
+</div> 4-2-2 home 컴포넌트는 이메일 목록을 컴포넌트 생성 시 요청한다. import { Component, OnInit, Input } from '@angular/core';
+import { EmailService } from '../email.service';
+import { EmailListItem } from '../email-list-item';
+
+@Component({
+  selector: 'app-home',
+  templateUrl: './home.component.html',
+  styleUrls: ['./home.component.css']
+})
+export class HomeComponent implements OnInit {
+
+  @Input() emailList: EmailListItem[] = []
+
+  constructor(private emailService: EmailService) { }
+
+  ngOnInit(): void {
+    this.emailService.getEmailList().subscribe(
+      list => this.emailList = list
+    )
+  }
+
+} 4-3 email-list 컴포넌트 코드 4-3-1 실제로 내용을 보여주는 email-list의 template <div class="card">
+  <div class="card-body py-1" *ngFor="let email of emailList">
+    <h6 class="card-title mb-0 trim">{{ email.subject }}</h6>
+    <small class="card-text trim">{{ email.from }}</small>
+    <hr class="mt-1 mb-0">
+  </div>
+</div> 4-3-2 위에서 보여줄 emailList를 받아오는 email-list 컴포넌트 클래스 import { Component, OnInit, Input } from '@angular/core';
+import { EmailListItem } from '../email-list-item';
+
+@Component({
+  selector: 'app-email-list',
+  templateUrl: './email-list.component.html',
+  styleUrls: ['./email-list.component.css']
+})
+export class EmailListComponent implements OnInit {
+
+  @Input() emailList: EmailListItem[] = []
+
+  constructor() { }
+
+  ngOnInit(): void {
+  }
+
+} 4-3-3 이메일 리스트가 표시될 공간 보다 이메일 제목이 길 경우 ... 로 처리하는 css를 추가한다. 4-3-3-1 email-list.component.css 파일 .content {
+  width: 90%
+}
+
+.trim {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  width: 100%
+} 5. 결과화면

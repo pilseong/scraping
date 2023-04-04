@@ -1,0 +1,108 @@
+1. 이 포스트는 Spring : Web MVC + Security + JDBC 시리즈에 연장이다. xml파일 설정은 사용하지 않는다. 1-1 하려는 것은 우선 in-memory로 인증을 구현한다. 1-2 Database를 생성하고 hibernate로 유저 등록을 구현한다. 1-3 가입정보에 대한 Validation처리를 작성한다. Customer Validatior로 구현한다. 이 포스트 내용 1-4 In-memory가 아닌 DaoAuthenticationProvider로 hibernate를 사용한 Spring security 인증처리로 변경 1-5 위에 것을 한번에 다 할려면 난이도가 헬이라서 이렇게 분리해서 한다. 2. 이 포스트에서는 비밀번호와 비밀번호 확인이 일치하는지에 대한 검증하는 Custom Validator를 작성한다. 3. 먼저 annotation을 만든다. 3-1 @FieldMatch annotation 클래스를 설정한다. 검증 클래스는 FieldMathValidator로 지정한다. 3-2 설정 타겟은 UserDTO클래스이기 때문에 Type으로 설정한다. 3-3 실행은 실시간이기 때문에 @Retention을 실시간으로 설정해야 한다. 3-4 비교할 속성을 지정할 first(), second()를 정의한다. 3-5 나머지는 bolierplate 코드이다. 3-6 아래 코드에서 내부의 @interface List는 신경 쓸 필요 없다. 이것은 2쌍 이상을 체크할 때 필요하다. package pe.pilseong.custom_registration.validation;
+
+...
+
+@Constraint(validatedBy = FieldMatchValidator.class)
+@Target(ElementType.TYPE)
+@Retention(RetentionPolicy.RUNTIME)
+public @interface FieldMatch {
+  
+  // target fields name
+  String first();
+  String second();
+  
+  String message() default "";
+  
+  Class<?>[] groups() default {};
+  
+  Class<? extends Payload>[] payload() default {};   
+
+  @Target({ ElementType.TYPE, ElementType.ANNOTATION_TYPE })
+  @Retention(RetentionPolicy.RUNTIME)
+  @interface List {
+    FieldMatch[] value();
+  }
+  
+} 4. 검증을 위한 FieldMatchValidator클래스를 생성한다. 4-1 firstFieldName, secondFieldName은 비교할 비밀번호의 Entity속성이 들어온다. 4-1-0 이 속성들은 initialize() 메소드를 overrride 해서 지정한다. 이 메소드는 인터페이스에서 기본 구현되어 있다. 4-1-1 initialize()의 파라메터는 검증할 annotation클래스이고 여기서 선언에서 기술한 값을 얻어올 수 있다. 4-1-1-1 여기서의 값은 검증할 두개의 password 입력 속성의 이름이다. 4-1-2-2 이 경우는 password, matchingPassword가 저장된다. message도 받아온다. 4-2 annotation이 클래스에 지정된 경우 검증로직에서는 isValid의 첫번째 인자는 지정된 클래스 UserDTO가 된다. 4-3 이 클래스에서 입력된 두 값은 UserDTO를 BeanWrapperImple에 연결하여 얻어올 수 있다. 4-3-1 BeanWrapperImpl로 객체 정보를 읽어 실제 각 속성에 입력된 비밀번호 문자열이 반환된다. 4-4 검증을 마친 후 실제 검증 결과가 false가 된 경우 4-4-1 클래스에 지정된 annotation의 경우는 어디에 에러를 보여줄지 메시지가 어떻게 될지를 설정해야 한다. 4-4-2 이 설정을 isValid의 두번째 검증context 객체로 처리할 수 있다. 4-4-3 검증 context로 에러메시지를 설정하는 방법은 4-4-3-1 context의 default 오류 구문 사용을 disable하고 우리가 원하는 구문을 넣어야 한다. 4-4-3-2 annotation에서 지정한 message를 가지고 오류구문을 생성하고 4-4-3-3 어디에 붙일지를 addPropertyNode로 지정한 후 4-4-3-4 context에 새로 생성한 오류구문을 붙인다. 4-4-3-5 주의 해야 할 점은 addPropertyNode에서 지정하는 방법은 누적이라는 점이다. 4-4-3-5-1 addPropertyNode를 두 번 사용해서 password, matchingPassword 각각 지정한다고 해서 4-4-3-5-2 두 개의 에러메시지가 생기는 게 아니다. 속성 변수를 password.matchingPassword로 찾을 뿐이다. 4-4-3-5-3 다시 말하면 메시지는 하나 만 생기니 원하는 속성 한 곳만 지정한다. package pe.pilseong.custom_registration.validation;
+
+...
+
+public class FieldMatchValidator implements ConstraintValidator<FieldMatch, Object> {
+
+  private String firstFieldName = "";
+  private String secondFieldName = "";
+  private String message = "";
+  
+  @Override
+  public void initialize(FieldMatch constraintAnnotation) {
+    this.firstFieldName = constraintAnnotation.first();
+    this.secondFieldName = constraintAnnotation.second();
+    this.message = constraintAnnotation.message();
+  }
+  
+  @Override
+  public boolean isValid(Object value, ConstraintValidatorContext context) {
+    boolean valid = true;
+    
+    if (value instanceof UserDTO ) {
+      System.out.println("I love it");
+    }
+    
+    final Object firstObj = new BeanWrapperImpl(value).getPropertyValue(firstFieldName);
+    final Object secondObj = new BeanWrapperImpl(value).getPropertyValue(secondFieldName);
+    
+    // 둘 다 null이면 에러메시지를 보이지 않음, 단지 @NotNull에 걸린다.
+    // null이 아니라면 둘이 같으면 메시지를 보이지 않음
+    valid = firstObj == null && secondObj == null 
+        || firstObj != null && firstObj.equals(secondObj);
+    
+    
+    if (!valid) {
+      context.disableDefaultConstraintViolation();
+      
+      context.buildConstraintViolationWithTemplate(message)
+        .addPropertyNode(secondFieldName)
+        .addConstraintViolation();
+    }
+    
+    return valid;
+} 5. 이제 실제 UserDTO에 적용해 본다. 5-1 아래를 보면 두개의 @FieldMatch가 지정되어 있다. 둘 다 동일한 결과를 보여 준다. 5-2 첫번째는 comment되어 있는데 이렇게 해도 되지만 클래스에 여러 쌍을 테스트할 필요가 있을 때 유용하다. package pe.pilseong.custom_registration.user;
+
+
+import javax.validation.constraints.NotNull;
+import javax.validation.constraints.Size;
+
+import lombok.Data;
+import pe.pilseong.custom_registration.validation.FieldMatch;
+import pe.pilseong.custom_registration.validation.ValidEmail;
+
+@Data
+//@FieldMatch.List({@FieldMatch(first = "password", second = "matchingPassword", message = "Two Password fields must match")})
+@FieldMatch(first = "password", second = "matchingPassword", message = "Two Password fields must match")
+public class UserDTO {
+  
+  @NotNull(message = "is required")
+  @Size(min = 4, max = 30, message = "Length ranges from 4 to 30")
+  private String userName;
+  
+  @NotNull(message = "is required")
+  @Size(min = 4, max = 20, message = "Length ranges from 4 to 20")
+  private String password;
+
+  @NotNull(message = "is required")
+  @Size(min = 4, max = 20, message = "Length ranges from 4 to 20")
+  private String matchingPassword;
+
+  @NotNull(message = "is required")
+  @Size(min = 3, max = 30, message = "Length ranges from 3 to 30")
+  private String firstName;
+  
+  @NotNull(message = "is required")
+  @Size(max = 30, message = "Maximum is 30")
+  private String lastName;
+  
+  @NotNull(message = "is required")
+  @Size(min = 5, max = 50, message = "Length ranges from 5 to 50")
+  @ValidEmail(message = "Invliad Email")
+  private String email;
+} 6. 결과 화면 7. 이번 포스트에서 한 내용은 7-1 패스워드 확인 검증을 Custom Validator을 작성하여 수행하였다. 7-2 이렇게 하면 내부 로직을 단순하게 가져갈 수 있다. 8 custom validator에 관련된 자세한 정보는 아래 링크를 참고한다. Chapter 6. Creating custom constraints Example 6.4. Using ConstraintValidatorContext to define custom error messages package org.hibernate.validator.referenceguide.chapter06.constraintvalidatorcontext; public class CheckCaseValidator implements ConstraintValidator  {     private Ca docs.jboss.org Hibernate Validator 6.1.5.Final - Jakarta Bean Validation Reference Implementation: Reference Guide Validating data is a common task that occurs throughout all application layers, from the presentation to the persistence layer. Often the same validation logic is implemented in each layer which is time consuming and error-prone. To avoid duplication of th docs.jboss.org

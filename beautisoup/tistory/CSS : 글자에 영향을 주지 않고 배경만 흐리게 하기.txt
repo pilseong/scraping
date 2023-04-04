@@ -1,0 +1,37 @@
+아래의 답변을 가져왔다. stackoverflow 에서 가져왔다. 제일 아래 링크 Nope, this cannot be done since opacity affects the whole element including its content and there's no way to alter this behavior. You can work around this with the two following methods. Secondary div Add another div element to the container to hold the background. This is the most cross-browser friendly method and will work even on IE6. HTML <div class="myDiv">
+    <div class="bg"></div>
+    Hi there
+</div> CSS .myDiv {
+    position: relative;
+    z-index: 1;
+}
+
+.myDiv .bg {
+    position: absolute;
+    z-index: -1;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background: url(test.jpg) center center;
+    opacity: .4;
+    width: 100%;
+    height: 100%;
+} See test case on jsFiddle :before and ::before pseudo-element Another trick is to use the CSS 2.1 :before or CSS 3 ::before pseudo-elements. :before pseudo-element is supported in IE from version 8, while the ::before pseudo-element is not supported at all. This will hopefully be rectified in version 10. HTML <div class="myDiv">
+    Hi there
+</div> CSS .myDiv {
+    position: relative;
+    z-index: 1;
+}
+
+.myDiv:before {
+    content: "";
+    position: absolute;
+    z-index: -1;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background: url(test.jpg) center center;
+    opacity: .4;
+} Additional notes Due to the behavior of z-index you will have to set a z-index for the container as well as a negative z-index for the background image. Test cases See test case on jsFiddle: Using CSS 2.1 :before Using CSS 3 ::before https://stackoverflow.com/questions/7241341/can-i-set-an-opacity-only-to-the-background-image-of-a-div

@@ -1,0 +1,112 @@
+0. 학생 테이블을 도입하여 과정과 학생의 Many to Many 관계를 설명한다. 0-1 상식적으로 과정이 삭제되었다고 학생 데이터가 삭제되면 안된다. 0-2 학생 정보가 삭제되었다고 과정 정보가 삭제되면 안된다. 0-3 즉 cascade에 delete가 포함되면 안된다. 0-4 이 예제는 Many to Many 관계이므로 기본 FetchType이 Lazy이다 별도 설정이 필요없다. 1. Many To Many Mapping에는 Join Table이라는 별도의 테이블을 작성해서 표현한다. 2 JoinTable 이란 두 테이블 사이에 매핑정보를 제공하기 위한 테이블이다. 2-1 이 테이블은 두 테이블을 연결하기 위해 두 테이블의 primary key를 매핑하고 있다. 2-2 이 예제에서는 course_student라는 이름의 Join Table을 사용한다. 3. 데이터 베이스 구조 3-1 지난 포스트에서 추가된 부분은 3-1-1 student 테이블과 과정과 학생 사이의 매핑정보를 제공하는 course_student이다. 3-2 아래의 도식이 변경된 데이터 베이스테이블이다. 4. Many to Many의 경우의 Annotation 설정이다. 4-1 이 경우는 테이블 양쪽이 같은 상태이기 때문에 방향성을 고려할 필요가 없다. 4-2 이 예제의 경우 학생과 과정은 둘 다 삭제 시 서로를 삭제하면 안된다. 4-2-1 한 명의 학생을 지웠다고 그 학생이 등록한 과정 자체를 삭제하면 안된다. 4-2-2 한 과정을 삭제했다고 삭제된 과정을 등록한 학생 정보 자체를 삭제하면 안된다. 4-2-3 cascade type에서 delete가 추가되어서는 안된다. 4-3 두 개의 테이블 관계가 서로를 포함하는 관계이므로 lombok의 @Data를 사용하면 안된다. 4-4 아래는 소스는 학생 Entity class이다. 특이한 부분은 @JoinTable이다. 4-4-1 Many to Many의 경우는 두 테이블이 특정한 column으로 연결된 것이 아닌 별도의 Table로 연결되어 있다. 4-4-2 @JoinTable 내에서 어떤 column이 어떤 테이블 정보를 참조하는지 설정하는 것이 필요하다. 4-4-3 이 예제에서는 Student Entity에서 정의하기 때문에 student_id가 JoinColumn이 된다. 4-4-3-1 joinColumns의 속성에 들어가는 @JoinColumn은 이전에 사용한 동일한 JoinColumn이다. 4-4-3-2 inverseColumns의 inverse의 의미는 반대편에서 참조하는 Entity를 말한다. 이 경우는 Course Entity이다. @Entity
+@Table(name = "student")
+@Setter
+@Getter
+@NoArgsConstructor
+public class Student {
+
+  @Id
+  @GeneratedValue(strategy = GenerationType.IDENTITY)
+  private Long id;
+  
+  @Column(name = "first_name")
+  private String firstName;
+  
+  @Column(name = "last_name")
+  private String lastName;
+  
+  @Column
+  private String email;
+  
+  @ManyToMany(cascade = {
+      CascadeType.DETACH,
+      CascadeType.MERGE,
+      CascadeType.PERSIST,
+      CascadeType.REFRESH 
+  })
+  @JoinTable(name = "course_student",
+      joinColumns = @JoinColumn(name = "student_id"),
+      inverseJoinColumns = @JoinColumn(name = "course_id")
+  )
+  private List<Course> courses;
+
+  public Student(String firstName, String lastName, String email) {
+    super();
+    this.firstName = firstName;
+    this.lastName = lastName;
+    this.email = email;
+  }
+  
+  public void addCourse(Course course) {
+    if (this.courses == null) {
+      this.courses = new ArrayList<>();
+    }
+    
+    this.courses.add(course);
+  }
+
+  @Override
+  public String toString() {
+    return "Student [id=" + id + ", firstName=" + firstName + ", lastName=" + lastName + ", email=" + email + "]";
+  }
+} 4-5 관계가 추가된 Course Entity Class이다. 4-5-1 Student entity 클래스와 거의 동일한 설정이 새로 추가된 List students 속성에 붙어 있다. 4-5-2 여기서는 Course 입장에서 기술하기 때문에 inverse는 Student Entity클래스가 된다. @Entity
+@Table(name = "course")
+@Getter
+@Setter
+@NoArgsConstructor
+public class Course {
+
+  @Id
+  @GeneratedValue(strategy = GenerationType.IDENTITY)
+  private Long id;
+  
+  @Column
+  private String title;
+  
+  @ManyToOne(cascade = { CascadeType.DETACH, 
+      CascadeType.MERGE, CascadeType.PERSIST,CascadeType.REFRESH })
+  @JoinColumn(name = "instructor_id")
+  private Instructor instructor;
+
+  @OneToMany(cascade = CascadeType.ALL)
+  @JoinColumn(name = "course_id")
+  private List<Review> reviews;
+
+  @ManyToMany(cascade = {
+      CascadeType.DETACH,
+      CascadeType.MERGE,
+      CascadeType.PERSIST,
+      CascadeType.REFRESH 
+  })
+  @JoinTable(
+      name = "course_student",
+      joinColumns = @JoinColumn(name = "course_id"),
+      inverseJoinColumns = @JoinColumn(name = "student_id")
+  )
+  private List<Student> students;  
+  
+  public Course(String title) {
+    this.title = title;
+  }
+
+  @Override
+  public String toString() {
+    return "Course [id=" + id + ", title=" + title + "]";
+  }
+  
+  public void addReview(Review review) {
+    if (this.reviews == null) {
+      this.reviews = new ArrayList<>();
+    }
+    
+    this.reviews.add(review);
+  }
+  
+  public void addStudent(Student student) {
+    if (this.students == null) {
+      this.students = new ArrayList<>();
+    }
+    
+    this.students.add(student);
+  }
+}

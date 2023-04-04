@@ -1,0 +1,13 @@
+0. 이 포스트는 semantic ui의 segment를 사용하여 설명한다. 0-1 semantic ui의 segment 항목에 가면 아래와 같은 부분이 있다. 1. ng-content는 컴포넌트에서 테크의 속성이 아닌 내부 영역에 입력한 경우 받아서 처리한다. 1-1 이렇게 하면 속성을 굳이 외울 필요없이 본문에 넣어주면 되기 때문에 상당히 편리하다. 2. 상위 모듈에서 사용할 segment를 받아서 보여줄 segment 컴포넌트를 하나 생성한다. 2-1 컴포넌트 view에 다음과 같이 붙여 넣는다. <div class="ui placeholder segment">
+  <ng-content select="header"></ng-content>
+  <ng-content></ng-content>
+</div> 2-1-1 위의 이미지에 있는 소스코드를 아래처럼 2개의 ng-content로 구분하고 2-1-2 첫번째 ng-content는 select 속성으로 지정된 header라는 테그를 찾아서 매핑하고 2-1-3 두번째 ng-content는 default로 남은 부분은 그대로 복사한다. 2-1-4 이런 식으로 속성, 테그, 클래스 모두 지정가능하고 여러 개의 ng-content도 사용할 수 있다. 2-1-5 아래의 코드는 segment 컴포넌트의 template 파일이다. 2-2 이 컴포넌트를 사용할 상위 컴포넌트에서 아래와 같이 작성한다. 2-2-1 segment 컴포넌트 속성이 아닌 내부에 header테그를 사용하여 아이콘과 내용을 지정한다. 2-2-1-1 segment에서 header를 찾아서 매핑하도록 되어 있으므로 header 테그를 사용해야 한다. 2-2-2 두번째 div 즉 버튼 default ng-content에 연결된다. <app-title>
+  Sagment Component
+</app-title>
+<app-segment>
+  <header class="ui icon header">
+    <i class="shop icon"></i>
+    No documents are listed for this customer.
+  </header>
+  <div class="ui primary button">Add Document</div>
+</app-segment> 3. 결과 화면 3-1 동일한 화면이 그려진다.

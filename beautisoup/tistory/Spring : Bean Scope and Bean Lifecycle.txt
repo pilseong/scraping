@@ -1,0 +1,11 @@
+Scope - 스프링 컨테이너에서 어떻게 스프링빈이 관리되는지에 관한 설정이다. 1. singleton - 하나의 객체로 공유 - default 값이다. 2. prototype - 요청마다 객체를 생성한다. 2-1 prototype scoped bean은 다른 scope과 다르게 자동으로 destroy-method가 호출되지 않는다. 2-2 그렇기 때문에 반드시 코드에서 리소스 해제까지 완료해야 한다. 2-3. destroy method를 호출하는 방법이 있긴 한데 필요시까지  잘안쓰니까 정리 안 한다. 3. request - web request 범위 4. session - web session 범위 5. global-session - application 전체에 걸친 범위 How to use 1. Bean 생성 시에 아래처럼 추가로 scope을 지정하여 명기할 수 있다. <bean id="footballCoach" class="pe.pilseong.ioc.coaches.FootballCoach" scope="prototype">
+    <constructor-arg ref="goodFortuneService"></constructor-arg>
+    <property name="emailAddress" value="heops79@gmail.com"></property>
+    <property name="salary" value="100000"></property>
+  </bean> Life cycle 1. Container started 2. Bean instantiated 3. Dependencies Injected 4. Internal Spring processing 5. Custom Init method invoked 6. Custom Destory method invoked How to set Init and destory method 1. bean정의 시 생성하는 클래스의 init-method, destroy-method를 지정할 수 있다. <bean id="baseballCoach" class="pe.pilseong.ioc.coaches.BaseballCoach"
+	 init-method="printMyFirstName"
+     destroy-method="printMyLastName">
+ <property name="fortuneService" ref="goodFortuneService"></property>
+ <property name="email" value="${pilseong.email}"></property>
+ <property name="address" value="${pilseong.address}"></property>
+</bean> init, destroy 메소드 정의 시 신경써야 할 점들 Access modifier The method can have any access modifier (public, protected, private) 어떤 접근자를 지정해도 된다. 의미는 없다. Return type The method can have any return type. However, 'void' is most commonly used. If you give a return type just note that you will not be able to capture the return value. As a result, "void" is commonly used. 반환 타입도 어떤 것도 가능하다. void가 많이 쓰이는데 값을 반환해도 사용할 수 없기 때문이다. Method name The method can have any method name. 어떤 이름도 가능하다. Arguments The method can not accept any arguments. The method should be no-arg. 인자를 받지 않는다. 반드시 진자가 없어야 한다.

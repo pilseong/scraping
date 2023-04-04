@@ -1,0 +1,43 @@
+1. StackOverflow에서 다 나오지만 나중에 참고하기 쉽게 붙여 놓는다. 2. ngSwitch - 특정한 값에 따른 분기만 가능하다. <!-- foo = 3 -->
+<div [ngSwitch]="foo">
+    <div *ngSwitchCase="1">First Number</div>
+    <div *ngSwitchCase="2">Second Number</div>
+    <div *ngSwitchCase="3">Third Number</div>
+    <div *ngSwitchDefault>Other Number</div>
+</div>
+
+<!-- foo = 'David' -->
+<div [ngSwitch]="foo">
+    <div *ngSwitchCase="'Daniel'">Daniel String</div>
+    <div *ngSwitchCase="'David'">David String</div>
+    <div *ngSwitchCase="'Alex'">Alex String</div>
+    <div *ngSwitchDefault>Other String</div>
+</div> 4. 멀티플 if - 가장 일반적으로 많이 사용하는 구조이다. <!-- foo = 5 -->
+<ng-container *ngIf="foo >= 1 && foo <= 3; then t13"></ng-container>
+<ng-container *ngIf="foo >= 4 && foo <= 6; then t46"></ng-container>
+<ng-container *ngIf="foo >= 7; then t7"></ng-container>
+
+<!-- If Statement -->
+<ng-template #t13>
+    Template for foo between 1 and 3
+</ng-template>
+<!-- If Else Statement -->
+<ng-template #t46>
+    Template for foo between 4 and 6
+</ng-template>
+<!-- Else Statement -->
+<ng-template #t7>
+    Template for foo greater than 7
+</ng-template>
+
+
+<!-- switch처럼 활용할 경우 -->
+<!-- foo = 3 -->
+<ng-template [ngIf]="foo === 1">First Number</ng-template>
+<ng-template [ngIf]="foo === 2">Second Number</ng-template>
+<ng-template [ngIf]="foo === 3">Third Number</ng-template>
+
+<!-- foo = 'David' -->
+<ng-template [ngIf]="foo === 'Alex'">Alex String</ng-template>
+<ng-template [ngIf]="foo === 'David'">David String</ng-template>
+<ng-template [ngIf]="foo === 'Daniel'">Daniel String</ng-template> 출처는 아래의 링크이다. *ngIf else if in template How would I have multiple cases in an *ngIf statement? I'm used to Vue or Angular 1 with having an if, else if, and else, but it seems like Angular 4 only has a true (if) and false (else) condition. stackoverflow.com

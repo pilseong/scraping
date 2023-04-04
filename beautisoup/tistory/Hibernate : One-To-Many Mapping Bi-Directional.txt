@@ -1,0 +1,326 @@
+0. 데이터베이스에서 foreign를 가진 쪽은 무조건 하나의 참조 row를 가질 수 밖에 없다. 0-1 그렇기 때문에 관계를 맺는 상대방은 무조건 one side가 된다. 0-2 자신은 상황에 따라 one 혹은 many가 돈다. 1. 아래 설명은 하나의 강사가 여러 과목의 강의를 하고 한 강의는 한명의 강사가 가르친다고 가정한다. 1-1 DB에서는 아래 도면과 같이 OneToOne, OneToMany명기가 명확하지 않다. 1-2 설계자가 어떻게 사용하는가에 방향성과 관계가 결정된다. 데이터베이스 관계도 2. course table을 추가 한다. 3. Course 클래스를 추가하고 Entity 매핑을 처리한다. 3-1 course 테이블이 강사에 대한 foreign key를 가지고 있으므로 3-1-1 강사는 무조건 one이 되어야 한다. 3-1-2 강사가 여러 과정을 가질 수 있기 때문에 과정 쪽은 이 경우 many가 된다. 3-1-3 결국 과정 클래스는 @ManyToOne이 필요하다. 과정 Entity입장에서 @과정To강사 3-3 Course Entity에 강사 속성을 추가하고 어떤 column이 foreign key인지 @JoinColumn으로 지정한다. 3-4 Entity의 cascade 속성을 추가한다. 3-4-1 여기서는 강의가 삭제되어도 강사는 삭제되면 안된다. 3-4-2 따라서 아래의 속성 정보에는 Remove가 빠져 있다. import javax.persistence.CascadeType;
+import javax.persistence.Column;
+import javax.persistence.Entity;
+import javax.persistence.GeneratedValue;
+import javax.persistence.GenerationType;
+import javax.persistence.Id;
+import javax.persistence.JoinColumn;
+import javax.persistence.ManyToOne;
+import javax.persistence.Table;
+
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
+
+@Entity
+@Table(name = "course")
+@Getter
+@Setter
+@NoArgsConstructor
+public class Course {
+
+  @Id
+  @GeneratedValue(strategy = GenerationType.IDENTITY)
+  private Long id;
+  
+  @Column
+  private String title;
+  
+  @ManyToOne(cascade = { 
+      CascadeType.DETACH, 
+      CascadeType.MERGE, 
+      CascadeType.PERSIST,
+      CascadeType.REFRESH 
+  })
+  @JoinColumn(name = "instructor_id")
+  private Instructor instructor;
+
+  public Course(String title) {
+    this.title = title;
+  }
+
+  @Override
+  public String toString() {
+    return "Course [id=" + id + ", title=" + title + "]";
+  }
+} 4. 이제 Instructor 클래스의 수정이 필요하다. 4-0 아래 소스는 저장된 두 테이블의 관계를 지정하고 테이블에 저장하는 예제이다. 4-1 현재는 강사 클래스는 과정에 대한 참조정보를 전혀가지고 있지 않다. 4-1-1 즉 이전 포스팅 one-to-one uni와 같은 상황이다. 4-1-2 각 강사 Entity에서 과정 정보를 관리하고 싶은 경우, 즉 Bi-directional 설정을 원하면 4-1-2-1 여러 과정을 위해 List Collection을 사용한다. 4-1-2-2 이 과정 정보의 매핑정보 참조를 위해 4-1-2-2-1 @OneToMany annotation을 지정한다. 4-1-2-2-2 그리고 mappedBy 속성으로 Course Entity에서 foreign key를 참조하는 instructor속성을 지정한다. 4-1-2-2-3 아래에서 지정한 cascade 속성은 Remove가 빠져 있다. 4-1-2-2-3-1 강사가 삭제된다고 과정이 삭제되면 안되기 때문이다. 4-1-3 새로 추가된 부분이 하나 더 있는데 addCourse 메소드가 있다. 4-1-3-1 이 부분은 utility 메소드로 강사에 코스를 추가할 때 코스 entity에도 강사 정보를 연결해 준다. 4-1-3-2 이렇게 작성하는 이유는 강사에 과정이 추가된 경우는 4-1-3-2-1 mapping 관련 foreign key가 course에 있기 때문에 4-1-3-2-2 과정 entity에 강사정보가 연결되지 않으면 transaction처리시 데이터베이스에 기록되지 않는다. 4-1-3-2-3 즉 foreign key를 가지고 있는 course entity는 instructor정보를 알수가 없다. import java.util.ArrayList;
+import java.util.List;
+
+import javax.persistence.CascadeType;
+import javax.persistence.Column;
+import javax.persistence.Entity;
+import javax.persistence.GeneratedValue;
+import javax.persistence.GenerationType;
+import javax.persistence.Id;
+import javax.persistence.JoinColumn;
+import javax.persistence.OneToMany;
+import javax.persistence.OneToOne;
+import javax.persistence.Table;
+
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+@Entity
+@Table(name = "instructor")
+@Data
+@NoArgsConstructor
+public class Instructor {
+  
+  @Id
+  @GeneratedValue(strategy = GenerationType.IDENTITY)
+  @Column
+  private Long id;
+  
+  @Column(name = "first_name")
+  private String firstName;
+  
+  @Column(name = "last_name")
+  private String lastName;
+  
+  @Column
+  private String email;
+  
+  @OneToOne(cascade = CascadeType.ALL)
+  @JoinColumn(name = "instructor_detail_id")
+  private InstructorDetail instructorDetail;
+
+  @OneToMany(cascade = { CascadeType.DETACH, CascadeType.MERGE, 
+      CascadeType.PERSIST, CascadeType.REFRESH },
+      mappedBy = "instructor")
+  private List<Course> courses;
+
+  public Instructor(String firstName, String lastName, String email) {
+    this.firstName = firstName;
+    this.lastName = lastName;
+    this.email = email;
+  }
+  
+  // 과정 추가 시 과정 entity에도 강사정보를 설정한다.
+  public void addCourse(Course course) {
+    if (this.courses == null) {
+      this.courses = new ArrayList<>();
+    }
+    this.courses.add(course);
+    course.setInstructor(this);
+  }
+} 4-1-3-3 예를 들면 Instructor 클래스의 addCourse메소드에서 아래처럼 course.setInstrcutor(this)를 제거하면 4-1-3-3-1 데이터베이스에 저장되지 않는다. 4-1-3-3-2 그 이유는 foreign key가 설정된 Course Entity에는 instructor 정보가 없기 때문에 4-1-3-3-1 instructor를 저장해도 연동되어 자동처리 되지 않는다. 4-1-3-3-2 데이터를 테이블에 저장할 때는 foreign key로 mapping된 entity만 참조한다. 4-1-3-3-3 그렇기 때문에 course.setInstructor(this)은 매우 중요한 요소이다. public void addCourse(Course course) {
+    if (this.courses == null) {
+      this.courses = new ArrayList<>();
+    }
+    this.courses.add(course);
+  }
+  
+  
+  // 위의 기능을 사용하여 각 테이블의 row를 연결하는 예제다.
+  // 하지만 아래처럼 하면 course table의 instructor_id가 할당되지 않는다.
+  public class RelateEntity {
+  public static void main(String[] args) {
+    SessionFactory factory = new Configuration().configure()
+        .addAnnotatedClass(Instructor.class)
+        .addAnnotatedClass(InstructorDetail.class)
+        .addAnnotatedClass(Course.class)
+        .buildSessionFactory();
+    
+    Session session = factory.getCurrentSession();
+    
+    // 데이터베이스에 이미 존재하는 두 row를 mapping하는 예제
+    // 이미 존재는 데이터를 가지고 와서 managed state로 관리하려면
+    // 양방향 관계를 모두 명확하게 설정해야 update가 가능하다.
+    try {
+      session.beginTransaction();
+      
+      Instructor instructor = session.get(Instructor.class, 4L);
+      Course course = session.get(Course.class, 1L);
+      
+      instructor.addCourse(course);      
+      
+      System.out.println("Course :: " + course.toString());
+      System.out.println("Instructor  :: " + course.getInstructor().toString());
+      
+      session.saveOrUpdate(instructor);     
+            
+      session.getTransaction().commit();
+      
+    } catch(Exception e) {
+      e.printStackTrace();
+    } finally {
+      session.close();
+      factory.close();
+    }
+  }
+} 4-1-4 위의 Instructor 클래스의 addCourse 없이 두 Entity를 mapping하고 싶으면 4-1-4-1 간단히 아래처럼 addCourse없이 Course 객체에 setInstructor로 instructor만 설정한다. 4-1-4-2 commit이 호출되고 instructor가 저장될 때 instructor테이블에 저장될 정보는 아무 것도 없다. 4-1-4-3 따라서 단순히 mappedBy로 연결된 course의 instructor객체가 참조되고 course 테이블이 업데이트 된다. public class RelateEntity {
+  public static void main(String[] args) {
+    SessionFactory factory = new Configuration().configure()
+        .addAnnotatedClass(Instructor.class)
+        .addAnnotatedClass(InstructorDetail.class)
+        .addAnnotatedClass(Course.class)
+        .buildSessionFactory();
+    
+    Session session = factory.getCurrentSession();
+    
+    // 데이터베이스에 이미 존재하는 두 row를 mapping하는 예제
+    // 이미 존재는 데이터를 가지고 와서 managed state로 관리하려면
+    // 양방향 관계를 모두 명확하게 설정해야 update가 가능하다.
+    try {
+      session.beginTransaction();
+      
+      Instructor instructor = session.get(Instructor.class, 4L);
+      Course course = session.get(Course.class, 1L);
+      
+      // 강의를 강사에 등록하는 게 아니라 foreign key 참조 방향에 맞게
+      // 강의 -> 강사로 연결한다.
+//      instructor.addCourse(course);
+      course.setInstructor(instructor);
+      
+      
+      System.out.println("Course :: " + course.toString());
+      System.out.println("Instructor  :: " + course.getInstructor().toString());
+      
+      session.saveOrUpdate(instructor);
+      System.out.println("Instrcutor :: " + instructor.toString());
+      
+            
+      session.getTransaction().commit();
+      
+    } catch(Exception e) {
+      e.printStackTrace();
+    } finally {
+      session.close();
+      factory.close();
+    }
+  }
+} 5. 위의 지식을 바탕으로 Course를 저장하는 결과적으로 두 가지 방법으로 정리할 수 있다. 5-1 첫 번째는 addCourse를 사용하지 않고 course에 instructor를 할당하는 방식이다. 5-2 이 방식이 자연스러운 foreign key flow를 따라간다. public class SaveCourse {
+  public static void main(String[] args) {
+    SessionFactory factory = new Configuration().configure()
+        .addAnnotatedClass(Instructor.class)
+        .addAnnotatedClass(InstructorDetail.class)
+        .addAnnotatedClass(Course.class)
+        .buildSessionFactory();
+    
+    Session session = factory.getCurrentSession();
+    
+    try {
+      session.beginTransaction();
+      
+      Instructor instructor = session.get(Instructor.class, 4L);
+      
+      Course course1 = new Course("Spring Boot beginning");
+      Course course2 = new Course("Spring Boot intermediate");
+      Course course3 = new Course("Spring Boot expert");
+      
+      course1.setInstructor(instructor);
+      course2.setInstructor(instructor);
+      course3.setInstructor(instructor);
+      
+      session.save(course1);
+      session.save(course2);
+      session.save(course3);
+      
+      session.getTransaction().commit();
+      
+      
+    } catch (Exception e) {
+      e.printStackTrace();
+    } finally {
+      session.close();
+      factory.close();
+    }
+  }
+} 5-2 두 번째는 Instructor에 courses를 추가한다. 5-2-1 instructor에 courses를 추가하는 것으로는 데이터베이스 저장이 되지 않는다. 5-2-2 그래서 foreign key참조를 위해 course.setInstructor(this)가 필요하다고 했다. public class SaveCourse {
+  public static void main(String[] args) {
+    SessionFactory factory = new Configuration().configure()
+        .addAnnotatedClass(Instructor.class)
+        .addAnnotatedClass(InstructorDetail.class)
+        .addAnnotatedClass(Course.class)
+        .buildSessionFactory();
+    
+    Session session = factory.getCurrentSession();
+    
+    try {
+      session.beginTransaction();
+      
+      Instructor instructor = session.get(Instructor.class, 4L);
+      
+      Course course1 = new Course("Spring Boot beginning");
+      Course course2 = new Course("Spring Boot intermediate");
+      Course course3 = new Course("Spring Boot expert");
+
+
+      instructor.addCourse(course1);
+      instructor.addCourse(course2);
+      instructor.addCourse(course3);
+      
+      // course에 setting하는 것이 아니라 addCourse를 통해서 setting한다.
+//      course1.setInstructor(instructor);
+//      course2.setInstructor(instructor);
+//      course3.setInstructor(instructor);
+      
+      // 새로 생선된 transient state 객체이므로 아래의 소스의 경우 course를 저장해야 한다.
+      // 만일 데이터베이스에서 읽어온 entity를 mapping하는 경우는 course, instructor상관 없다.
+      session.save(course1);
+      session.save(course2);
+      session.save(course3);
+      
+      session.getTransaction().commit();
+      
+      
+    } catch (Exception e) {
+      e.printStackTrace();
+    } finally {
+      session.close();
+      factory.close();
+    }
+  } 6. 위의 지식을 바탕으로 읽어오기 소스이다. 6-1 instructor를 가져오면 course정보까지 가져오게 된다. 반대로 course에도 instructor가 연결되어 있다. public class FetchInstructor {
+  public static void main(String[] args) {
+    SessionFactory factory = new Configuration().configure()
+        .addAnnotatedClass(Instructor.class)
+        .addAnnotatedClass(InstructorDetail.class)
+        .addAnnotatedClass(Course.class)
+        .buildSessionFactory();
+    
+    Session session = factory.getCurrentSession();
+    
+    try {
+      session.beginTransaction();
+      
+      Instructor instructor = session.get(Instructor.class, 4L);
+      System.out.println("Instructor :: " + instructor.toString());
+      
+      System.out.println("Courses :: ");
+      instructor.getCourses().stream().forEach(System.out::println);
+      
+      
+      session.getTransaction().commit();
+      
+    } finally {
+      session.close();
+      factory.close();
+    }
+  }
+} 7. 삭제 처리 소스이다. 특별할 것 없다. public class DeleteCourse {
+  public static void main(String[] args) {
+    SessionFactory factory = new Configuration().configure()
+        .addAnnotatedClass(Instructor.class)
+        .addAnnotatedClass(InstructorDetail.class)
+        .addAnnotatedClass(Course.class)
+        .buildSessionFactory();
+    
+    Session session = factory.getCurrentSession();
+    try {
+      session.beginTransaction();
+      
+      Course course = session.get(Course.class, 1L);
+      System.out.println("Course :: " + course.toString());
+      
+      session.delete(course);
+      
+      session.getTransaction().commit();
+      
+    } catch (Exception e) {
+      e.printStackTrace();
+    } finally {
+      session.close();
+      factory.close();
+    }
+  }
+}

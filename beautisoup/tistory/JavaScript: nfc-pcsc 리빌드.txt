@@ -1,0 +1,1 @@
+1. pscslite와 pcscd를 설치한다. apt-get install libpcsclite1 libpcsclite-dev apt-get install pcscd 2. pcscd를 서비스로 등록한다. 3. 노드 버전에 맞도록 rebuild 한다.

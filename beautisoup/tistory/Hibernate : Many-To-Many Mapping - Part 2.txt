@@ -1,0 +1,192 @@
+1. 쉬운 부분만 남았다. Part1의 코드를 사용하여 실행하는 부분이다. 2. 과정과 학생 정보를 생성하고 그 후에 저장하는 예제이다. 2-1 중요한 부분은 둘 다 managed state가 된 후에 연결을 정의해야 한다. 2-2 즉 session.save()를 호출하여 각 Entity가 하이버네이트에 의해 관리된 상태가 되어야 한다는 말이다. 2-3 예를 들면 새로운 과정을 생성하거나 get으로 가져온 후 2-3-1 학생을 session.save로 저장하지 않고 setStudent로 추가 후 session.save로 과정 을 저장하는 경우 2-3-2 Student가 transient 상태라고 오류가 발생한다. 2-3-3 학생정보를 저장한 후 연결해야 한다. public class CreateEntity {
+  public static void main(String[] args) {
+    SessionFactory factory = new Configuration().configure()
+        .addAnnotatedClass(Instructor.class)
+        .addAnnotatedClass(InstructorDetail.class)
+        .addAnnotatedClass(Course.class)
+        .addAnnotatedClass(Review.class)
+        .addAnnotatedClass(Student.class)
+        .buildSessionFactory();
+    
+    Session session = factory.getCurrentSession();
+        
+    try {
+      session.beginTransaction();
+      
+      Course course = new Course("Infant course course!!!");
+      session.save(course);
+      
+      Student student1= new Student("Suel", "Heo", "suel@gmail.com");
+      Student student2 = new Student("Noel", "Heo", "noel@gmail.com");
+      Student student3 = new Student("Juel", "Choi", "juel@gmail.com");
+      Student student4 = new Student("Rael", "Song", "song@gmail.com");
+      
+      session.save(student1);
+      session.save(student2);
+      session.save(student3);
+      session.save(student4);
+      
+      course.addStudent(student1);
+      course.addStudent(student2);
+      course.addStudent(student3);
+      course.addStudent(student4);
+            
+      session.getTransaction().commit();
+    } catch (Exception e) {
+      e.printStackTrace();
+    } finally {
+      session.close();
+      factory.close();
+    }
+  }
+} 3,. 기존에 있는 학생에게 새로 생긴 과정을 추가하는 예제이다. 3-1 학생과 과정테이블이 관계를 맺을려면 반드시 session.save()로 먼저 새로운 course가 추가되어야 한다. 3-2 session.get으로 가져온 학생에 addCourse로 과정을 추가만 해서는 저장되지 않는다. public class AddCourses {
+  public static void main(String[] args) {
+    SessionFactory factory = new Configuration().configure()
+        .addAnnotatedClass(Instructor.class)
+        .addAnnotatedClass(InstructorDetail.class)
+        .addAnnotatedClass(Course.class)
+        .addAnnotatedClass(Review.class)
+        .addAnnotatedClass(Student.class)
+        .buildSessionFactory();
+    
+    Session session = factory.getCurrentSession();
+    
+    
+    try {
+      session.beginTransaction();
+
+      Student student = session.get(Student.class, 13L);
+      System.out.println("Fetched Student :: " + student.toString());
+      System.out.println("Enrolled Courses :: " + student.getCourses().toString());
+      
+      Course guitarCourse = new Course("Guitar warrior course");
+      Course pianoCourse = new Course("All you need to know about piano course");
+      
+      student.addCourse(guitarCourse);
+      student.addCourse(pianoCourse);
+      
+      session.save(guitarCourse);
+      session.save(pianoCourse);
+            
+      session.getTransaction().commit();
+    } catch (Exception e) {
+      e.printStackTrace();
+    } finally {
+      session.close();
+      factory.close();
+    }
+  }
+} 4. 과목 정보를 가지고 와서 등록 학생을 보여 주는 예제 4-1 학생을 가지고 온 후 등록한 과정을 보여 주는 것은 3번 절의 예제의 앞부분과 동일하다. 4-2 그렇기 때문에 여기서는 과정을 가지고 오는 예제를 붙인다. public class FetchCourse {
+  public static void main(String[] args) {
+    SessionFactory factory = new Configuration().configure()
+        .addAnnotatedClass(Instructor.class)
+        .addAnnotatedClass(InstructorDetail.class)
+        .addAnnotatedClass(Review.class)
+        .addAnnotatedClass(Course.class)
+        .addAnnotatedClass(Student.class)
+        .buildSessionFactory();
+        
+    Session session = factory.getCurrentSession();
+    
+    try {
+      session.beginTransaction();
+      
+      Course course = session.get(Course.class, 8L);
+      System.out.println("Fetched Courses :: " + course.toString());
+      course.getStudents().stream().forEach(System.out::println);
+      
+      session.getTransaction().commit();
+      
+    } catch (Exception e) {
+      e.printStackTrace();
+    } finally {
+      session.close();
+      factory.close();
+    }
+  }
+}
+
+
+// 결과
+Fetched Courses :: Course [id=8, title=Adult course course!!!]
+Student [id=13, firstName=Suel, lastName=Heo, email=suel@gmail.com]
+Student [id=14, firstName=Noel, lastName=Heo, email=noel@gmail.com]
+Student [id=15, firstName=Juel, lastName=Choi, email=juel@gmail.com]
+Student [id=16, firstName=Rael, lastName=Song, email=song@gmail.com] 5. 삭제하는 코드이다. 과정이나 학생은 독립적이므로 cascade delete가 설정되지 않은 것을 유의한다. 5-1 4절에 결과를 바탕으로 과정을 삭제하는 코드를 붙인다. 5-1-1 차이는 session.delete 한 줄이다. 5-1-2 결과의 마지막 두 줄은 과정만 삭제되고 JoinTable의 연결만 끊어졌다. 학생은 삭제되지 않았다. public class DeleteCourse {
+  public static void main(String[] args) {
+    SessionFactory factory = new Configuration().configure()
+        .addAnnotatedClass(Instructor.class)
+        .addAnnotatedClass(InstructorDetail.class)
+        .addAnnotatedClass(Review.class)
+        .addAnnotatedClass(Course.class)
+        .addAnnotatedClass(Student.class)
+        .buildSessionFactory();
+        
+    Session session = factory.getCurrentSession();
+    
+    try {
+      session.beginTransaction();
+      
+      Course course = session.get(Course.class, 8L);
+      System.out.println("Fetched Courses :: " + course.toString());
+      course.getStudents().stream().forEach(System.out::println);
+      
+      session.delete(course);
+      
+      session.getTransaction().commit();
+    } catch (Exception e) {
+      e.printStackTrace();
+    } finally {
+      session.close();
+      factory.close();
+    }
+  }
+}
+
+// 결과
+
+Fetched Courses :: Course [id=8, title=Adult course course!!!]
+Student [id=13, firstName=Suel, lastName=Heo, email=suel@gmail.com]
+Student [id=14, firstName=Noel, lastName=Heo, email=noel@gmail.com]
+Student [id=15, firstName=Juel, lastName=Choi, email=juel@gmail.com]
+Student [id=16, firstName=Rael, lastName=Song, email=song@gmail.com]
+
+Hibernate: delete from course_student where course_id=?
+Hibernate: delete from course where id=? 5-2 학생을 가지와서 삭제하고 코스가 삭제되었는지를 확인하는 코드 5-2-1 아래는 삭제하는 코드이다. 조회코드는 delete부분만 제외하면 된다. public static void main(String[] args) {
+    SessionFactory factory = new Configuration().configure()
+        .addAnnotatedClass(Instructor.class)
+        .addAnnotatedClass(InstructorDetail.class)
+        .addAnnotatedClass(Review.class)
+        .addAnnotatedClass(Course.class)
+        .addAnnotatedClass(Student.class)
+        .buildSessionFactory();
+        
+    Session session = factory.getCurrentSession();
+    
+    try {
+      session.beginTransaction();
+      
+      Student student = session.get(Student.class, 13L);
+      System.out.println("Fetched Courses :: " + student.toString());
+
+      student.getCourses().stream().forEach(System.out::println);
+      
+      session.delete(student);
+           
+      session.getTransaction().commit();
+      
+    } catch (Exception e) {
+      e.printStackTrace();
+    } finally {
+      session.close();
+      factory.close();
+    }
+  }
+  
+// 결과 - 아래 delete query를 보면 해당 학생과 매핑테이블만 삭제된 것을 볼 수 있다.
+Fetched Courses :: Student [id=13, firstName=Suel, lastName=Heo, email=suel@gmail.com]
+
+Course [id=9, title=Guitar warrior course]
+Course [id=10, title=All you need to know about piano course]
+Hibernate: delete from course_student where student_id=?
+Hibernate: delete from student where id=?

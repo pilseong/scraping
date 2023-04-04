@@ -1,0 +1,147 @@
+1. Optional은 다양한 functional 프로그래밍 기능을 지원한다. 2. 값이 들어 있을 때는 값을, 값이 없을 때는 null을 반환하는 경우 2-1 아래의 comment 된 부분과 아래 한 줄은 동일하다. @Override
+  public Owner findById(Long id) {
+    
+    Optional<Owner> optionalOwner = this.ownerRepository.findById(id);
+    // if (owner.isPresent()) {
+    //   return owner.get();
+    // } else {
+    //   return null;
+    // }
+    return optionalOwner.orElse(null);
+  } 2-2 orElse 메소드는 단순히 값이 없을 경우 반환할 데이터를 지정할 수 있다. 2-2-1 찾은 값을 없을 경우 초기화된 빈껍데기를 돌려 주거나 이것처럼 null을 반환할 수 있다. public T orElse(T other) {
+        return value != null ? value : other;
+    } 3. Java Optional에 대한 간단한 예제 3-1 아래는 IngredientService를 구현한 클래스이다. 3-2 Recipe 안에 Ingredient Set이 포함되어 있는 상황인데, 그 중 특정한 id의 ingredient를 찾아 반환하는 코드이다. 3-3 첫 째로 Recipe를 findById로 검색하여 찾은 후 반환되는 값은 Optional<Recipe>이다. 3-3-1 map함수는 Optional 객체에 값이 있을 경우에 가공을 할 수 있는 기능을 제공하고 반환값은 Optional이 된다. 3-3-2 여기서는 하나의 recipe만 검색되므로 값이 있는 경우 map이 실행되고 3-3-2-1 찾은 recipe 안에 있는 ingredient의 stream을 통해 id가 동일한 특정 ingredient를 찾게 된다. 3-3-2-2 filter를 통과 한 발견한 첫번째 ingredient는 반환해야 할 객체인데 findFirst도 Optional을 반환한다. 3-3-2-3 Optional을 체크해서 객체가 있는 경우 그 값을 넘겨준다. 3-3-3 이 map의 궁극적인 목표는 Optional<Ingredient>를 반환해 주는 것이다. 3-3-3-1 결국 Optional<Recipe>가 Optional<Ingredient>로 변환된 것이다. package pe.pilseong.recipe.service;
+
+import java.util.Optional;
+
+import javax.transaction.Transactional;
+
+import org.springframework.stereotype.Service;
+
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import pe.pilseong.recipe.command.IngredientCommand;
+import pe.pilseong.recipe.coverter.IngredientToIngredientCommand;
+import pe.pilseong.recipe.domain.Ingredient;
+import pe.pilseong.recipe.repository.RecipeRepository;
+
+@Slf4j
+@Service
+@RequiredArgsConstructor
+public class IngredientServiceImpl implements IngredientService {
+
+  private final RecipeRepository recipeRepository;
+  private final IngredientToIngredientCommand ingredientCommandConverter;
+
+  @Override
+  @Transactional
+  public IngredientCommand findByRecipeIdAndIngredientId(final long recipeId, final long ingredientId) {
+
+    log.debug("\nfindByRecipeIdAndIngredientId in IngredientServiceImpl");
+
+    Optional<Ingredient> optioanlIngredient = 
+      recipeRepository.findById(recipeId).map(recipe-> {
+      Optional<Ingredient> ingredientOptioanl = recipe.getIngredients().stream()
+        .filter(ingredient-> ingredient.getId().equals(ingredientId))
+        .findFirst();
+      if (ingredientOptioanl.isPresent()) {
+        return ingredientOptioanl.get();
+      } else {
+        return null;
+      }
+    });
+
+    if (!optioanlIngredient.isPresent()) {
+      log.error("ingredient id not found " + ingredientId);
+    }
+
+    Ingredient ingredient = (Ingredient)optioanlIngredient.get();
+    log.debug("ingredient fetched :: " + ingredient.toString());
+
+    return ingredientCommandConverter.convert(ingredient);
+  }
+} 4. 존재할 경우 Consumer(받는 값만 있는 함수) , 없는 경우 Runnable (받는 값과 반환하는 값이 없는 함수) 4-1 ifPresentOrElse(Consumer, Runnable) @Override
+  public void deleteIngredientCommand(final Long recipeId, final Long ingredientId) {
+    recipeRepository.findById(recipeId).ifPresentOrElse(recipe-> {
+      if (recipe.getIngredients().removeIf(ingredient-> ingredient.getId().equals(ingredientId))) {
+        recipeRepository.save(recipe);
+      }
+    }, ()-> new RuntimeException("recipe is not found with id :: " + recipeId));
+  }
+  
+  
+  // Ingredient 역시 Recipe 객체를 가지고 있는 경우는 양방향으로 모두 연결해제 해야 한다.
+  // setRecipe(null)을 하지 않으면 ingredient의 속성에서 recipe참조가 삭제되지 않는다.
+  // 아래처럼 작업하면 ingredient는 삭제되지 않는다. recipe가 삭제되는 것이 아니기 때문이다.
+  
+  @Override
+  public void deleteIngredientCommand(final Long recipeId, final Long ingredientId) {
+    recipeRepository.findById(recipeId).ifPresentOrElse(recipe-> {
+      log.debug(recipe.getIngredients().toString());
+      boolean removeIf = recipe.getIngredients().removeIf(ingredient-> {
+        if (ingredient.getId().equals(ingredientId)) {
+          ingredient.setRecipe(null);
+          return true;  
+        } else {
+          return false;
+        }
+      });
+
+      if (removeIf) {
+        log.debug("Some ingredient deleted");
+        recipeRepository.save(recipe);
+      }
+    }, ()->log.debug("recipe is not found with id :: " + recipeId));
+  } 5. 존재할 경우 map으로 작업하여 다른 객체를 리턴(function), 5-1 없거나 정상적이지 않을 때 다른 처리하여 다른 객체 리턴(supplier) 5-2 .map -> .orElseGet 6. 존재할 경우 그대로 return, 없는 경우 특정에러 처리 Supplier 6-1 .orElseThrow @Override
+  @Transactional
+  public IngredientCommand saveIngredientCommand(final IngredientCommand ingredientCommand) {
+
+    log.debug("saveIngrdientCommand");
+
+    return ingredientCommandConverter.convert(recipeRepository.findById(ingredientCommand.getRecipeId())
+      // fetch the recipe which has target ingredient to update
+      .map(recipe -> {
+        Optional<Ingredient> targetIngredientOptional = recipe.getIngredients().stream()
+          .filter(ingredient-> ingredient.getId().equals(ingredientCommand.getId()))
+          .findFirst();
+
+        // update ingredient to databse
+        if (targetIngredientOptional.isPresent()) {
+          log.debug("ingredient found");
+
+          Ingredient ingredientFound = targetIngredientOptional.get();
+          ingredientFound.setAmount(ingredientCommand.getAmount());
+          ingredientFound.setDescription(ingredientCommand.getDescription());
+          ingredientFound.setUom(
+            uomRepository
+              .findById(ingredientCommand.getUom().getId())
+              .orElseThrow(()-> new RuntimeException("UOM not found"))
+          );
+        } else {
+          // add new ingredient
+          log.debug("new ingredient added");
+          recipe.addIngredient(ingredientConverter.convert(ingredientCommand));
+        }
+
+        // update recipe to the database
+        Recipe savedRecipe = recipeRepository.save(recipe);
+
+        return savedRecipe.getIngredients().stream()
+            .filter(ingredient-> ingredient.getId().equals(ingredientCommand.getId()))
+            .findFirst()
+            // saving new item would not have an id
+            .orElseGet(()-> {
+              log.debug("without id in IngrdientServiceImpl");
+              Optional<Ingredient> optionalIngredient = savedRecipe.getIngredients().stream()
+                .filter(ingredient-> ingredient.getDescription().equals(ingredientCommand.getDescription()))
+                .filter(ingredient-> ingredient.getAmount().equals(ingredientCommand.getAmount()))
+                .filter(ingredient-> ingredient.getUom().getId().equals(ingredientCommand.getUom().getId()))
+                .findFirst();
+              
+              return optionalIngredient.orElseGet(null);
+            });
+            
+      })
+      // recipe not found for id
+      .orElseGet(()-> new Ingredient()));
+  }

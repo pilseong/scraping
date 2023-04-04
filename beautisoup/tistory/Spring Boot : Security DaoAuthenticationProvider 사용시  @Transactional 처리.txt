@@ -1,0 +1,69 @@
+1. Spring Boot와 Spring DATA를 사용하면 Repository 단에서 자동적으로 @Transactional이 붙는다. Spring Data JPA - Reference Documentation Example 108. Using @Transactional at query methods @Transactional(readOnly = true) public interface UserRepository extends JpaRepository { List findByLastname(String lastname); @Modifying @Transactional @Query("delete from User u where u.active = false") v docs.spring.io 2. 그래서 보통 Service단에서는 @Transactional를 사용할 필요가 없다. 3. 하지만, 두 개 이상의 Repository를 다루는 Service 메소드인 경우는 서비스 단에서 Transaional이 필요하다. 4. 아무 생각없이 Spring Boot가 해주겠지 하면 정상적으로 동작하지 않는다. 5. 이것이 왜 문제가 되냐면 일반적인 Spring boot Logging level이 info인데 이것과 관련된 문제가 발생했을 때는 debug level에서 로그가 나온다. 그래서 무슨 문제가 있는지 알 수가 없다. 6. Spring Security를 사용하는 경우 로그인 정보를 데이터베이스에서 읽어오는데 User정보와 Role 두가지가 필요하다. 7. UserDetailsService를 구현하는 loadByUsername에서 이 메소드를 구현해야 하는데, 이 메소드가 두 개 이상의 Repo를 사용하기 때문에 @Transactional이 없으면 동작하지 않는다. 8. 서비스 단에서 @Transactional을 처리하는 방법은 그냥 서비스 메소드에 Transaction을 사용하면 된다. 8-0 이렇게 하면 스프링이 알아서 Transaction 범위를 변경하여 서비스 단위에서 처리하게 된다. 8-1 아래처럼 loadUserByUsername 메소드만 뜬금없이 @Transactional이 붙어 있는 것 같은데 당연한 것이다. 8-2 스프링 부트가 편리하게 지원해 주는 것을 제대로 알고 사용해야 한다. package pe.pilseong.crmserver.service;
+
+import java.util.Arrays;
+import java.util.stream.Collectors;
+
+import javax.transaction.Transactional;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.security.core.userdetails.UsernameNotFoundException;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import org.springframework.stereotype.Service;
+
+import pe.pilseong.crmserver.dto.UserDTO;
+import pe.pilseong.crmserver.entity.Role;
+import pe.pilseong.crmserver.entity.User;
+import pe.pilseong.crmserver.repository.RoleRepository;
+import pe.pilseong.crmserver.repository.UserRepository;
+
+@Service
+public class UserServiceImpl implements UserService {
+
+  private static final Logger LOGGER = LoggerFactory.getLogger(UserServiceImpl.class);
+  
+  @Autowired
+  private UserRepository userRepository;
+  
+  @Autowired
+  private RoleRepository roleRepository;
+  
+  @Autowired
+  private BCryptPasswordEncoder passwordEncoder;
+  
+  @Override
+  @Transactional
+  public UserDetails loadUserByUsername(String username) throws UsernameNotFoundException {
+    
+    User user = userRepository.findByUsername(username);
+    
+    if (user == null) {
+      throw new RuntimeException("user not found");
+    }
+    
+    return new org.springframework.security.core.userdetails.User(user.getUsername(), user.getPassword(), 
+        user.getRoles().stream().map(role-> new SimpleGrantedAuthority(role.getName())).collect(Collectors.toList()));
+  }
+
+  @Override
+  public void save(UserDTO userDTO) {
+    User user = new User();
+    
+    user.setId(userDTO.getId());
+    user.setUsername(userDTO.getUsername());
+    user.setPassword(this.passwordEncoder.encode(userDTO.getPassword()));
+    user.setFirstName(userDTO.getFirstName());
+    user.setLastName(userDTO.getLastName());
+    user.setEmail(userDTO.getEmail());
+    
+    Role role = this.roleRepository.findbyName("ROLE_EMPLOYEE");
+    user.setRoles(Arrays.asList(role));
+    userDTO.setRoles(Arrays.asList(role.getName()));
+    
+    LOGGER.debug(user.toString());
+    this.userRepository.save(user);
+  }
+}

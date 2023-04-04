@@ -1,0 +1,45 @@
+1. 이 포스트는 검증 상태 구독하기 시리즈의 연속이다. 1-1 여기서는 마지막으로 입력값에 따른 input 테그 배경색상을 변경하는 directive를 생성한다. 2. MultiPlyHint Directive를 생성한다. 3. Directive를 작성한다. 3-0 우선 이 directive를 사용하는 app컴포넌트 template에 이 directive속성을 지정한다. 3-0-1 단순히 input 테그에 appMultiplyuHint 속성이 지정되어 있다. <div class="container">
+  <form [formGroup]="multiplicationGroup">
+    <div class="form-inline">
+      {{ op1 }} * {{ op2 }} = <input appMultiplyHint formControlName="answer" class="form-control d-inline" type="text">
+    </div>
+  </form>
+  <div>{{ avgTime | number: '1.0-2' }}</div>
+</div>
+
+<hr>
+<div>
+  <p>
+    Muliplication Valid : {{ multiplicationGroup.valid }}<br>
+    Muliplication errors : {{ multiplicationGroup.errors | json }}
+  </p>
+</div> 3-1 @Directive selector를 보면 []로 둘러 쌓인 속성 지정으로 되어 있다. 3-1-1 테그에 appMultiplayHint를 붙이는 방식으로 정의하라는 의미이다. 3-2 attribute이기 때문에 자신이 정의된 테그를 ElementRef를 통해서 주입받아올 수 있다. 3-2-1 이 정의된 테그 객체에 접근이 필요한 이유는 해당 테그에 class를 추가하기 위해서이다. 3-3 마찬가지로 자신이 정의된 테그의 control도 동일하게 NgControl을 통하여 받아올 수 있다. 3-3-1 이 control은 기본적으로 app 컴포넌트 template에 정의한 formControlName객체이다. 3-3-2 formControlName은 그냥 wrapper로 내부에 FormControl 객체가 control 속성으로 존재한다. 3-3-3 이 FormControl에는 parent속성이 있는데 이것이 최상위로 정의한 FormGroup객체이다. 3-3-4 parent만 있으면 모든 form control에 접근가능하다. 3-3-4-1 따라서 전체 mulplicationGroup의 statusChanges도 지난 포스트 처럼 구독가능하다. 3-3-4-2 이 상태를 구독하여 값이 들어올 때 마다 근사치 여부를 확인 후 범위 내이면 hint를 색상으로 표출한다. 3-4 상태정보를 구독하면 모든 검증정보가 다 들어게 된다. 모든 입력값에 계산이 필요하므로 pipe를 쓸 필요가 없다. 3-5 구독 내의 로직을 보면 입력 값을 받아와 정답과의 차이가 20% 범위 내이면 3-5-1 bootstrap의 primary 색상을 배경에 넣고 글자를 흰색으로 변경한다. import { Directive, ElementRef, OnInit } from '@angular/core';
+import { NgControl } from '@angular/forms';
+import { tap } from 'rxjs/operators';
+
+@Directive({
+  selector: '[appMultiplyHint]',
+})
+export class MultiplyHintDirective implements OnInit {
+  constructor(private elementRef: ElementRef, private ngControl: NgControl) {}
+
+  ngOnInit(): void {
+    this.ngControl.control.parent.statusChanges.subscribe(() => {
+      const { op1, op2, answer } = this.ngControl.control.parent.value
+
+      const result = op1  * op2
+      const diff = Math.abs(result - answer) / result
+
+      console.log(result, diff);
+
+      if (diff < 0.2) {
+        this.elementRef.nativeElement.classList.add('bg-primary')
+        this.elementRef.nativeElement.classList.add('text-white')
+      } else {
+        this.elementRef.nativeElement.classList.remove('bg-primary')
+        this.elementRef.nativeElement.classList.remove('text-white')
+      }
+
+    })
+  }
+} 3-6 결과 캡처 3-6-1 20% 이내 이기 때문에 색상이 표시되었다. 3-6-2 20%가 나오지만 이내는 아니기 때문에 힌트가 표출되지 않았다.

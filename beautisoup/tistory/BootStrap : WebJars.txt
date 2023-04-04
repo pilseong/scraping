@@ -1,0 +1,160 @@
+1. maven 은 webjar을 지원하고 있는데, bootstrap과 jquery가 가장 많이 사용된다. 2. boostrap maven import를 찾아보면 아래의 코드가 들어가는데 mav repository에서 dependency를 찾아보면 2-1 아래와 같이 bootstrap이 jqeury와 popper가 의존하고 있음을 알 수 있다. 2-2 둘다 자동으로 dependency가 추가되어 별도의 webjar을 받을 필요가 없다. 2-3 받는다고 하더라도 version은 설정하지 않는 것이 좋다. 2-4 사용 전에 항상 의존성을 확인하여 어떤 버전을 사용하는지 확인 후 html에 반영해야 한다. <dependency>
+      <groupId>org.webjars</groupId>
+      <artifactId>bootstrap</artifactId>
+      <version>4.5.0</version>
+    </dependency> 2-4 실제 의존 구조 캡처 3. pom 파일 <?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+  <parent>
+    <groupId>org.springframework.boot</groupId>
+    <artifactId>spring-boot-starter-parent</artifactId>
+    <version>2.3.1.RELEASE</version>
+    <relativePath /> <!-- lookup parent from repository -->
+  </parent>
+  <groupId>pe.pilseong</groupId>
+  <artifactId>recipe</artifactId>
+  <version>0.0.1-SNAPSHOT</version>
+  <name>demo</name>
+  <description>Demo project for Spring Boot</description>
+
+  <properties>
+    <java.version>11</java.version>
+  </properties>
+
+  <dependencies>
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-data-jpa</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-thymeleaf</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-web</artifactId>
+    </dependency>
+
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-devtools</artifactId>
+      <scope>runtime</scope>
+      <optional>true</optional>
+    </dependency>
+    <dependency>
+      <groupId>com.h2database</groupId>
+      <artifactId>h2</artifactId>
+      <scope>runtime</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.projectlombok</groupId>
+      <artifactId>lombok</artifactId>
+      <optional>true</optional>
+    </dependency>
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-test</artifactId>
+      <scope>test</scope>
+    </dependency>
+    
+    <dependency>
+      <groupId>org.webjars</groupId>
+      <artifactId>bootstrap</artifactId>
+      <version>4.5.0</version>
+    </dependency>
+  </dependencies>
+
+  <build>
+    <plugins>
+      <plugin>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-maven-plugin</artifactId>
+      </plugin>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-failsafe-plugin</artifactId>
+        <version>3.0.0-M5</version>
+        <executions>
+          <execution>
+            <goals>
+              <goal>integration-test</goal>
+              <goal>verify</goal>
+            </goals>
+          </execution>
+        </executions>
+      </plugin>
+    </plugins>
+  </build>
+
+</project> 4. html 페이지 사용 예시 4-1 link와 script 테그에서 사용한 th:href, th:src는 프로그램에서 실행시에 해당 테그의 링크를 대체하게 된다. 4-1-1 여기서는 로컬의 /webjars를 찾게 된다. <!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+
+<head>
+  <!-- Required meta tags -->
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+
+  <!-- Bootstrap CSS -->
+  <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.0/css/bootstrap.min.css"
+    integrity="sha384-9aIt2nRpC12Uk9gS9baDl411NQApFmC26EwAOH8WgZl5MYYxFfc+NcPb1dKGj7Sk" crossorigin="anonymous"
+    th:href="@{/webjars/bootstrap/4.5.0/css/bootstrap.min.css}">
+
+  <title>Recipe Homer</title>
+</head>
+
+<body>
+  <div class="container-fluid" style="margin-top: 20px">
+    <div class="row">
+      <div class="col-md-6 offset-md-3">
+        <div class="card text-white bg-primary">
+          <div class="card-body p-0">
+            <div class="card-title">
+              <p class="m-2 font-weight-bold">My Recipe</p>
+            </div>
+            <div class="card-text bg-white m-0 p-0" th:if="${not #lists.isEmpty(recipes)}">
+              <table class="table table-hover m-0">
+                <thead class="thead-white">
+                  <tr>
+                    <th>ID</th>
+                    <th>Description</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr th:remove="all">
+                    <td th:text="${recipe.id}">1</td>
+                    <td th:text="${recipe.description}">Tasty Goodness 1</td>
+                  </tr>
+                  <tr th:remove="all">
+                    <td th:text="${recipe.id}">2</td>
+                    <td th:text="${recipe.description}">Tasty Goodness 2</td>
+                  </tr>
+                  <tr th:each="recipe : ${recipes}">
+                    <td th:text="${recipe.id}">3</td>
+                    <td th:text="${recipe.description}">Tasty Goodness 3</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <!-- Optional JavaScript -->
+  <!-- jQuery first, then Popper.js, then Bootstrap JS -->
+  <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"
+    integrity="sha384-DfXdz2htPH0lsSSs5nCTpuj/zy4C+OGpamoFVy38MVBnE+IbbVYUew+OrCXaRkfj" crossorigin="anonymous"
+    th:src="@{/webjars/jquery/3.5.1/jquery.min.js}">
+  </script>
+  <script src="https://cdn.jsdelivr.net/npm/popper.js@1.16.0/dist/umd/popper.min.js"
+    integrity="sha384-Q6E9RHvbIyZFJoft+2mJbHaEWldlvI9IOYy5n3zV9zzTtmI3UksdQRVvoxMfooAo" crossorigin="anonymous"
+    th:src="@{/webjars/popper.js/1.16.0/popper.min.js}">
+  </script>
+  <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.0/js/bootstrap.min.js"
+    integrity="sha384-OgVRvuATP1z7JjHLkuOU7Xw704+h835Lr+6QL9UvYjZE3Ipu6Tp75j7Bh/kR0JKI" crossorigin="anonymous"
+    th:src="@{/webjars/bootstrap/4.5.0/js/bootstrap.min.js}">
+  </script>
+
+</body>
+
+</html>

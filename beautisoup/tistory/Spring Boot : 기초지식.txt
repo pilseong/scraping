@@ -1,0 +1,38 @@
+1. 스프링 부트의 starter dependency는 함께 사용하는 호환 되는 라이브러리의 묶음이다. 1-1 어떤 라이브러리가 묶여 있는지는 elicpse의 pom.xml 열면 나오는 dependecy hierarchy에서 볼 수 있다. 1-2 pom.xml파일을 보면 제일 윗부분에 starter-parent라는 것이 있다. 1-2-1 Default compiler lever, UTF-8 encoding같은 설정이 있고 spring boot의 버전을 지정한다. 1-2-2 자바 버전수정은 spring에서 했던 것처럼 java.version 프로퍼티를 설정하면 된다. <properties>
+  <java.version>11</java.version>
+</properties> 1-2-3 starter-parent는 spring boot plugin에 대한 기본 설정값을 가지고 있다. 아래 코드만 추가하면 된다. <plugin>
+		<groupId>org.springframework.boot</groupId>
+		<artifactId>spring-boot-maven-plugin</artifactId>
+	</plugin> 2. 30개 이상의 starter를 제공하고 있고 목록은 아래 링크를 참조한다. Spring Boot Reference Documentation This section goes into more detail about how you should use Spring Boot. It covers topics such as build systems, auto-configuration, and how to run your applications. We also cover some Spring Boot best practices. Although there is nothing particularly spe docs.spring.io 2. Spring Boot Maven Plugin 2-1 실행가능한 jar과 war 번들을 만드는 데 필수적인 플러그인이다. 패키징
+./mvn package 
+
+실행명령
+mvn spring-boot:run 3. @SpringBootApplication은 3-1 @EnableAutoConfiguration, @ComponentScan, @Configuration 로 구성되어 있다. 3-2 이 수식을 받는 클래스가 ComponentScan의 root가 되므로 패키지 루트에 위치 시킨다. 3-2-1 한 개 이상의 패키지를 사용하고 싶은 경우 아래처럼 사용할 수 있다. @SpringBootApplication(
+  scanBasePackage = {
+    "pe.pilseong.packageA",
+    "com.pilseong.packageB",
+    "net.pilseong.packageC",
+  }
+)
+public class BootdemoApplication {
+
+  public static void main(String[] args) {
+    SpringApplication.run(BootdemoApplication.class, args);
+  }
+} 4. application.properties 파일은 기본 설정파일이다. 4-1 classpath에 기본적으로 포함된다. 4-2 스프링부트를 1000개 이상의 속성으로 세부적인 제어할 수 있다. port, path, actuator, security, db 등 4-2-1 속성리스트와 용도는 아래 페이지를 공식 문서를 참조한다. 4-2-2 속성은 Core, Cache, Mail, Json, Data, transaction, Integration, Web, Server 등의 그룹으로 나누어져 있다. 4-2-2-1 대표적으로 Core에는 Logging 설정이 있다. 4-2-2-2 대표적으로 Web에는 포트설정, Context path설정, session 설정 등이 있다. 4-2-2-3 대표적으로 Actuator에는 노출할 endpoint, 숨길 endpoint, actuator base-path 변경 등이 있다. 4-2-2-4 대표적으로 Security에는 기본 유저 설정 등 4-2-2-5 대표적으로 Data에는 datasource 설정이 있다. Common Application properties Various properties can be specified inside your application.properties file, inside your application.yml file, or as command line switches. This appendix provides a list of common Spring Boot properties and references to the underlying classes that consume docs.spring.io 4-2 별도의 설정필요 없이 클래스에서 @Value("${ }") 형식으로 접근가능하다. 4-3 자세한 내용은 아래 포스팅 참고 Spring Boot : applicatoin.properties 읽어오기 0. 스프링 부트를 사용할 경우 복잡하게 placeholder를 따로 지정할 필요없이 그냥 쓰면 된다. 0-1. 사용할 속성을 application.properties파일에 입력 itinerary.email.subject=Itinerary for your Flight itiner.. kogle.tistory.com 5. 스프링 부트의 static 콘텐츠는 starter-web 사용시 기본 설정되어 있다. 5-1 resources/static 여기에 저장할 수 있다. 5-2 resources/templates 에는 View Template을 저장하는 공간이다. 6. jar패키징 사용시에는 maven archetype에서 사용하였던 src/main/webapp을 사용하면 안된다. 6-1 이 형식은 war 패키징에서만 사용가능하고 jar 생성시에는 이 폴더는 무시된다. 7. spring-boot-devtools 7-1 스프링 개발시에 설정 및 소스코드가 변경될 때 프로그램을 자동으로 재기동한다. 7-2 별도의 설정 필요없이 dependency에 추가하면 기능이 동작한다. <dependency>
+		<groupId>org.springframework.boot</groupId>
+		<artifactId>spring-boot-devtools</artifactId>
+	</dependency> 8. spring actuator 8-1 어플리케이션을 모니터링하고 관리하기 위한 라이브러리 8-2 어플리케이션의 상태정보를 체크할 수 있다. 8-3 다양한 어플리케이션의 설정값들을 확인할 수 있다. mappings 정보, bean 생성정보 등 8-4 pom 파일에 dependency를 추가하는 것으로 기능이 동작한다. <dependency>
+		<groupId>org.springframework.boot</groupId>
+		<artifactId>spring-boot-starter-actuator</artifactId>
+	</dependency> 8-5 기본적으로 /actuator/** 형식으로 접근할 수 있다. 8-6 default로 web에서 접근할 수 있는 endpoint는 /health, /info가 있다. 8-5-1 /health 정보는 기동여부를 확인 할 수 있다. 8-5-2 /info는 기본적으로 비어 있으나 application.properties에서 값이 설정되어 있다면 값을 볼 수 있다. 8-5-3 이 두 endpoint는 starter-security가 dependency에 추가되어도 기본적으로 허용이 가능하다. info.app.name=My First Spring boot App
+info.app.description=Very easy very straight forward
+info.app.verison=1.0.0 8-5-3 나머지 endpoint들은 아래 링크 참조 Spring Boot Reference Documentation This section goes into more detail about how you should use Spring Boot. It covers topics such as build systems, auto-configuration, and how to run your applications. We also cover some Spring Boot best practices. Although there is nothing particularly spe docs.spring.io 8-5-4 endpoint의 허용여부는 아래와 같이 application.properties의 속성값으로 설정할 수 있다. 8-5-4-1 위의 설정은 모든 endpoint를 허용한다. 8-5-4-2 아래 설정은 기본적으로 공개된 health, info를 제외하는 설정이다. management.endpoints.web.exposure.include=*
+
+management.endpoints.web.exposure.exclude=health,info 8-6 이런 endpoint에 대한 보안설정도 가능하다. 8-6-1 stater-security를 추가하고 접근 제어 설정을 하면 된다. 8-6-2 security를 추가하면 사용자는 user, 비밀번호는 로그에 나타난다. 8-6-3 이것을 변경하려면 아래처럼 application.properties에서 수정가능한다. spring.security.user.name=pilseong
+spring.security.user.password=pilseong 8-6-4 보안 의존성이 추가되면 모든 endpoint가 자동적으로 인증을 사용하게 되지만 /health, /info는 제외된다. 9. command line에서 프로그램 실행하기 9-0 이 기능은 spring boot maven plugin에서 지원한다. 9-1 스프링 부트는 server가 jar에 포함되기 때문에 별도의 서버기동이 필요없다. 9-2 실행방법은 먼저 mvn package를 실행하여 jar파일을 생성한 후에 1. 첫번째는 생성된 jar파일이 존재하는 target폴더로 이동한 후
+java -jar actuatordemo-0.0.1-SNAPSHOT.jar
+
+2. 두번째는 
+프로젝트 루트에서
+mvn spring-boot:run 10. 스프링의 기능을 찾아볼 수 있는 공식 문서 Spring Boot Features Graceful shutdown is supported with all four embedded web servers (Jetty, Reactor Netty, Tomcat, and Undertow) and with both reactive and Servlet-based web applications. It occurs as part of closing the application context and is performed in the earliest docs.spring.io

@@ -1,0 +1,12 @@
+1. 메이븐은 dependency를 중심으로 구조를 이루고 있다. 2. Dependency라고 하면 Maven프로젝트가 의존하는 artifact를 말한다. 3. Transitive Dependency는 프로젝트에서 의존하는 artifiact의 의존성을 말하는 것으로 3-1 이것 때문에 수많은 층의 구조가 형성된다. 3-2 cyclic dependency는 허용하지 않는데, 즉 A가 B를 의존하고 B가 C를 의존하는데 C가 A를 의존하는 경우이다. 4. Dependency Management는 사용하고 있는 artifact의 버전을 명시하여 그 버전을 사용하도록 하는 기능이다. 4-1 의존하고 있는 artifact가 의존하는 artifact도 지정할 수 있다. 5. Dependency Mediation은 의존성 구조를 검색 후 여러버전의 artifact가 검색된 경우 어떤 것을 사용할지를 결정한다. 5-1 공식 docuement에는 Nearest Definition이 사용된다고 명시하고 있는데, 5-2 A가 B를 의존, A는 2.0의 D를 사용하고 B는 1.0의 D를 사용할 경우 2버전이 결과적으로 다운로드된다. 5-3 보통은 가장 최신버전이 추가된다고 생각하면 된다. 6. Excluded Dependencies는 특정한 의존라이브러리를 제거할 수 있는 기능이다. 6-1 최신의 스프링부트 pom을 보면 Junit 5저번에서 특정 엔진을 걷어 내는 부분이 보인다. <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-test</artifactId>
+      <scope>test</scope>
+      <exclusions>
+        <exclusion>
+          <groupId>org.junit.vintage</groupId>
+          <artifactId>junit-vintage-engine</artifactId>
+        </exclusion>
+      </exclusions>
+    </dependency>
+  </dependencies> 7. Optional Dependencies - 의존라이브러리를 선택적으로 사용되도록 할 수 있다. 8. Dependency Scope 8-1 Compile - 기본값. 프로젝트의 모든 classpath (test, compile, run) 상에 위치하게 된다. 8-2 Provided - Compile과 동일한데 JDK나 컨테이너에서 제공될 것으로 간주하는 의존성이다. 8-3 Runtime - Compile에는 사용되지 않지만 DB 드라이버처럼  runtime과 test에는 필요한 것들 8-4 Test -test classpath에만 있으면 된다. ex) junit, mockito 8-5 System - provided와 비슷하지만 명시적으로 jar이 추가되어야 한다. 보통은 파일경로로 추가할 때 쓴다. 8-6 Import - POM의 의존성을 가져와 사용한다. 9. 의존성은 Maven Dependency Plugin으로 관리가 된다. 9-1 이 플러그은 4가지 goal이 있는데 9-1-1 dependency:tree - 의존성 트리를 생성한다. 충돌이 발생했을 때 해결에 도움이 된다. 9-1-2 dependency:go-offline 보통 외부시스템에서 많이 사용하는데 jenkins이나 circle ci에서 사용하여 캐싱한다. 9-1-3 dependency:purge-local-repository 로컬 저장소가 이상할 때 강제로 저장소의 내용물을 삭제한다. 9-1-4 dependency:sources 모든 의존성에 대한 소스코드를 받아온다.

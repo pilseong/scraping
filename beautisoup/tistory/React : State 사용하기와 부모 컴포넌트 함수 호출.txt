@@ -1,0 +1,394 @@
+1. 리액트 클래스에는 render함수가 필수적으로 override되어야 한다. 1-1 리액트 클래스 없이 코드를 작성할 때는 별도의 render하는 함수를 만들어 상태가 바뀔 때마다 호출하였다. 1-2 이제 각 리액트 클래스마다 render함수가 존재하기 때문에 각 컴포넌트가 해주어야 하는 부분만 html로 구현한다. 1-3 문제는 리액트 클래스에서 상속으로 제공하는 render 메소드를 누가 호출해주는가 하는 문제가 남는다. 1-4 당연히 해당 컴포넌트의 내부 상태가 변경했을 때마다 호출해 주어야 하는데 이 상태정보를 별도로 관리해야 한다. 1-4-1 이를 위해 별도의 리액트는 특정 상태변수를 정의해야 동작하도록 설계되었다. state라는 맴버 변수이다. 1-5 이 맴버변수의 상태가 변함을 감지하기 위해서는 이 상태변수를 직접 사용하면 안되고 별도의 방법이 필요하다. 1-5-1 이것을 위해 리액트 클래스는 setState라는 메소드를 구현하고 있으며 이 함수를 통해 상태가 변경된 경우 1-5-2 자동으로 render 함수가 실행된다. render에 다른 컴포넌트가 존재할 경우 그 컴포넌트의 render도 실행된다. 2. 아래의 소스의 리액트 클래스에서 요구하는 state라는 맴버 변수를 생성하여 상태정보를 전달하는 코드이다. 2-1 TodoApp 최상위 컴포넌트의 생성자에 this.state를 정의하여 todos라는 상태를 관리하고 있다. 2-2 Action과 TodoList 컴포넌트로 이 상태값을 바탕으로 버튼의 활성화 여부를 세팅하고, 리스트도 전달하고 있다. 2-3 이 state의 상태가 setState라는 메소드로 변경되는 경우 자동으로 Action과 TodoList 컴포넌트도 다시 render된다. class TodoApp extends React.Component {
+
+  constructor(props) {
+    super(props)
+    this.state = {
+      todos: [
+        "Take your mask",
+        "Wash your hands",
+        "Drink more water"
+      ]
+    }
+  }
+
+  render() {
+    const title = "TO DO List"
+
+    return (
+      <div>
+        <Header title={title} />
+        <Action hasTodos={this.state.todos.length > 0} />
+        <TodoList 
+          hasTodos={this.state.todos.length > 0}
+          todos={this.state.todos}/>
+        <AddTodo />
+      </div>
+    )
+  }
+}
+
+class Header extends React.Component {
+  render() {
+    return (
+      <div>
+        <h1>{this.props.title}</h1>
+      </div>
+    )
+  }
+}
+
+class Action extends React.Component {
+
+  onNextTodoClick() {
+    alert('Select Next todo clicked')
+  }
+
+  render() {
+    return (
+      <div>
+        <button 
+          onClick={this.onNextTodoClick}
+          disabled={!this.props.hasTodos}
+        >Next Todo?</button>
+      </div>
+    )
+  }
+}
+
+class TodoList extends React.Component {
+  onRemoveAllClicked() {
+    console.log(this.props.todos)
+  }
+
+  render() {
+    return (
+      <div>
+      <button 
+        onClick={this.onRemoveAllClicked.bind(this)}
+        disabled={!this.props.hasTodos}
+      >Remove All</button>
+        {
+          this.props.todos.map(todo => <Todo key={todo} todoText={todo} />)
+        }
+      </div>
+    )
+  }
+}
+
+class Todo extends React.Component {
+  render() {
+    return (
+      <div>
+        <p>
+          {this.props.todoText}
+        </p>
+      </div>
+    )
+  }
+}
+
+class AddTodo extends React.Component {
+
+  onFormSubmit(e) {
+    e.preventDefault()
+    const typedTodo = e.target.elements.newTodo.value
+    if (typedTodo) {
+      alert(typedTodo)
+      e.target.elements.newTodo.value = ''
+    }
+  }
+
+  render() {
+    return (
+      <div>
+        <form onSubmit={this.onFormSubmit}>
+          <input type="text" name="newTodo" />
+          <button>Add</button>
+        </form>
+      </div>
+    )
+  }
+}
+
+ReactDOM.render(<TodoApp />, document.getElementById('app')) 2-4 결과화면 3. 상태정보가 최상위 컴포넌트에 존재하고 있기 때문에 자식 컴포넌트에서 부모 컴포넌트로 상태정보접근이 필요하다. 3-1 단순히 정보를 내려 주기 위해서 값을 전달할 수도 있지만, 상태변경을 위해 메소드의 참조값도 전달가능하다. 3-2 아래의 부모 컴포넌트에 존재하는 state변수를 수정하기 위해 부모에서 자식으로 메소드 참조를 넘겨주는 코드다. 3-2-1 onRemoveAllClicked, onNextTodoClicked 메소드를 정의하고 생성자에서 bind를 시켜준다. 3-2-2 바인드를 하는 이유는 메소드 참조 시 context를 잃어버리기 때문인데, 이것을 안하면 state에 접근할 수 없다. 3-2-3 TodoApp의 render을 보면 Action, TodoList가 있는데 여기에 속성으로 메소드 참조를 넘겨주고 있다. 3-2-4 각 컴포넌트에서는 이런 메소드를 props을 통해서 호출이 가능하고 호출 시 부모컴포넌트의 함수가 호출된다. 3-3 또 하나 중요한 것은 onRemoveAllClicked 메소드 안에 있는 this.setState 함수이다. 3-3-1 이 함수를 통해서 state를 반환해 주는 형식으로 state를 변경하여야 자동으로 내부적으로 render가 호출된다. 3-3-2 이 함수는 object 전달할 수도 있지만, 내부적으로 비동기적으로 동작하기 때문에 함수를 넣어주는 것이 좋다. 3-3-2-1 함수를 넘겨줄 경우에는 적절한 시기에 setState가 함수를 호출하여 적절하게 동작하게 된다. class TodoApp extends React.Component {
+
+  constructor(props) {
+    super(props)
+
+    this.onRemoveAllClicked = this.onRemoveAllClicked.bind(this)
+    this.onNextTodoClicked = this.onNextTodoClicked.bind(this)
+
+    this.state = {
+      todos: [
+        "Take your mask",
+        "Wash your hands",
+        "Drink more water"
+      ]
+    }
+  }
+
+  onRemoveAllClicked() {
+    this.setState(() => {
+      return {
+        todos: []
+      }
+    })
+  }
+
+  onNextTodoClicked() {
+    const index = Math.floor(Math.random() * this.state.todos.length)
+    alert(this.state.todos[index])
+  }
+
+  render() {
+    const title = "TO DO List"
+
+    return (
+      <div>
+        <Header title={title} />
+        <Action 
+          hasTodos={this.state.todos.length > 0} 
+          onNextTodoClicked={this.onNextTodoClicked}
+        />
+        <TodoList 
+          hasTodos={this.state.todos.length > 0}
+          todos={this.state.todos}
+          onRemoveAllClicked={this.onRemoveAllClicked}
+        />
+        <AddTodo />
+      </div>
+    )
+  }
+}
+
+class Header extends React.Component {
+  render() {
+    return (
+      <div>
+        <h1>{this.props.title}</h1>
+      </div>
+    )
+  }
+}
+
+class Action extends React.Component {
+  render() {
+    return (
+      <div>
+        <button 
+          onClick={this.props.onNextTodoClicked}
+          disabled={!this.props.hasTodos}
+        >Next Todo?</button>
+      </div>
+    )
+  }
+}
+
+class TodoList extends React.Component {
+  render() {
+    return (
+      <div>
+      <button 
+        onClick={this.props.onRemoveAllClicked}
+        disabled={!this.props.hasTodos}
+      >Remove All</button>
+        {
+          this.props.todos.map(todo => <Todo key={todo} todoText={todo} />)
+        }
+      </div>
+    )
+  }
+}
+
+class Todo extends React.Component {
+  render() {
+    return (
+      <div>
+        <p>
+          {this.props.todoText}
+        </p>
+      </div>
+    )
+  }
+}
+
+class AddTodo extends React.Component {
+
+  onFormSubmit(e) {
+    e.preventDefault()
+    const typedTodo = e.target.elements.newTodo.value
+    if (typedTodo) {
+      alert(typedTodo)
+      e.target.elements.newTodo.value = ''
+    }
+  }
+
+  render() {
+    return (
+      <div>
+        <form onSubmit={this.onFormSubmit}>
+          <input type="text" name="newTodo" />
+          <button>Add</button>
+        </form>
+      </div>
+    )
+  }
+}
+
+ReactDOM.render(<TodoApp />, document.getElementById('app')) 3-4 결과 화면 4. 이번에는 새로운 데이터를 입력해서 TodoApp의 todos state에 등록하는 부분을 추가하였다. 4-1 handleAddTodo 라는 메소드를 만들고, 입력된 값을 받아 적절하게 에러처리를 하였다. 4-1-1 데이터를 추가할 때 concat를 사용한 이유는 새로운 배열이 반환받고 prevState를 수정하지 않기 위함이다. 4-2 이 메소드를 AddTodo 컴포넌트에 속성으로 넘겨 주고 있다. 4-3 AddTodo는 error라는 상태값을 가지고 있는데, 입력한 정보가 문제가 있을 경우, 반환값을 보여주기 위함이다. class TodoApp extends React.Component {
+
+  constructor(props) {
+    super(props)
+
+    this.onRemoveAllClicked = this.onRemoveAllClicked.bind(this)
+    this.onNextTodoClicked = this.onNextTodoClicked.bind(this)
+    this.handleAddTodo = this.handleAddTodo.bind(this)
+
+    this.state = {
+      todos: [
+        "Take your mask",
+        "Wash your hands",
+        "Drink more water"
+      ]
+    }
+  }
+
+  onRemoveAllClicked() {
+    this.setState(() => {
+      return {
+        todos: []
+      }
+    })
+  }
+
+  onNextTodoClicked() {
+    const index = Math.floor(Math.random() * this.state.todos.length)
+    alert(this.state.todos[index])
+  }
+
+  handleAddTodo(todo) {
+    if (!todo) {
+      return 'Please type vaild item'
+    } else if (this.state.todos.indexOf(todo) > -1) {
+      return 'Duplicated item typed'
+    }
+
+    this.setState((prevState) => {
+      return {
+        todos: prevState.todos.concat(todo)
+      }
+    })
+  }
+
+  render() {
+    const title = "TO DO List"
+
+    return (
+      <div>
+        <Header title={title} />
+        <Action 
+          hasTodos={this.state.todos.length > 0} 
+          onNextTodoClicked={this.onNextTodoClicked}
+        />
+        <TodoList 
+          hasTodos={this.state.todos.length > 0}
+          todos={this.state.todos}
+          onRemoveAllClicked={this.onRemoveAllClicked}
+        />
+        <AddTodo handleAddTodo={this.handleAddTodo} />
+      </div>
+    )
+  }
+}
+
+class Header extends React.Component {
+  render() {
+    return (
+      <div>
+        <h1>{this.props.title}</h1>
+      </div>
+    )
+  }
+}
+
+class Action extends React.Component {
+  render() {
+    return (
+      <div>
+        <button 
+          onClick={this.props.onNextTodoClicked}
+          disabled={!this.props.hasTodos}
+        >Next Todo?</button>
+      </div>
+    )
+  }
+}
+
+class TodoList extends React.Component {
+  render() {
+    return (
+      <div>
+      <button 
+        onClick={this.props.onRemoveAllClicked}
+        disabled={!this.props.hasTodos}
+      >Remove All</button>
+        {
+          this.props.todos.map(todo => <Todo key={todo} todoText={todo} />)
+        }
+      </div>
+    )
+  }
+}
+
+class Todo extends React.Component {
+  render() {
+    return (
+      <div>
+        <p>
+          {this.props.todoText}
+        </p>
+      </div>
+    )
+  }
+}
+
+class AddTodo extends React.Component {
+
+  constructor(props) {
+    super(props)
+
+    this.onFormSubmit = this.onFormSubmit.bind(this)
+
+    this.state = {
+      error: undefined
+    }
+  }
+
+  onFormSubmit(e) {
+    e.preventDefault()
+    const typedTodo = e.target.elements.newTodo.value
+
+    const error = this.props.handleAddTodo(typedTodo)
+
+    this.setState(() => {
+      return {
+        error
+      }
+    })
+    e.target.elements.newTodo.value = ''
+  }
+
+  render() {
+    return (
+      <div>
+        {this.state.error && <p>{this.state.error}</p>}
+        <form onSubmit={this.onFormSubmit}>
+          <input type="text" name="newTodo" />
+          <button>Add</button>
+        </form>
+      </div>
+    )
+  }
+}
+
+ReactDOM.render(<TodoApp />, document.getElementById('app')) 4-4 결과 화면 4-4-1 1, 2, 3을 추가하고 마지막으로 다시 3을 입력한 경우 중복이 표시된다.

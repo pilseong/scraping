@@ -1,0 +1,82 @@
+1. BFS나 DFS를 이용한 문제들이다. 1-1 zombie나 rotten orange 같은 문제들인데 1-1-1 매시간 주변 셀의 동화시키는데 전체가 다 동화 될 때까지의 시간을 묻는다. Given a 2D grid, each cell is either a zombie 1 or a human 0. Zombies can turn adjacent (up/down/left/right) human beings into zombies every hour. Find out how many hours does it take to infect all humans? Example: Input: [ [0, 1, 1, 0, 1 ], [ 0, 1, 0, 1, 0 ], [ 0, 0, 0, 0, 1 ], [ 0, 1, 0, 0, 0 ]] Output: 2 Explanation: At the end of the 1 st hour, the status of the grid: [ [1, 1, 1, 1, 1 ], [ 1, 1, 1, 1, 1 ], [ 0, 1, 0, 1, 1 ], [ 1, 1, 1, 0, 1 ]] At the end of the 2 nd hour, the status of the grid: [ [1, 1, 1, 1, 1 ], [ 1, 1, 1, 1, 1 ], [ 1, 1, 1, 1, 1 ], [ 1, 1, 1, 1, 1 ]] 2. BFS를 사용하는 것이 제일 합리적이다. 2-1 각 배열의 위치를 하나의 node라고 생각하고 이미 방문한 노드를 1로 생각할 수 있다. 2-2 BFS는 레벨로 검색하므로 최초의 1을 다 넣고 넣은 1의 갯수만큼 반복하여 level 갯수만큼 시간을 증가시킨다. 2-3 레벨이 완료된 후 queue가 비어있다면 그 레벨에서는 추가가 안된 것이고 이미 모든 배열이 1로 된 것이다. 2-3-1 그렇기 때문에 마지막 queue가 비었을 때는 시간을 가산하면 안된다. 2-3-2 queue에는 0에서 1로 변환된 값들이 들어가기 때문에 결과는 2가 된다. 2-4 이 문제의 경우에는 모든 셀이 0, 1로만 되어 있기 때문에 종결문제가 발생하지 않는다. 2-4-1 종료가 불가능한 경우가 있는 경우는 반드시 마지막 부분에 확인을 해야 한다. import java.util.LinkedList;
+import java.util.Queue;
+
+public class App {
+  public static void main(final String[] args) throws Exception {
+    final Solution sol = new Solution();
+
+    final int[][] grid = new int[][] {
+            { 0, 1, 1, 0, 1},
+            { 0, 1, 0, 1, 0},
+            { 0, 0, 0, 0, 1},
+            { 0, 1, 0, 0, 0}
+        };
+      
+    final int hours = sol.zombieChanging(grid);
+
+    System.out.println(hours);
+  }
+}
+
+class Point {
+  public int row=0, col=0;
+
+  public Point(int row, int col) {
+    this.row=row;
+    this.col=col;
+  }
+}
+
+
+class Solution {
+
+  int[][] directions = new int[][] {{0, 1}, {0, -1}, {1, 0}, {-1, 0}};
+
+  public int zombieChanging(final int[][] grid) {
+
+    if (grid == null || grid[0].length == 0) {
+      return -1;
+    }
+
+    Queue<Point> queue = new LinkedList<>();
+    int hours = 0;
+    boolean alreadyDone = true;
+
+    for (int i=0; i<grid.length; i++) {
+      for (int j=0; j<grid[0].length; j++) {
+        if (grid[i][j] == 1) {
+          queue.add(new Point(i, j));
+        } else {
+          alreadyDone = false;
+        }
+      }
+    }
+
+    if (alreadyDone == true) {
+      return 0;
+    }
+
+    while (!queue.isEmpty()) {
+      int size = queue.size();
+
+      for (int i=0; i<size; i++) {
+        Point point = queue.poll();
+        for (int[] direction: directions) {
+          int newRow = point.row + direction[0];
+          int newCol = point.col + direction[1];
+          if (newRow >=0 && newRow < grid.length && 
+              newCol >=0 && newCol < grid[0].length && 
+              grid[newRow][newCol] == 0) {
+            
+            queue.add(new Point(newRow, newCol));
+            grid[newRow][newCol] = 1;
+          }
+        }
+      }
+      if (!queue.isEmpty()) {
+        hours++;
+      }
+    }
+    return hours;
+  }
+}

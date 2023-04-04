@@ -1,0 +1,323 @@
+0. 이 포스트는 이전 Fooball club예제를 REST로 다시 작성하는 시리즈의 일부이다. 1. 적용된 테크닉 1-1 Data JPA Entity 작성하기 one to many, many to many 1-2 @MappedSuperclass, @Embedable, @Embedded, @Enumerated 1-3 외부 데이터베이스에서 초기 데이터 로딩 설정 2. 이 포스트에서 작성할 것 2-1 프로젝트 생성 및 jaxb와 jjwt 추가 2-2 폴더 작성 및 Entity 작성 2-3 데이터 베이스 확인 3. 프로젝트 생성 3-1 결국은 REST API를 작성하는 것이 목표이다. 3-2 데이터베이스는 MySql을 사용한다. 3-3 스프링보안을 적용하고 JWT를 사용한 인증을 사용한다. 3-4 Data JPA를 통해 데이터베이스를 자동 생성한다. 3-5 Spring boot 버전은 2.2.8.Release를 사용한다. 2.3.1에서 빠진 부분이 있어 @Valid 같은 게 실행되지 않는다. <dependency>
+		<groupId>io.jsonwebtoken</groupId>
+		<artifactId>jjwt</artifactId>
+		<version>0.9.1</version>
+	</dependency>
+	<dependency>
+		<groupId>javax.xml.bind</groupId>
+		<artifactId>jaxb-api</artifactId>
+		<version>2.3.1</version>
+	</dependency> 4. 폴더 작성하기 4-0 config는 설정파일이 들어갈 곳이다. 4-1 controller Rest 컨트롤러가 위치한다. 4-2 dto는 클라이언트와 서버간의 데이터 전송을 위해 사용한다. 4-3 exception은 전역 예외 처리에 관한 부분이 작성된다. 4-4 filter web에서 사용하는 필터가 들어간다. 4-5 model은 Entity 클래스가 위치한다. 4-6 security 여기는 보안과 관련된 클래스들이 위치한다. 4-7 repository 데이터베이스 접근 클래스 4-8 service 서비스 클래스들 4-9 util JWT 처리 등을 위한 유용한 클래스들이 들어간다. 5. Entity 클래스 작성하기 5-0 테이블 설계하기 5-0-1 테이블 연결 설정 5-0-1-1 schema.sql의 data.sql의 자동로딩은 embedded DB에서 기본으로 설정되어 있다. 5-0-1-2 MySql에서도 자동로딩을 사용하려면 initialization-mode를 always로 바꾸어야 한다. 5-0-1-3 자동로딩할 파일의 경로는 classpath로 설정해야 한다. spring:
+  datasource:
+    url: jdbc:mysql://localhost:3306/football?useSSL=false&serverTimezone=Asia/Seoul
+    username: project_db
+    password: project_db
+    initialization-mode: always
+    data:
+    - classpath:data.sql
+
+  jpa:
+    show-sql: true
+    hibernate:
+      ddl-auto: create-drop 5-0-2 테이블 설계 5-0-3 데이터 삽입 delete from players;
+
+delete from skills;
+
+delete from players_skills;
+
+insert into skills(name, type) values('Finsihing', 'SHOOTING');
+insert into skills(name, type) values('Positioning', 'SHOOTING');
+insert into skills(name, type) values('Shot Power', 'SHOOTING');
+insert into skills(name, type) values('Penalties', 'SHOOTING');
+insert into skills(name, type) values('Vision', 'PASSING');
+insert into skills(name, type) values('Crossing', 'PASSING');
+insert into skills(name, type) values('Free Kick', 'PASSING');
+insert into skills(name, type) values('Short Passing', 'PASSING');
+insert into skills(name, type) values('Interceptions', 'DEFENSING');
+insert into skills(name, type) values('Heading', 'DEFENSING');
+insert into skills(name, type) values('Marking', 'DEFENSING');
+insert into skills(name, type) values('Tackle', 'DEFENSING');
+insert into skills(name, type) values('Jumping', 'PHYSICAL');
+insert into skills(name, type) values('Stamina', 'PHYSICAL');
+insert into skills(name, type) values('Strenth', 'PHYSICAL');
+insert into skills(name, type) values('Aggression', 'PHYSICAL');
+
+
+insert into users(username, password, fullname, phone_number, city, country, state, street) 
+values('pilseong', '$2y$12$7s9ZpMmzC5dMbH94F818.Onz4idCQF/.rgLU.euw3tUcKFDkKg4xy', 'pilseong Heo', 
+'010-2600-8322', 'Seongnam', 'Korea', 'Geonggi', 'Siminro');
+
+insert into roles(name) values('ROLE_USER');
+insert into roles(name) values('ROLE_ADMIN');
+insert into roles(name) values('ROLE_SYSTEM');
+insert into roles(name) values('ROLE_MANAGER');
+
+insert into users_roles(user_id, role_id) values (1, 1);
+insert into users_roles(user_id, role_id) values (1, 2);
+insert into users_roles(user_id, role_id) values (1, 3);
+insert into users_roles(user_id, role_id) values (1, 4); 5-1 AbstractEntity 클래스 package pe.pilseong.footballserver.model;
+
+import javax.persistence.GeneratedValue;
+import javax.persistence.GenerationType;
+import javax.persistence.Id;
+import javax.persistence.MappedSuperclass;
+
+import lombok.Data;
+
+@Data
+@MappedSuperclass
+public class AbstractEntity {
+  
+  @Id
+  @GeneratedValue(strategy = GenerationType.IDENTITY)
+  private Long id;
+} 5-1 Skill 클래스 package pe.pilseong.footballserver.model;
+
+import javax.persistence.Column;
+import javax.persistence.Entity;
+import javax.persistence.EnumType;
+import javax.persistence.Enumerated;
+import javax.persistence.Table;
+
+import lombok.Data;
+import lombok.EqualsAndHashCode;
+
+@Entity
+@Table(name = "skills")
+@Data
+@EqualsAndHashCode(callSuper=false)
+public class Skill extends AbstractEntity {
+  
+  @Column
+  private String name;
+
+  @Column
+  @Enumerated(EnumType.STRING)
+  private Type type;
+
+  public static enum Type {
+    SHOOTING, PASSING, DEFENSING, PHYSICAL
+  }
+} 5-2 Player 클래스 package pe.pilseong.footballserver.model;
+
+import java.util.Date;
+import java.util.Set;
+
+import javax.persistence.Column;
+import javax.persistence.Entity;
+import javax.persistence.JoinColumn;
+import javax.persistence.JoinTable;
+import javax.persistence.ManyToMany;
+import javax.persistence.ManyToOne;
+import javax.persistence.Table;
+
+import org.hibernate.annotations.CreationTimestamp;
+
+import lombok.Data;
+import lombok.EqualsAndHashCode;
+
+@Entity
+@Table(name = "players")
+@Data
+@EqualsAndHashCode(callSuper=false)
+public class Player extends AbstractEntity {
+  
+  @Column
+  private String name;
+
+  @Column
+  @CreationTimestamp
+  private Date createdAt;
+
+  @ManyToOne
+  @JoinColumn(name = "team_id")
+  private Team team;
+
+  @ManyToMany
+  @JoinTable(
+    name = "players_skills",
+    joinColumns = @JoinColumn(name = "player_id"),
+    inverseJoinColumns = @JoinColumn(name = "skill_id")
+  )
+  private Set<Skill> skills;
+} 5-3 Team 클래스 package pe.pilseong.footballserver.model;
+
+import java.util.Date;
+import java.util.HashSet;
+import java.util.Set;
+
+import javax.persistence.Column;
+import javax.persistence.Entity;
+import javax.persistence.OneToMany;
+import javax.persistence.Table;
+
+import org.hibernate.annotations.CreationTimestamp;
+
+import lombok.Data;
+import lombok.EqualsAndHashCode;
+
+@Entity
+@Table(name = "teams")
+@Data
+@EqualsAndHashCode(callSuper=false)
+public class Team extends AbstractEntity {
+  
+  @Column(name = "logo_url")
+  private String logoUrl;
+
+  @Column
+  private String name;
+
+  @Column
+  private String nationality;
+
+  @Column
+  private String since;
+
+  @Column
+  @CreationTimestamp
+  private Date createdAt;
+
+  @OneToMany(mappedBy = "team")
+  private Set<Player> players = new HashSet<>();
+  
+} 5-4 User 클래스 5-4-1 스프링 보안 인증의 편의를 위해 UserDetails를 구현하였다. 5-4-2 Role를 받아 저장하고 있다. Role GrantedAuthority를 구현하고 있다. package pe.pilseong.footballserver.model;
+
+import java.util.Collection;
+import java.util.Set;
+
+import javax.persistence.Column;
+import javax.persistence.Embedded;
+import javax.persistence.Entity;
+import javax.persistence.JoinColumn;
+import javax.persistence.JoinTable;
+import javax.persistence.ManyToMany;
+import javax.persistence.Table;
+
+import org.springframework.security.core.GrantedAuthority;
+import org.springframework.security.core.userdetails.UserDetails;
+
+import lombok.Data;
+import lombok.EqualsAndHashCode;
+
+
+@Entity
+@Table(name = "users")
+@Data
+@EqualsAndHashCode(callSuper=false)
+public class User extends AbstractEntity implements UserDetails {
+
+  private static final long serialVersionUID = 1L;
+
+  @Column
+  private String username;
+
+  @Column
+  private String password;
+
+  @Column
+  private String fullname;
+
+  @Column(name = "phone_number")
+  private String phoneNumber;
+
+  @ManyToMany
+  @JoinTable(
+    joinColumns = @JoinColumn(name = "user_id"),
+    inverseJoinColumns = @JoinColumn(name = "role_id")
+  )
+  private Set<Role> roles;
+
+  @Embedded
+  @Column
+  private Address address;
+
+  @Override
+  public Collection<? extends GrantedAuthority> getAuthorities() {
+    return this.roles;
+  }
+
+  @Override
+  public boolean isAccountNonExpired() {
+    return true;
+  }
+
+  @Override
+  public boolean isAccountNonLocked() {
+    return true;
+  }
+
+  @Override
+  public boolean isCredentialsNonExpired() {
+    return true;
+  }
+
+  @Override
+  public boolean isEnabled() {
+    return true;
+  }
+  
+} 5-5 Role 클래스 5-5-1 권한 관리 편의를 위해 GrantedAuthority를 구현하였다. 5-5-2 getAuthority 메소드 하나만 정의되어 있어 role만 반환하면 된다. package pe.pilseong.footballserver.model;
+
+import java.util.Set;
+
+import javax.persistence.Entity;
+import javax.persistence.JoinColumn;
+import javax.persistence.JoinTable;
+import javax.persistence.ManyToMany;
+import javax.persistence.Table;
+
+import org.springframework.security.core.GrantedAuthority;
+
+import lombok.EqualsAndHashCode;
+import lombok.Getter;
+import lombok.Setter;
+
+@Entity
+@Table(name = "roles")
+@Getter
+@Setter
+@EqualsAndHashCode(callSuper=false)
+public class Role extends AbstractEntity implements GrantedAuthority {
+
+  private static final long serialVersionUID = 1L;
+
+  private String name;
+
+  @ManyToMany
+  @JoinTable(
+    name = "users_roles",
+    joinColumns = @JoinColumn(name = "role_id"),
+    inverseJoinColumns = @JoinColumn(name = "user_id")
+  )
+  private Set<User> users;
+
+  @Override
+  public String getAuthority() {
+    return name;
+  }
+
+} 5-6 Address 클래스 5-6-1 어디에서 사용할 수 있도록 @Embeddable로 설정하였다. package pe.pilseong.footballserver.model;
+
+import javax.persistence.Embeddable;
+import javax.validation.constraints.NotBlank;
+
+import lombok.Data;
+
+@Embeddable
+@Data
+public class Address {
+
+  @NotBlank
+  private String street;
+
+  @NotBlank
+  private String city;
+
+  @NotBlank
+  private String state;
+
+  @NotBlank
+  private String country;
+
+}

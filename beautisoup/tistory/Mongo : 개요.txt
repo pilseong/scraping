@@ -1,0 +1,1 @@
+1. Document Oriented Database이다. 2.  Open Source이다. 3. 장점 3-1 센서데이터, 소설미디어, 광고 같은 입력용으로 적합하다. 3-2 스키마가 매우 유연하다. 4. 단점 4-1 ACID 미보장 4-2 transaction이라는 개념이 없다. lock이 없다. 4-3 update에 취약함 4-4 데이터 손실 가능성이 높다.

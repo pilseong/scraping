@@ -1,0 +1,128 @@
+1. 이 포스트는 property directive를 생성하는 방법에 대한 내용이다. 2. 설명은 ngClass directive와 동일한 기능을 가진 custom directive를 구현한다. 2-1 ngClass는 객체를 받아 값이 true일 경우 key가 class에 추가되는 directive이다. 3. 예제는 아래 pagenation 포스트의 내용을 가지고 설명한다. 4. 순서 4-1 directive 파일을 생성한다. 4-2 app.module.ts에 등록한다. 4-3 directive.ts파일을 작성한다. 4-4 사용한다. 5. directive 생성 5-1 아래 코드를 실행하면 class.directive.ts파일이 생성되고 빈 ClassDirective 클래스가 만들어진다. $ ng generate directive class 5-1-1 이 방식으로 파일을 생성하면 자동으로 app.module.ts의 declaration에 추가된다. @NgModule({
+  declarations: [
+    AppComponent,
+    ClassDirective,
+  ],
+  imports: [
+    BrowserModule,
+    NgbModule
+  ],
+  providers: [],
+  bootstrap: [AppComponent]
+})
+export class AppModule { } 5-2 빈 directive 내용 5-2-1 아무 것도 없다. @Directive로 클래스의 용도를 지정하고 있고 selector이름도 지정되어 있다. import { Directive } from '@angular/core';
+
+@Directive({
+  selector: '[appClass]'
+})
+export class ClassDirective {
+
+  constructor() { }
+
+} 6 class.directive.ts 작성 6-1 아래 사용하기를 보면 [ngClass]와 동일한 형식으로 사용하고 있음을 알 수 있다. <li class="page-item" [appClass]="{ disabled: currentPage === 0 }"> 6-2 속성 directive가 element에 적용이 되면 코드 실행 시 해당 directive 객체가 생성이 된다. 6-2-1 생성자에 해당 속성의 directive가 적용된 element는 ElementRef를 주입받아서 사용할 수 있다. 6-2-2 ElementRef는 Element에 대한 참조정보를 가지고 있고 정보를 가지고 오거나 세팅할 수 있다. 6-2-3 directive가 지정된 element에 [변수이름]="수식" 형태로 입력도 받을 수 있다. 6-2-3-1 위의 예제처럼 directive와 동일한 이름을 사용할 수 있고 @Input을 통해 매핑속성이름도 변경가능하다. 6-2-3-2 아래 식의 의미는 appClass라는 input 속성에 매핑되는 값은 classNames이라는 setter의 인자로 전달된다. @Input("appClass") set classNames(classes: any) { 6-2-4 인자로 받아온 객체는 for in 구문을 통하여 값이 true인 경우 6-2-4-1 elementRef의 실제 테그 natvieElement의 classList 배열에 추가되거나 삭제되어 실제 class에 적용된다. 6-2-4-2 for in에 적용되는 객체는 내부의 key: value 쌍을 순회하면서 실행한다는 점에 주의한다. import { Directive, ElementRef, Input } from '@angular/core';
+
+@Directive({
+  selector: '[appClass]'
+})
+export class ClassDirective {
+
+  constructor(private element: ElementRef) {}
+
+  @Input("appClass") set classNames(classes: any) {
+    for (const key in classes) {
+      if (classes[key]) {
+        this.element.nativeElement.classList.add(key)
+      } else {
+        this.element.nativeElement.classList.remove(key)
+      }
+    }
+  }
+} 7. 사용하기 7-1 아래와 같이 ngClass 대신 appClass를 사용해도 동작한다. import { Component } from '@angular/core';
+
+@Component({
+  selector: 'app-root',
+  template: `
+    <div class="container">
+      <nav>
+        <ul class="pagination">
+          <li class="page-item" [appClass]="{ disabled: currentPage === 0 }">
+            <a (click)="currentPage = currentPage - 1" class="page-link">Prev</a>
+          </li>
+          <ng-container *ngFor="let image of images; let i=index;">
+            <li [appClass]="getClass(i)" class="page-item" (click)="currentPage = i" 
+              *ngIf="checkWindowIndex(i)">
+              <a class="page-link">{{ i + 1 }}</a>
+            </li>
+          </ng-container>
+          <li class="page-item" [appClass]="{ disabled: currentPage === images.length-1 }">
+            <a class="page-link" (click)="currentPage = currentPage + 1">Next</a>
+          </li>
+        </ul>
+      </nav>
+      <div>
+        <h4 [appClass]="'green'">{{ images[currentPage].title }}</h4>
+        <img [src]="images[currentPage].url" alt="">
+      </div>
+    </div>
+  `,
+  styleUrls: ['./app.component.css']
+})
+export class AppComponent {
+
+  currentPage = 0
+
+  images = [
+    {
+      title: 'At the Beach',
+      url: 'https://images.unsplash.com/photo-1552379080-7bf7d131b129?ixlib=rb-1.2.1&ixid=eyJhcHBfaWQiOjEyMDd9&auto=format&fit=crop&w=1050&q=80'
+    },
+    {
+      title: 'At the Beach',
+      url: 'https://images.unsplash.com/photo-1475503572774-15a45e5d60b9?ixlib=rb-1.2.1&ixid=eyJhcHBfaWQiOjEyMDd9&auto=format&fit=crop&w=1050&q=80'
+    },
+    {
+      title: 'At the Beach',
+      url: 'https://images.unsplash.com/photo-1496046744122-2328018d60b6?ixlib=rb-1.2.1&ixid=eyJhcHBfaWQiOjEyMDd9&auto=format&fit=crop&w=1064&q=80'
+    },
+    {
+      title: 'At the Beach',
+      url: 'https://images.unsplash.com/photo-1502860372601-2a663136d5a2?ixlib=rb-1.2.1&ixid=eyJhcHBfaWQiOjEyMDd9&auto=format&fit=crop&w=1132&q=80'
+    },
+    {
+      title: 'At the Beach',
+      url: 'https://images.unsplash.com/photo-1552379080-7bf7d131b129?ixlib=rb-1.2.1&ixid=eyJhcHBfaWQiOjEyMDd9&auto=format&fit=crop&w=1050&q=80'
+    },
+    {
+      title: 'At the Beach',
+      url: 'https://images.unsplash.com/photo-1475503572774-15a45e5d60b9?ixlib=rb-1.2.1&ixid=eyJhcHBfaWQiOjEyMDd9&auto=format&fit=crop&w=1050&q=80'
+    },
+    {
+      title: 'At the Beach',
+      url: 'https://images.unsplash.com/photo-1496046744122-2328018d60b6?ixlib=rb-1.2.1&ixid=eyJhcHBfaWQiOjEyMDd9&auto=format&fit=crop&w=1064&q=80'
+    },
+    {
+      title: 'At the Beach',
+      url: 'https://images.unsplash.com/photo-1502860372601-2a663136d5a2?ixlib=rb-1.2.1&ixid=eyJhcHBfaWQiOjEyMDd9&auto=format&fit=crop&w=1132&q=80'
+    },
+    {
+      title: 'At the Beach',
+      url: 'https://images.unsplash.com/photo-1552379080-7bf7d131b129?ixlib=rb-1.2.1&ixid=eyJhcHBfaWQiOjEyMDd9&auto=format&fit=crop&w=1050&q=80'
+    },
+  ]
+
+  getClass(value: number): any {
+    const classes: any = {}
+
+    if (value === this.currentPage) {
+      classes.active = true
+    } else {
+      classes.active = false
+    }
+
+    return classes
+  }
+
+  checkWindowIndex(value: number): boolean {
+    return Math.floor(this.currentPage/10) === Math.floor(value/10)
+  }
+}

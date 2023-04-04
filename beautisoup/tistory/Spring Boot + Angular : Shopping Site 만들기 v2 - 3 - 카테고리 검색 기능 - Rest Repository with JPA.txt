@@ -1,0 +1,242 @@
+0. 이 포스트는 아래의 v2의 클라이언트 구현의 카테고리별 상품 검색기능에 대한 내용이다. Spring Boot + Angular : Rest Repository with JPA - Shopping Site 만들기 v2 - 2 - 클라이언트 업데이트 1. 이 포스트는 아래 링크의 업데이트 된 서비스를 Angular로 구현하는 내용이다. Spring Boot + Angular : Rest Repository with JPA - Shopping Site 만들기 v2 - 1 - 서비스 업데이트 1. 이 포스트는 아래 포.. kogle.tistory.com 1. 검색 기능을 구현하려면 어떻게 방식이라도 검색에 맞는 라우팅기능이 필요하다. 1-1 우선 라우팅 기능을 넣어줘야 한다. 1-1-1 app.module.ts 1-1-2 routes 경로를 아래처럼 설정하여 경로 선택에 따른 화면이 표시되도록 한다. 1-1-3 category 별로 검색하는 메뉴에 id 뿐 아니라 name도 있다. 이것은 메뉴이름을 표출하기 위해 추가했다. 1-1-4 RouterModule을 import하고 RouterModule을 imports에 등록할 때 초기 라우팅 테이블로 routes를 지정한다. import { BrowserModule } from '@angular/platform-browser';
+import { NgModule } from '@angular/core';
+
+import { AppComponent } from './app.component';
+import { ProductListComponent } from './components/product-list/product-list.component';
+import { NgbModule } from '@ng-bootstrap/ng-bootstrap';
+import { HttpClientModule } from '@angular/common/http';
+import { ProductCategoryMenuComponent } from './components/product-category-menu/product-category-menu.component';
+import { ProductSearchComponent } from './components/product-search/product-search.component'
+
+import { RouterModule, Routes } from '@angular/router'
+ 
+
+const routes: Routes = [
+  { path: 'category/:id/:name', component: ProductListComponent },
+  { path: 'category', component: ProductListComponent },
+  { path: 'products', component: ProductListComponent },
+  { path: '', component: ProductListComponent },
+  { path: '**', component: ProductListComponent }
+]
+
+@NgModule({
+  declarations: [
+    AppComponent,
+    ProductListComponent,
+    ProductCategoryMenuComponent,
+    ProductSearchComponent
+  ],
+  imports: [
+    BrowserModule,
+    HttpClientModule,
+    RouterModule.forRoot(routes),
+    NgbModule
+  ],
+  providers: [],
+  bootstrap: [AppComponent]
+})
+export class AppModule { } 1-2 이제 라우팅 테이블이 설정되었으니 app.component.html에 반영해주어야 한다. 1-2-1 상품리스트 컴포넌트 위치에 app-product-list 대신 router-outlet으로 변경하면 된다. 1-2-2 귀찮아서 다 붙인다. <div class="page-wrapper">
+
+	  <app-product-category-menu></app-product-category-menu>
+
+	  <!-- PAGE CONTAINER-->
+	  <div class="page-container">
+	    <!-- HEADER DESKTOP-->
+	    <header class="header-desktop">
+	      <div class="section-content section-content-p30">
+	        <div class="container-fluid">
+	          <div class="header-wrap">
+	            <app-product-search></app-product-search>
+	            <div class="cart-area d-n">
+	              <a href="shopping-detail.html">
+	                <div class="total">200.50 <span> 10</span> </div> <i class="fa fa-shopping-cart"
+	                  aria-hidden="true"></i>
+	              </a>
+	            </div>
+	          </div>
+	          <div class="account-wrap"></div>
+	        </div>
+	      </div>
+	    </header>
+	    <!-- END HEADER DESKTOP-->
+
+	    <!-- MAIN CONTENT-->
+	    <div class="main-content">
+	      <router-outlet></router-outlet>
+	    </div>
+
+	    <!-- END MAIN CONTENT-->
+
+	  </div>
+	</div>
+	<!-- END PAGE CONTAINER-->
+
+	<footer>
+	  <ul>
+	    <li><a href="#">About Us</a></li>
+	    <li><a href="#">Contact Us</a></li>
+	    <li><a href="#">Help</a></li>
+	  </ul>
+	</footer> 2 카테고리별 검색 기능 서비스 컴포넌트에 구현하기 2-1 검색하려면 먼저 product.service.ts에서 카테고리 읽어와서 메뉴부터 구성해야 한다. 서비스 기능을 추가한다. 2-1-0 ProductCategory 클래스를 REST api의 데이터와 동일하게 정의한다. export class ProductCategory {
+  id: number
+  categoryName: string
+} 2-1-1 기능이 추가 되어 baseUrl의 경로를 api 까지만으로 변경한다. 2-1-2 GetProductCategory라는 이름의 메소드를 추가하고 REST API에 적절하게 호출한다. 2-1-3 아래처럼 매핑을 위해서 GetResponseProductCategory 인터페이스를 생성한다. 2-1-4 이 인터페이스로 매핑하여 ProductCategory 배열을 받는 Observable을 반환한다. private baseUrl = "http://localhost:8080/api"
+   ...
+  
+  getProductCategory(id: string): Observable<ProductCategory[]> {
+    const targetUrl = `${this.baseUrl}/product-category/${id}`
+    return this.httpClient.get<GetResponseProductCategory>(targetUrl).pipe(
+      map(response=> response._embedded.productCategory)
+    )
+  }
+}
+
+
+interface GetResponseProductCategory {
+  _embedded: {
+    productCategory: ProductCategory[]
+  }
+} 2-2 이제 카테고리 id로 상품을 검색하는 기능을 추가한다. 2-2-0 getProductsByCategory라는 이름의 메소드를 추가하고 이전 포스팅에 있는 검색 URL을 사용하여 작성한다. 2-2-1 GetResponse 인터페이스 이름이 좀 이상하니 GetResponseProduct로 변경하여 반영하였다. getProductsByCategoryId(id: string) {
+    const targetUrl = `${this.baseUrl}/products/search/findByCategoryId?id=${id}`
+    return this.httpClient.get<GetResponseProduct>(targetUrl).pipe(
+      map(response=> response._embedded.products)
+    )
+  } 2-3 완성된 서비스의 추가 기능 코드이다. 2-3-1 getProducts와 getProductByCategoryId 모두 같은 형식의 리턴형식을 갖고 있기 때문에 따로 분리했다. import { Injectable } from '@angular/core';
+import { HttpClient } from '@angular/common/http';
+import { Product } from '../common/product';
+import { Observable } from 'rxjs';
+import { map } from 'rxjs/operators'
+import { ProductCategory } from '../common/product-category';
+
+@Injectable({
+  providedIn: 'root'
+})
+export class ProductService {
+
+  private baseUrl = "http://localhost:8080/api"
+
+  constructor(private httpClient: HttpClient) { }
+
+  getProuducts(): Observable<Product[]> {
+    const targetUrl = `${this.baseUrl}/products`
+    
+    return this.getProductList(targetUrl)
+  }
+
+  getProductsByCategoryId(id: string) {
+    const targetUrl = `${this.baseUrl}/products/search/findByCategoryId?id=${id}`
+    
+    return this.getProductList(targetUrl)
+  }
+
+  private getProductList(targetUrl: string) {
+    return this.httpClient.get<GetResponseProduct>(targetUrl).pipe(
+      map(response => response._embedded.products)
+    );
+  }
+
+  getProductCategory(): Observable<ProductCategory[]> {
+    const targetUrl = `${this.baseUrl}/product-category`
+    return this.httpClient.get<GetResponseProductCategory>(targetUrl).pipe(
+      map(response=> response._embedded.productCategory)
+    )
+  }
+}
+
+interface GetResponseProduct {
+  _embedded: {
+    products: Product[]
+  }
+}
+
+interface GetResponseProductCategory {
+  _embedded: {
+    productCategory: ProductCategory[]
+  }
+} 3. 메뉴에 카테고리 표출하기 3-1 이제 카테고리를 가지고 오는 기능이 있으니 그것을 사용하여 적용한다. 3-2 product-category-menu.component.ts에서 카테고리 정보를 가지고 온다. 3-2-1 ProductService를 주입받아서 getProductCategory 메소드를 사용하였다. import { Component, OnInit } from '@angular/core';
+import { ProductCategory } from 'src/app/common/product-category';
+import { ProductService } from 'src/app/services/product.service';
+
+@Component({
+  selector: 'app-product-category-menu',
+  templateUrl: './product-category-menu.component.html',
+  styleUrls: ['./product-category-menu.component.css']
+})
+export class ProductCategoryMenuComponent implements OnInit {
+
+  productCategories: ProductCategory[] = []
+
+  constructor(private productService: ProductService) { }
+
+  ngOnInit(): void {
+    this.productService.getProductCategory().subscribe(
+      data=> this.productCategories = data
+    )
+  }
+} 3-3 product-category-menu.component.html에서 가져온 메뉴를 표출한다. 3-3-1 중요한 부분은 a 테그의 routerLink 속성으로 경로를 지정하는 부분이다. 3-3-1-1 경로에 name은 선택된 메뉴이름을 표기하기 위한 추가 정보를 전달한다. 3-3-2 routerLink로 지정해야 refresh없이 DOM 조작으로 처리하게 된다. 3-3-3 routerLinkActive는 active되는 경우에 지정되는 class를 명시할 수 있다. 3-3-3-1 active-link는 styles.css에 있는 class인데 싫으면 font-weight-bold bootstrap class를 써도 된다. <!-- MENU SIDEBAR-->
+ <aside class="menu-sidebar d-none d-lg-block">
+   <div class="logo">
+     <a href="http://localhost:4200">
+       <i class="fas fa-gifts"></i><span class="font-weight-bold text-dark"> DEMOSHOP</span>
+     </a>
+   </div>
+   <div class="menu-sidebar-content js-scrollbar1">
+     <nav class="navbar-sidebar">
+       <ul class="list-unstyled navbar-list">
+         <li *ngFor="let category of productCategories">
+           <a routerLink="/category/{{category.id}}/{{category.categoryName}}" 
+            routerLinkActive="active-link">{{ category.categoryName }}</a>
+         </li>
+       </ul>
+     </nav>
+   </div>
+ </aside>
+ <!-- END MENU SIDEBAR--> 4. 선택된 카테고리 정보로 상품 검색정보 표출하기 4-0 기능 작성에 앞서 서비스에서 id를 표출하도록 수정하였으니 클라이언트의 Product 클래스도 수정해야 한다. export class Product {
+  id: string
+  code: string
+  name: string
+  description: string
+  unitPrice: number
+  imageUrl: string
+  active: boolean
+  unitsInStock: number
+  dateCreated: Date
+  lastUpdated: Date
+} 4-1 이제 카테고리를 선택하면 페이지 URL이 변경된다. 4-2 이 페이지 URL의 category id를 가지고 ProductListComponent에서 필터링을 수행한다. 4-2-1 아래와 같은 형식의 URL을 가지고 있다. http://localhost:4200/category/2/Coffee%20Mugs 4-3 product-list.component.ts에서 url을 받기 위해서는 ActivatedRoute를 주입받아야 한다. 4-3-1 생성자를 통해 ActivtedRoute를 주입받고 4-3-2 초기화 메소드 ngOnInit에서 경로변화를 감지하기 위해 route.paramMap에 subscribe한다. 4-3-3 route가 변경될 때 마다 getProducts가 실행된다. 4-3-4 경로에 id가 있으면 그 값을 가지고 제품 검색을 하고 화면에 표출할 이름도 받는다. 4-3-5 id가 없는 경우는 category  id 1로 검색하고 그 값도 Books라는 초기값을 사용한다. import { Component, OnInit } from '@angular/core';
+import { Product } from 'src/app/common/product';
+import { ProductService } from 'src/app/services/product.service';
+import { ActivatedRoute } from '@angular/router';
+
+@Component({
+  selector: 'app-product-list',
+  templateUrl: './product-list.component.html',
+  styleUrls: ['./product-list.component.css']
+})
+export class ProductListComponent implements OnInit {
+
+  products: Product[]
+
+  currentCategoryId: string;
+  currentCategoryName: string;
+
+  constructor(private productService: ProductService, private route: ActivatedRoute) { }
+
+  ngOnInit(): void {
+    this.route.paramMap.subscribe(
+      ()=> this.getProducts()
+    )
+  }
+
+  private getProducts() {
+    if (this.route.snapshot.paramMap.has("id")) {
+      this.currentCategoryId = this.route.snapshot.paramMap.get("id")
+      this.currentCategoryName = this.route.snapshot.paramMap.get("name")
+    } else {
+      this.currentCategoryId = "1"
+      this.currentCategoryName = "Books"
+    }
+    this.productService.getProductsByCategoryId(this.currentCategoryId).subscribe(
+      data => this.products = data
+    );
+  }
+} 5. 결과화면

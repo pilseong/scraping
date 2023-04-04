@@ -1,0 +1,298 @@
+1. Spring REST Docs는 스프링에서 지원하는 공식 documentatino라이브러리이다. 1-1 이 라이브러리의 장점은 테스트코드를 작성하면서 동시에 문서를 작성할 수 있다는 점이다. 1-2 즉 테스트를 실패하는 경우 문서도 다시 작성해야 하는 문제를 해결해 준다. 2. 절차 2-1 우선 아래 의존성을 추가한다. 이것은 webflux, restAssured를 사용할 때는 해당 의존성을 추가해야 한다. 2-2 asciidoctor-maven-plugin을 추가한다. 이것은 각 테스트 코드에서 설정한 정보를 snippet이라는 것으로 저정한다. 2-3 maven-resources-plugin은 특정 폴더의 데이터를 특정 폴더로 복사하는 단순한 기능을 한다. 2-3-1 snippet이 생성되는 target/gendrated-docs의 파일을 최종 jar에 포함되도록 static/docs에 복사한다. 2-3-2 이 과정은 snippet이 생성된 후에 실해되어야 하므로 반드시 aciidoctor-maven-plugin 뒤에 위치해야 한다. <dependency>
+      <groupId>org.springframework.restdocs</groupId>
+      <artifactId>spring-restdocs-mockmvc</artifactId>
+      <version>${spring-restdocs.version}</version>
+      <scope>test</scope>
+    </dependency>
+  
+  ...
+  <build>
+    <plugins>
+      <plugin>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-maven-plugin</artifactId>
+      </plugin>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-compiler-plugin</artifactId>
+        <version>3.8.1</version>
+        <configuration>
+          <annotationProcessorPaths>
+            <path>
+              <groupId>org.mapstruct</groupId>
+              <artifactId>mapstruct-processor</artifactId>
+              <version>${mapstruct.version}</version>
+            </path>
+            <path>
+              <groupId>org.projectlombok</groupId>
+              <artifactId>lombok</artifactId>
+              <version>${lombok.version}</version>
+            </path>
+          </annotationProcessorPaths>
+          <compilerArgs>
+            <compilerArg>
+              -Amapstruct.defaultComponentModel=spring
+            </compilerArg>
+          </compilerArgs>
+        </configuration>
+      </plugin>
+      <plugin>
+        <groupId>org.asciidoctor</groupId>
+        <artifactId>asciidoctor-maven-plugin</artifactId>
+        <version>2.0.0</version>
+        <executions>
+          <execution>
+            <id>generate-docs</id>
+            <phase>prepare-package</phase>
+            <goals>
+              <goal>process-asciidoc</goal>
+            </goals>
+            <configuration>
+              <backend>html</backend>
+              <doctype>book</doctype>
+            </configuration>
+          </execution>
+        </executions>
+        <dependencies>
+          <dependency>
+            <groupId>org.springframework.restdocs</groupId>
+            <artifactId>spring-restdocs-asciidoctor</artifactId>
+            <version>${spring-restdocs.version}</version>
+          </dependency>
+        </dependencies>
+      </plugin>
+      <plugin>
+        <artifactId>maven-resources-plugin</artifactId>
+        <version>2.7</version>
+        <executions>
+          <execution>
+            <id>copy-resources</id>
+            <phase>prepare-package</phase>
+            <goals>
+              <goal>copy-resources</goal>
+            </goals>
+            <configuration>
+              <outputDirectory>
+                ${project.build.outputDirectory}/static/docs
+              </outputDirectory>
+              <resources>
+                <resource>
+                  <directory>
+                    ${project.build.directory}/generated-docs
+                  </directory>
+                </resource>
+              </resources>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
+    </plugins>
+  </build> 2-4 위 과정으로 생성된 snippet들은 최종 결과물에 참조되어 사용되는데 그 template을 main/asciidoc에 만든다. = Brewery Order Service Docs
+pilseong;
+:doctype: book
+:icons: font
+:source-highlighter: highlightjs
+
+Sample application demonstrating how to use Spring REST Docs with JUnit 5.
+
+`BeerOrderControllerTest` makes a call to a very simple service and produces three
+documentation snippets.
+
+GET BEER
+
+One showing how to make a request using cURL:
+
+include::{snippets}/v1/beers-get/curl-request.adoc[]
+
+One showing the HTTP request:
+
+include::{snippets}/v1/beers-get/http-request.adoc[]
+
+And one showing the HTTP response:
+
+include::{snippets}/v1/beers-get/http-response.adoc[]
+
+Response Body:
+include::{snippets}/v1/beers-get/response-body.adoc[]
+
+Response Fields:
+include::{snippets}/v1/beers-get/response-fields.adoc[]
+
+NEW BEER
+
+One showing how to make a request using cURL:
+
+include::{snippets}/v1/beers-new/curl-request.adoc[]
+
+One showing the HTTP request:
+
+include::{snippets}/v1/beers-new/http-request.adoc[]
+
+And one showing the HTTP response:
+
+include::{snippets}/v1/beers-new/http-response.adoc[]
+
+Response Body:
+include::{snippets}/v1/beers-new/response-body.adoc[]
+
+Request Fields
+include::{snippets}/v1/beers-new/request-fields.adoc[]
+
+Response Fields:
+include::{snippets} 2-4-1 예시로 index.adoc 파일로 아래를 보면 include를 통해 target/generated-snippets 아래에 있는 것들을 참조 2-4-2 위의 generated-snippets의 생성하는 실제 코드를 보면 각 테스트의 andDo의 document메소드로 입력된다. 2-4-3 아래 코드를 보면 @ ExtendWith ( RestDocumentationExtension . class )를 클래스에 지정하고 있다. 2-4-4 @ AutoConfigureRestDocs ( uriScheme = "https" , uriPort = 80 ) REST docs의 환경설정 기본값을 지정한다. package pe.pilseong.sfgrestdocs.web.controller;
+
+import static org.mockito.ArgumentMatchers.any;
+
+import java.math.BigDecimal;
+import java.util.Optional;
+import java.util.UUID;
+
+import com.fasterxml.jackson.databind.ObjectMapper;
+
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.BDDMockito;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.autoconfigure.restdocs.AutoConfigureRestDocs;
+import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
+import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.context.annotation.ComponentScan;
+import org.springframework.http.MediaType;
+import org.springframework.restdocs.RestDocumentationExtension;
+import org.springframework.restdocs.constraints.ConstraintDescriptions;
+import org.springframework.restdocs.payload.FieldDescriptor;
+import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.util.StringUtils;
+
+// import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
+import static org.springframework.restdocs.snippet.Attributes.*;
+import static org.springframework.restdocs.payload.PayloadDocumentation.*;
+import static org.springframework.restdocs.request.RequestDocumentation.*;
+import static org.springframework.restdocs.mockmvc.MockMvcRestDocumentation.*;
+import static org.springframework.restdocs.mockmvc.RestDocumentationRequestBuilders.*;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
+
+import pe.pilseong.sfgrestdocs.domain.Beer;
+import pe.pilseong.sfgrestdocs.model.BeerDto;
+import pe.pilseong.sfgrestdocs.model.BeerStyleEnum;
+import pe.pilseong.sfgrestdocs.repository.BeerRepository;
+
+@ExtendWith(RestDocumentationExtension.class)
+@AutoConfigureRestDocs(uriScheme = "https", uriPort = 80)
+@WebMvcTest(BeerController.class)
+@ComponentScan(basePackages = "pe.pilseong.sfgrestdocs.web.mapper")
+class BeerControllerTest {
+
+  @Autowired
+  MockMvc mockMvc;
+
+  @Autowired
+  ObjectMapper objectMapper;
+
+  @MockBean
+  BeerRepository beerRepository;
+
+	BeerDto validBeer;
+
+  @BeforeEach
+	void setUp() {
+		this.validBeer = BeerDto.builder()
+			.beerName("San Miguel")
+			.beerStyle(BeerStyleEnum.PILSNER)
+			.upc(123123123L)
+			.price(new BigDecimal(100))
+			.build();
+	}
+
+
+  @Test
+  void getBeerById() throws Exception {
+    BDDMockito.given(beerRepository.findById(any(UUID.class))).willReturn(Optional.of(Beer.builder().build()));
+
+    // with restdoc , I have to include beerid placeholder
+    mockMvc.perform(get("/api/v1/beers/{beerId}", UUID.randomUUID().toString())
+        .param("iscold", "yes")
+        .accept(MediaType.APPLICATION_JSON))
+      .andExpect(status().isOk())
+      .andDo(document("v1/beers-get", 
+        pathParameters(
+          parameterWithName("beerId").description("UUID of desired beer to get.")
+        ),
+        requestParameters(
+          parameterWithName("iscold").description("Is Beer Cold Query param")
+        ),
+        responseFields(
+          fieldWithPath("id").type("UUID").description("Id of beer"),
+          fieldWithPath("version").type("Long").description("Version number"),
+          fieldWithPath("createdDate").type("OffsetDateTime").description("Date Created"),
+          fieldWithPath("lastModifiedDate").type("OffsetDateTime").description("Date Updated"),
+          fieldWithPath("beerName").type("String").description("Beer Name"),
+          fieldWithPath("beerStyle").type("BeerStyleEnum").description("Beer Style"),
+          fieldWithPath("upc").type("Long").description("UPC of Beer"),
+          fieldWithPath("price").type("BigDecimal").description("Price"),
+          fieldWithPath("quantityOnHand").type("Integer").description("Quantity On Hand")
+        )));      
+  }
+
+  @Test
+	void saveBeer() throws Exception {
+		BeerDto beerDto = validBeer;
+		String beerDtoJson = objectMapper.writeValueAsString(beerDto);
+
+    ConstrainedFields fields = new ConstrainedFields(BeerDto.class);
+
+		mockMvc.perform(post("/api/v1/beers/")
+				.contentType(MediaType.APPLICATION_JSON)
+				.content(beerDtoJson))
+      .andExpect(status().isCreated())
+      .andDo(document("v1/beers-new",
+        requestFields(
+          fields.withPath("id").ignored(),
+          fields.withPath("version").ignored(),
+          fields.withPath("createdDate").ignored(),
+          fields.withPath("lastModifiedDate").ignored(),
+          fields.withPath("beerName").description("Beer Name"),
+          fields.withPath("beerStyle").description("Beer Style"),
+          fields.withPath("upc").description("UPC of Beer"),
+          fields.withPath("price").description("Price"),
+          fields.withPath("quantityOnHand").ignored()
+          // fieldWithPath("id").ignored(),
+          // fieldWithPath("version").ignored(),
+          // fieldWithPath("createdDate").ignored(),
+          // fieldWithPath("lastModifiedDate").ignored(),
+          // fieldWithPath("beerName").description("Beer Name"),
+          // fieldWithPath("beerStyle").description("Beer Style"),
+          // fieldWithPath("upc").description("UPC of Beer"),
+          // fieldWithPath("price").description("Price"),
+          // fieldWithPath("quantityOnHand").ignored()
+        )));     
+	}
+	
+	@Test
+	void updateBeerId() throws Exception {
+		BeerDto beerDto = validBeer;
+		String beerDtoJson = objectMapper.writeValueAsString(beerDto);
+
+		mockMvc.perform(put("/api/v1/beers/"+UUID.randomUUID().toString())
+				.contentType(MediaType.APPLICATION_JSON)
+				.content(beerDtoJson))
+			.andExpect(status().isNoContent());
+  }
+  
+  private static class ConstrainedFields {
+    private final ConstraintDescriptions constraintDescriptions;
+
+    ConstrainedFields(Class<?> input) {
+      this.constraintDescriptions = new ConstraintDescriptions(input);
+    }
+
+    private FieldDescriptor withPath(String path) {
+      return fieldWithPath(path)
+      .attributes(key("constraints")
+      .value(StringUtils.collectionToDelimitedString(
+        this.constraintDescriptions.descriptionsForProperty(path), ". ")));
+    }
+  }  
+
+} 3. 결과로 나온 generated-docs의 index.html 문서이다. index.html 0.04MB 3-1  앞부분의 일부이다. 4. 결론은 직관적이지 않고 어렵다. 워낙 기능이 많아서 정신이 없지만 상당히 유용한 기능임은 틀림 없다. 4-1 쓰면서 조금씩 확장하는 게 바람직한 학습인 것 같다. documentation을 보다가 질려서 덮었다 .ㅎㅎ

@@ -1,0 +1,88 @@
+1. 이 포스트는 Spring : Web MVC + Security + JDBC 시리즈에 연장이다. xml파일 설정은 사용하지 않는다. 1-1 하려는 것은 우선 in-memory로 인증을 구현한다. - 존나 쉽다. 1-2 Database를 생성하고 hibernate로 유저 등록을 구현한다. 1-3 가입정보에 대한 Validation처리를 작성한다. Customer Validatior로 구현한다. 이 포스트 내용 1-4 In-memory가 아닌 DaoAuthenticationProvider로 hibernate를 사용한 Spring security 인증처리로 변경 1-5 위에 것을 한번에 다 할려면 난이도가 헬이라서 이렇게 분리해서 한다. 2. 이 포스트에는 Validation 설정에 대해서 다룬다. 2-0 포스팅의 주요내용은 검증로직 기본 설정하는 부분이다. @NotNull 검증을 추가한다. 2-1 지난 포스트까지는 유저가 가입 정보를 넣고 가입하기 버튼을 누르면 정보가 데이터베이스에 검증없이 저장된다. 2-2 이 포스트 내용적용 후에는 사용자가 전송한 내용을 먼저 검증한 후 통과한 경우에만 내부 처리를 한다. 3. 검증 라이브러리를 추가한다. 3-1 HIbernate Validator를 사용한다. <!-- Form Validation -->
+<dependency>
+	<groupId>org.hibernate</groupId>
+	<artifactId>hibernate-validator</artifactId>
+	<version>6.1.5.Final</version>
+</dependency> 3. 우선 모든 필드를 필수로 하고 공백을 허용하지 않는 것으로 설정한다. 3-0 무슨 말인지 모르겠다면 https://kogle.tistory.com/13 2번 항목을 참고한다. 3-1 DTO 클래스의 검증을 원하는 모든 필드에 @NotNull로 수식한다. package pe.pilseong.custom_registration.user;
+
+
+import javax.validation.constraints.NotNull;
+
+import lombok.Data;
+
+@Data
+public class UserDTO {
+  
+  @NotNull
+  private String userName;
+  
+  @NotNull
+  private String password;
+  
+  @NotNull
+  private String matchingPassword;
+  
+  @NotNull
+  private String firstName;
+  
+  @NotNull
+  private String lastName;
+  
+  @NotNull
+  private String email;
+} 3-2 가입처리 검증을 위해 Controller에 @ModelAttribute 객체에 @Valid를 지정하고 BindingResult를 받아온다. 3-2-1 BindingResult 객체로 검증유무를 확인하고 적절한 처리를 한다. @PostMapping("/registerUser")
+  public String registerUser(@Valid @ModelAttribute("user") UserDTO userDTO, 
+  	BindingResult result) {
+  
+    if (result.hasErrors()) {
+      return "registration-form";
+    }
+    
+    if (this.userService.findByUserName(userDTO.getUserName()) != null) {
+      return "registration-form";
+    }
+    
+    this.userService.save(userDTO);
+    return "redirect:/showLoginPage";
+  } 3-3 Controller에서 공백입력 시 null로 변환해 주는 StringTrimmerEditor를 DataBinder에 추가한다. 3-3-1 이렇게 공백을 null바꾸지 않으면 @NotNull은 동작할 수 없다. @InitBinder
+  public void initBinder(WebDataBinder dataBinder) {
+    StringTrimmerEditor stringTrimmerEditor = new StringTrimmerEditor(true);
+    dataBinder.registerCustomEditor(String.class, stringTrimmerEditor);
+  } 3-4 마지막으로 jsp에서 에러 발생 시에 출력해 주는 부분을 작성한다. 3-4-1 각 속성마다 form:errors테그 사용하여 에러를 표출해 준다. <div class="container">
+    <div class="card" style="width: 350px; margin-left: auto; margin-right: auto; border: none;">
+      <h1 class="display-4">Registration</h1>
+      <form:form action="${pageContext.request.contextPath}/registerUser" method="POST" modelAttribute="user">
+        <div class="form-group">
+          <label for="username">Username</label> 
+          <form:input type="text" id="username" name="userName" class="form-control" path="userName"/>
+          <form:errors path="userName" cssClass="text-danger"></form:errors>
+        </div>
+        <div class="form-group">
+          <label for="password">Password</label>
+          <form:input type="password" id="password" name="password" class="form-control" path="password" />
+          <form:errors path="password" cssClass="text-danger"></form:errors>
+        </div>  
+        <div class="form-group">
+          <label for="matchingPassword">Confirm Password</label>
+          <form:input type="password" id="matchingPassword" name="matchingPassword" class="form-control" path="matchingPassword"/>
+          <form:errors path="matchingPassword" cssClass="text-danger"></form:errors>
+        </div>  
+        <div class="form-group">
+          <label for="firstName">First Name</label>
+          <form:input type="text" id="firstName" name="firstName" class="form-control" path="firstName"/>
+          <form:errors path="firstName" cssClass="text-danger"></form:errors>
+        </div>  
+        <div class="form-group">
+          <label for="lastName">Last Name</label>
+          <form:input type="text" id="lastName" name="lastName" class="form-control" path="lastName"/>
+          <form:errors path="lastName" cssClass="text-danger"></form:errors>
+        </div>  
+        <div class="form-group">
+          <label for="email">Email</label>
+          <form:input type="email" id="email" name="email" class="form-control" path="email" />
+          <form:errors path="email" cssClass="text-danger"></form:errors>
+        </div>  
+        <input type="submit" value="Register" class="btn btn-primary">
+      </form:form>
+    </div>
+  </div> 3-4-2 결과화면 4. 이 포스트에서 한 것 4-1 입력 정보 검증에 대한 세팅을 하였다. 4-2 입력 정보가 비어있는 것을 허용하지 않는 검증을 설정하였다.

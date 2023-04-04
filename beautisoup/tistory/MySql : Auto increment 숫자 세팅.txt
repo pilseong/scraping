@@ -1,0 +1,1 @@
+1. 아래 DDL을 사용하면 auto increment가 3000부터 시작하게 된다. 1-1 ALTER TABLE student AUTO_INCREMENT=3000 2. 만약 1부터 다시 시작하고 싶다면 2-1 TRUNCATE TABLE student를 실행하여 모든 데이터를 날려버리면 된다. 2-2 delete query로는 auto increment가 초기화 되지 않는다.

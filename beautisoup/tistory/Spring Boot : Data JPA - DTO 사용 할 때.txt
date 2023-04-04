@@ -1,0 +1,82 @@
+1. DTO는 편의 상 사용하는 유사 Entity객체이다. 1-1 일반적인 경우에는 Entity를 그대로 받아 @ModelAttribute로 처리한다. 1-2 DTO역시 동일한 방식으로 @ModeAttribute로 객체를 구성할 수 있다. 2. 보통 Entity의 일부분을 받거나 update 용도로 Entity와는 구조가 다른 데이터를 받는 경우에 DTO를 사용한다. 2-1 사용방법은 거의 Entity객체와 동일하고 보통 이름에 suffix로 Request를 붙이는 경우가 많다. 2-2 DTO를 사용할 경우 보통 로직처리는 별도의 Service 객체를 만들어서 처리한다. 3. 아래 코드는 서비스에서 DTO를 받아서 승객 Entity와 예약 Entity를 생성하고 데이터베이스에 저장하는 예제이다. package pe.pilseong.flightreservation.dto;
+
+import lombok.Data;
+
+@Data
+public class ReservationRequest {
+  
+  private Long flightId;
+  
+  private String passengerFirstName;
+  
+  private String passengerLastName;
+  
+  private String passengerEmail;
+  
+  private String passengerPhone;
+  
+  private String nameOnTheCard;
+  
+  private String cardNumber;
+  
+  private String expirationDate;
+  
+  private String securityCode;
+
+}
+
+
+
+package pe.pilseong.flightreservation.dto;
+
+import lombok.Data;
+
+@Data
+public class ReservationUpdateRequest {
+  
+  private Long id;
+  
+  private Boolean checkedIn;
+  
+  private int numberOfBags;
+
+}
+
+
+// 서버스 클래스 예제
+@Service
+public class ReservationServiceImpl implements ReservationService {
+
+  
+  @Autowired
+  private FlightRepository flightRepository;
+  
+  @Autowired
+  private ReservationRepository reservationRepository;
+  
+  @Autowired
+  private PassengerRepository passengerRepository;
+  
+  @Override
+  public Reservation bookFlight(ReservationRequest request) {
+    // make payment logic - card or cash etc.
+    
+    Long flightId = request.getFlightId();
+    Flight flight = this.flightRepository.findById(flightId).get();
+    
+    Passenger passenger = new Passenger();
+    passenger.setFirstName(request.getPassengerFirstName());
+    passenger.setLastName(request.getPassengerLastName());
+    passenger.setEmail(request.getPassengerEmail());
+    passenger.setPhone(request.getPassengerPhone());
+    
+    Passenger savedPassenger = this.passengerRepository.save(passenger); 
+    
+    Reservation reservation = new Reservation();
+    reservation.setFlight(flight);
+    reservation.setPassenger(savedPassenger);
+    reservation.setCheckedIn(false);
+    
+    return this.reservationRepository.save(reservation);
+  }
+}

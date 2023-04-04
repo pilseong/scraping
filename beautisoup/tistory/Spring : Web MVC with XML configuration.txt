@@ -1,0 +1,100 @@
+0. 스프링 Web MVC를 사용하기 위해서 필요한 모듈이 있다. 0-1 spring-core, spring-context (스프링을 사용하기 위한 기본적인 모듈이다.) 0-2 spring-web-mvc (사실 core, context를 모두 포함하고 있다.) 0-3 servlet, jsp, jstl 0-3-1 jstl 모듈은 jstl-api나 jsp-api 모듈이 아니다. jstl 모듈은 jstl-api + tag lib를 포함한다. <dependency>
+	<groupId>javax.servlet</groupId>
+	<artifactId>jstl</artifactId>
+	<version>1.2</version>
+</dependency>
+
+<!-- https://mvnrepository.com/artifact/javax.servlet.jsp/javax.servlet.jsp-api -->
+<dependency>
+	<groupId>javax.servlet.jsp</groupId>
+	<artifactId>javax.servlet.jsp-api</artifactId>
+	<version>2.3.3</version>
+	<scope>provided</scope>
+</dependency>
+
+<!-- https://mvnrepository.com/artifact/javax.servlet/javax.servlet-api -->
+<dependency>
+	<groupId>javax.servlet</groupId>
+	<artifactId>javax.servlet-api</artifactId>
+	<version>4.0.1</version>
+	<scope>provided</scope>
+</dependency> 0-4 만약 프로젝트 생성을 maven archetype으로 하는 경우는 0-4-0 서블릿 버전을 3.1이후로 잡아야 모든 기능이 사용가능 0-4-0-1 프로젝트 폴더의 .settings 폴더 내의 org.eclipse.wst.common.project.facet.core.xml 을 연다 0-4-0-2 jst.web version 속성을 찾아서 3.1버전 이후를 지정해야 한다. 0-4-0-3 버전은 maven에서 import할 서블릿 버전과 당연히 일치시켜야 한다. <?xml version="1.0" encoding="UTF-8"?>
+<faceted-project>
+  <fixed facet="wst.jsdt.web"/>
+  <installed facet="jst.web" version="4.0"/>
+  <installed facet="wst.jsdt.web" version="1.0"/>
+  <installed facet="java" version="11"/>
+</faceted-project> 1. 스프링 Web MVC를 사용하려면 XML설정 파일 두 개가 필요하다. 1-0 이건 그냥 붙여야 한다. 가장 짜증나는 부분이라 타이핑 할 생각을 절대하지 마라. 시간낭비다. 1-1 아래의 설정파일은 Dispatcher Servlet을 생성하고 기본 설정하는 부분이다. 1-1-1 servlet 테그는 DispatcherServlet을 설정한다. 1-1-2 servlet-mapping테그는 생성한 서블릿을 사용하는 부분이다. 1-2 web.xml 버전은 3.1 이후의 버전을 사용해야 jstl 기능을 모두 활용할 수 있다. 1-2-1 schemaLocation에 연결하는 xsi 버전을 변경이 필요할 경우가 있다. <?xml version="1.0" encoding="UTF-8"?>
+<web-app xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xmlns="http://xmlns.jcp.org/xml/ns/javaee"
+	xsi:schemaLocation="http://xmlns.jcp.org/xml/ns/javaee http://xmlns.jcp.org/xml/ns/javaee/web-app_4_0.xsd"
+	id="WebApp_ID" version="4.0">
+
+	<display-name>spring-mvc-demo</display-name>
+
+	<absolute-ordering />
+
+	<!-- Spring MVC Configs -->
+
+	<!-- Step 1: Configure Spring MVC Dispatcher Servlet -->
+	<servlet>
+		<servlet-name>dispatcher</servlet-name>
+		<servlet-class>org.springframework.web.servlet.DispatcherServlet</servlet-class>
+		<init-param>
+			<param-name>contextConfigLocation</param-name>
+			<param-value>/WEB-INF/spring-mvc-demo-servlet.xml</param-value>
+		</init-param>
+		<load-on-startup>1</load-on-startup>
+	</servlet>
+
+	<!-- Step 2: Set up URL mapping for Spring MVC Dispatcher Servlet -->
+	<servlet-mapping>
+		<servlet-name>dispatcher</servlet-name>
+		<url-pattern>/</url-pattern>
+	</servlet-mapping>
+	
+</web-app> 2-2 DispatcherServlet를 설정하기 위한 xml파일 생성이 필요하다. 2-2-1 spring-mvc-servlet.xml 이런 식으로 이름을 붙이면 된다. 2-2-2 이 설정파일에는 스프링에 대한 초기화 설정이 들어간다. 2-3 설정파일의 예시이다. 2-3-1 아래의 경우는 컴포넌트 스캔기능, annotation 사용기능, ViewResolver 생성하는 부분이 들어 있다. <?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" 
+	xmlns:context="http://www.springframework.org/schema/context"
+	xmlns:mvc="http://www.springframework.org/schema/mvc"
+	xsi:schemaLocation="
+		http://www.springframework.org/schema/beans
+    	http://www.springframework.org/schema/beans/spring-beans.xsd
+    	http://www.springframework.org/schema/context
+    	http://www.springframework.org/schema/context/spring-context.xsd
+    	http://www.springframework.org/schema/mvc
+        http://www.springframework.org/schema/mvc/spring-mvc.xsd">
+
+	<!-- Step 3: Add support for component scanning -->
+	<context:component-scan base-package="pe.pilseong.springmvc" />
+
+	<!-- Step 4: Add support for conversion, formatting and validation support -->
+	<mvc:annotation-driven/>
+
+	<!-- Step 5: Define Spring MVC view resolver -->
+	<bean
+		class="org.springframework.web.servlet.view.InternalResourceViewResolver">
+		<property name="prefix" value="/WEB-INF/view/" />
+		<property name="suffix" value=".jsp" />
+	</bean>
+
+</beans> 3. Dispatcher Servlet 설정파일에 스프링 사용을 위한 설정이 들어 있다. 3-0 Web MVC @Controller annotation을 사용하려면 다음 처럼 설정해야 한다. 3-0-1 기본적인 스프링 XML 설정과 동일하게 component-scan를 설정한다. 3-0-2 Controller 클래스를 생성하고 Component로 등록하면 자동으로 인식된다. 3-0-3 WebMVC에서는 보통 @Component를 상속하는 @Controller를 클래스 정의에 붙여 준다. package pe.pilseong.springmvc.controller;
+
+import org.springframework.stereotype.Controller;
+import org.springframework.web.bind.annotation.GetMapping;
+
+@Controller
+public class HomeController {
+  
+  @GetMapping("/")
+  public String home() {
+    return "home";
+  }
+} 4. maven archetype으로 생성한 경우 controller에 '/'를 매핑할 경우 제대로 route가 안잡히는 것 같은 경우가 있다. 3-1. 이 경우는 보통 index.jsp가 기본 생성되어 우선 순위가 높은 index.jsp가 선택되는 경우이다. 3-1-1 위치는 WEB-INF 폴더 아래에 index.jsp 파일이다. 3-2. index.jsp를 삭제하거나 이름을 변경하면 정상적으로 동작한다. 5. 주제과 상관없는 이야기 이지만 jsp에서 get 메소드의 request parameter를 jstl로 접근하는 방법이다. 5-0. 실용성은 거의 없지만, Model 객체를 생성할 필요없이 간단하 페이지 처리에서 사용할 수 있다. 5-1. ${ param.requestParamName }  방식으로 접근할 수 있다. 아래코드 참조 url : http://localhost:8080/springmvc/processForm?studentName=noel
+  
+  <div class="container">
+    <h1>Hello World of Spring!!!</h1>
+    
+    <h3>Student name: ${ param.studentName }</h2>
+  </div>

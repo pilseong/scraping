@@ -1,0 +1,125 @@
+1. Jackson은 Json과 xml을 자바 객체와 상호 변환해 주는 라이브러리이다. 1-1 내부적으로 자바 클래스의 setter/getter를 호출하여 값을 할당해 준다. 1-2 따라서 클래스 setter/getter를 반드시 작성해야 한다. 2. 라이브러리는 아래의 구문으로 추가할 수 있다. <dependency>
+	<groupId>com.fasterxml.jackson.core</groupId>
+	<artifactId>jackson-databind</artifactId>
+	<version>2.11.0</version>
+</dependency> 2-1 이 라이브러리를 사용하는 간단한 포스트이다. 2-1-1 아래 내용을 프로젝트 루트의 data/simple.json이라고 저장하고 {
+  "id": 14,
+  "firstName":"pilseong",
+  "lastName": "Heo",
+  "active": true,
+  "address": {
+    "street": "7 lucky seven street",
+    "city": "Seongnam",
+    "state": "Kyounggi",
+    "zip": 13258,
+    "country": "Korea"
+  },
+  "languages": ["Java", "JavaScript", "TypeScript"],
+} 2-1-2 위 json을 받을 수 있는 POJO클래스를 작성한다. package pe.pilseong.jacksontest;
+
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+@Data
+public class Student {
+  
+  private int id;
+  
+  private String firstName;
+  
+  private String lastName;
+  
+  private boolean active;
+  
+  private Address address;
+  
+  private String[] languages;
+}
+
+
+package pe.pilseong.jacksontest;
+
+import lombok.Data;
+
+@Data
+public class Address {
+
+  private String street;
+  
+  private String city;
+  
+  private String state;
+  
+  private int zip;
+  
+  private String country;
+} 2-1-3 아래는 실행할 메인 클래스이다. 2-1-3-1 jackson의 ObjectMapper를 받아와 json이 저장된 파일을 읽어와 Student객체로 변환한다. 2-1-3-2 중요한 점은 자바 클래스와 수신 받는 json 데이터가 완벽하게 매핑되어야 하는 점이다. 2-1-3-3 완벽하게 일치하지 않으면 에러가 발생한다. package pe.pilseong.jacksontest;
+
+import java.io.File;
+import java.io.IOException;
+import java.util.Arrays;
+
+import com.fasterxml.jackson.databind.ObjectMapper;
+
+public class App {
+  public static void main(String[] args) {
+    ObjectMapper mapper = new ObjectMapper();
+    
+    Student student = null;
+    try {
+      student = mapper.readValue(new File("data/sample.json"), Student.class);
+    } catch (IOException e) {
+      e.printStackTrace();
+    }
+    
+    System.out.println("Student Name :: " + student.getFirstName()+ " " +student.getLastName());
+    System.out.println("Is Avctive :: " + student.isActive());
+    System.out.println("Address :: " + student.getAddress());
+    System.out.println("Languages :: ");
+    Arrays.stream(student.getLanguages()).forEach(System.out::println);
+  }
+} 2-1-3-4 결과는 다음과 같다. Student Name :: pilseong Heo
+Is Avctive :: true
+Address :: Address(street=7 lucky seven street, city=Seongnam, state=Kyounggi, zip=13258, country=Korea)
+Languages :: 
+Java
+JavaScript
+TypeScript 2-2 완벽하게 구조가 일치하지 않아도 받을 수 있는 방법이 있다. 2-2-1 아래 클래스처럼 클래스 선언 부분에 @JsonIgnoreProperties를 붙이고 ignoreUnknown을 true 설정한다. 2-2-2 이렇게 하면 data에는 있지만 클래스에서 속성이 정의되어 있지 않는 경우는 그 데이터를 무시한다. package pe.pilseong.jacksontest;
+
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+@Data
+@JsonIgnoreProperties(ignoreUnknown = true)
+public class Student {
+  
+  private int id;
+  
+  private String firstName;
+  
+  private String lastName;
+  
+  private boolean active;
+  
+  private Address address;
+  
+  private String[] languages;
+} 2-2-3 이 예제를 실행하기 위해서 데이터에 company 정보를 추가한다. {
+  "id": 14,
+  "firstName":"pilseong",
+  "lastName": "Heo",
+  "active": true,
+  "address": {
+    "street": "7 lucky seven street",
+    "city": "Seongnam",
+    "state": "Kyounggi",
+    "zip": 13258,
+    "country": "Korea"
+  },
+  "languages": ["Java", "JavaScript", "TypeScript"],
+  "company": "Seoul Government"
+} 2-2-3 이렇게 하면 실행 결과는 이전과 동일하게 나온다. @JsonIgnoreProperties가 없으면 에러가 발생한다. 3. 스프링 Rest Application은 Jackson data bind가 dependency에 있는 경우 자동으로 객체를 변환 해준다.

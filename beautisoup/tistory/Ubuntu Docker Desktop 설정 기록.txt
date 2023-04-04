@@ -1,0 +1,20 @@
+이 글을 쓰고 얼마지나지 않은 시점에 관련 문제가 해결되었다. 현재는 우분투에서 잘 쓰고 있다. ----------- 우분투에서 Docker Desktop이 지원된 것이 최근이다. 새로운 기능에 한번 써보기로 마음을 먹어 설치를 하였다. 현재 kubuntu 22.04 LTS를 사용하고 있다. kde 기반의 plama 5기반이다. Docker Desktop는 도커에서 공식으로 제공하는 보기 좋은 UI에 Kube 기능을 탑재하여 로컬 개발에서는 아주 사용이 편리하다. 이걸 사용하면 minikube에서 처럼 deploy 시 별도의 설정이 필요없다. 로컬 개발환경을 위한 제품이기 때문에 단순하다. 일반적으로 하듯 skaffold를 설정하고 ingress를 설정한 후에 개발을 시작하였다. 시작하자 마자 문제가 생겼다. skaffold는 기본적으로 docker endpoint를 var/run/docker.sock 을 바라 보고 있어서 이 소켓이 없으면 동작하지 않는다. 우분투의 docker desktop은 ~/.docker/desktop/docker.sock 을 사용하고 있다. skaffold의  기본 endpoint을 변경하려고 메뉴얼을 봤는데 그런 기능이 없다. 그냥 깨끗히 포기했다. 다음 시도로는 docker engine과 docker desktop을 같이 설치해서 사용하는 방법을 시도 했다. 이유는 docker engine의 docker endpoint가 /var/run/docker.sock 이가 때문이다. 그냥 봐도 알겠지만 이렇게 하면 안된다. 공식 메뉴얼에서는 두 프로그램을 동시에 사용이 가능하다고 하고 메뉴얼에서는 docker context use 구문으로 어떤 context를 사용할지를 지정하도록 하고 있다. docker context use default로 하여 기본 설정을 사용하고 docker desktop의 k8s를 사용하는 이상한 구조이지만 동작을 하였다. 하지만 문제가 발생했다. 아래의 skaffold 설정에서 build.local.push를 false로 설정하면 동작하지 않는다. 이미지를 pulling 할 수 없다는 에러가 발생한다. 해결책은 간단히 push: true로 하면 되는데, 이렇게 하면 한번 저장할 때 마다 이미지를 빌드한다. 사용이 불가능한 수준이다. 게다가 동기화가 제대로 되지 않아, 소스를 수정하고 파일을 추가하면 엉망이 되어버린다. 분명히 다시 빌드를 했는데 이미지는 예전 것을 사용하고 있다. 그냥 사용을 포기했다. apiVersion: skaffold/v2beta22
+kind: Config
+deploy:
+  kubectl:
+    manifests:
+      - "./infra/k8s/*.yaml"
+build:
+  local:
+    push: false
+    # concurrency: 6
+  artifacts:
+    - image: heops79/auth
+      context: auth
+      docker:
+        dockerfile: Dockerfile
+      sync:
+        manual:
+          - dest: .
+            src: "./src/**/*.ts" 다음 시도로는 docker desktop을 삭제하고 docker engine과 microk8s을 사용해 보았다. 이렇게 사용하면 가능은 한데 문제는 이번에는 kubernetes endpoint이다. docker desktop에서 사용하던 게 context에 꼬여서 그런지 아래 같은 메시지가 뜬다. 이렇게 되면 kubectl을 사용할 수 없다. 방화벽 설정을 확인했는데 이상이 없어 보여 그냥 포기했다. 이 문제를 해결하려고 시스템에 설치된 docker, kubernetes 설정을 모두 삭제해야 했다. The connection to the server x.x.x.x:6443 was refused - did you
+specify the right host or port? 결론은 우분투 시스템에서 MSA 개발환경은 아직까지 docker engine + minikube가 편리한 것 같다. 큰 변화가 없다면 하던대로 하는 게 제일이다. docker desktop은 좋은데 아직 이것을 따라 가는데 리눅스 환경은 시간이 좀 필요해 보였다.

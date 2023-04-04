@@ -1,0 +1,5 @@
+1. Spring Boot에서 최소한으로 MYSQL DB를 접속하기 위한 패키지 추가 1-1. Spring Initializr에서 Spring Data JPA와 MySQL Driver이다. 2. MySQL 접속 설정은 application.properties파일에서 한다. 2-1. 접속 url로 MySQL 버전에 따라서 SSL 설정 등이 필요할 수 있다. 2-2. 접속 계정과 비밀번호가 필요하다. 3. 선택적으로 sql 구문을 보고 싶으면 show-sql을 true로 설정하면 된다. 기본적인 application.properties mysql 설정 spring.datasource.url=jdbc:mysql://localhost:3306/projectdb?useSSL=false&serverTimezone=Asia/Seoul
+spring.datasource.username=root
+spring.datasource.password=password
+
+spring.jpa.show-sql=true

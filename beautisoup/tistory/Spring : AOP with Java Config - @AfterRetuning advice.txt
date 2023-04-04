@@ -1,0 +1,97 @@
+0. 이 포스트는 Spring : AOP with Java Config 시리즈의 연속이다. 1. @AfterReturning은 타겟 메소드가 성공적으로 실행된 후 실행하게 된다. 예외가 발생하면 실행되지 않는다. 2. 실제 사용하는 상황들(@Before advice와 거의 동일하고 쌍으로 사용되는 경우가 많다.) 2-1 로깅, 보안처리, 트렌젝션 처리에 사용된다. 2-2 감사를 위한 logging에 사용될 수 있다. 사용자, 사용 메소드, 사용시점, 사용한 지점 등을 남길 수 있다. 2-3 호출자에게 값을 반환하기 전에 데이터 처리가 필요한 경우에 사용한다. 2-3-1 데이터의 포멧을 설정하거나 데이터를 추가 가공할 경우에 사용된다. 2-3-2 가공하더라도 반환 객체는 동일한 타입이어야 한다. 3. 예제 코드 // Aspect 클래스와 advice 정의
+package pe.pilseong.spring_aop_review.aspect;
+
+@Aspect
+@Component
+public class LoggingAspect {
+
+  @Before(value = "pe.pilseong.spring_aop_review.aspect.AopExpressions.forDAOPackageNoGetterSetter()")
+  public void beforeAdvice(JoinPoint joinPoint) {
+    System.out.println("\nExecuting in beforeAdvice @Before advice on forDAOPackage() && !(getter() || setter())");
+  }
+  
+  @AfterReturning(value = "pe.pilseong.spring_aop_review.aspect.AopExpressions.forDAOPackageNoGetterSetter()")
+  public void afterAdvice() {
+    System.out.println("Executing in afterAdvice @Before advice on forDAOPackage() && !(getter() || setter())\n");
+  }
+}
+
+// 포인트 컷 설정 클래스
+package pe.pilseong.spring_aop_review.aspect;
+
+@Aspect
+@Component
+public class AopExpressions {
+  @Pointcut(value = "execution(* pe.pilseong.spring_aop_review.dao.*.*(..))")
+  public void forDAOPackage() {}
+  
+  @Pointcut(value = "execution(* pe.pilseong.spring_aop_review.dao.*.get*(..))")
+  public void getter() {}
+  
+  @Pointcut(value = "execution(* pe.pilseong.spring_aop_review.dao.*.set*(..))")
+  public void setter() {}
+  
+  @Pointcut(value = "forDAOPackage() && !(getter() || setter())")
+  public void forDAOPackageNoGetterSetter() {}
+  
+}
+
+// 더미 DAO 1
+package pe.pilseong.spring_aop_review.dao;
+
+@Component
+public class AccountDAO {
+  public void addAccount(Account account, boolean flag) {
+    System.out.println(getClass() + ": addAccount() with Account, boolean Parameter. Doing my DB work: Adding an account");
+  }
+  
+  public Account getAccount() {
+    System.out.println(getClass() + ": getAccount() with No Parameter. Doing my DB work: getting an account");
+    return null;
+  }
+}
+
+// 더미 DAO 2
+package pe.pilseong.spring_aop_review.dao;
+
+@Component
+public class MembershipDAO { 
+  public void membership() {
+    System.out.println(getClass() + ": membership() with No parameter. Doing my DB work: membership method is doing something");
+  }
+}
+
+// 실행 클래스
+package pe.pilseong.spring_aop_review;
+
+public class App {
+  public static void main(String[] args) {
+    AnnotationConfigApplicationContext context = 
+        new AnnotationConfigApplicationContext(JavaConfig.class);
+    
+    AccountDAO accountDAO = context.getBean("accountDAO", AccountDAO.class);
+    accountDAO.getAccount();
+    
+    Account account = new Account();
+    account.setName("Pilseong");
+    account.setLevel("Admin");
+    accountDAO.addAccount(account, true);
+    
+    MembershipDAO membershipDAO = context.getBean("membershipDAO", MembershipDAO.class);
+    membershipDAO.membership();
+    
+    context.close();
+  }
+}
+
+// 실행 결과
+class pe.pilseong.spring_aop_review.dao.AccountDAO: getAccount() with No Parameter. Doing my DB work: getting an account
+
+Executing in beforeAdvice @Before advice on forDAOPackage() && !(getter() || setter())
+class pe.pilseong.spring_aop_review.dao.AccountDAO: addAccount() with Account, boolean Parameter. Doing my DB work: Adding an account
+Executing in afterAdvice @Before advice on forDAOPackage() && !(getter() || setter())
+
+
+Executing in beforeAdvice @Before advice on forDAOPackage() && !(getter() || setter())
+class pe.pilseong.spring_aop_review.dao.MembershipDAO: membership() with No parameter. Doing my DB work: membership method is doing something
+Executing in afterAdvice @Before advice on forDAOPackage() && !(getter() || setter())

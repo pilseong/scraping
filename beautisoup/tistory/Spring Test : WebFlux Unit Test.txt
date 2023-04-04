@@ -1,0 +1,56 @@
+1. WebFlux를 테스트할 경웨는 WebTestClient를 사용해야 한다. 1-1 우선 WebTestClient을 해당 함수와 바인드하는 부분이 필요하다. 1-2 바인드 후에 WebMvc를 테스트 하듯 사용하면 된다. package pe.pilseong.recipe.controller;
+
+import static org.mockito.Mockito.when;
+
+import org.junit.Before;
+import org.junit.Test;
+import org.mockito.Mock;
+import org.mockito.MockitoAnnotations;
+import org.springframework.http.MediaType;
+import org.springframework.test.web.reactive.server.WebTestClient;
+import org.springframework.web.reactive.function.server.RouterFunction;
+
+import pe.pilseong.recipe.config.WebConfig;
+import pe.pilseong.recipe.domain.Recipe;
+import pe.pilseong.recipe.service.RecipeService;
+import reactor.core.publisher.Flux;
+
+public class RouterFunctionTest {
+  WebTestClient webTestClient;
+
+  @Mock
+  RecipeService recipeService;
+
+  @Before
+  public void setUp() {
+    MockitoAnnotations.initMocks(this);
+
+    WebConfig webConfig = new WebConfig();
+
+    RouterFunction<?> routerFunction = webConfig.routes(recipeService);
+
+    webTestClient = WebTestClient.bindToRouterFunction(routerFunction).build();
+  }
+
+  @Test
+  public void testGetRecipes() {
+    when(recipeService.getRecipes()).thenReturn(Flux.just());
+
+    webTestClient.get().uri("/api/recipes")
+      .accept(MediaType.APPLICATION_JSON)
+      .exchange()
+      .expectStatus().isOk();
+  }
+
+  @Test
+  public void testGetRecipesWithData() {
+    when(recipeService.getRecipes()).thenReturn(Flux.just(Recipe.builder().build(), Recipe.builder().build()));
+
+    webTestClient.get().uri("/api/recipes")
+      .accept(MediaType.APPLICATION_JSON)
+      .exchange()
+      .expectStatus().isOk()
+      .expectBodyList(Recipe.class);
+    
+  }
+}

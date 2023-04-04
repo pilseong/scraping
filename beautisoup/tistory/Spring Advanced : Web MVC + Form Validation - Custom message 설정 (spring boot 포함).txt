@@ -1,0 +1,236 @@
+0. 이 포스트는 Spring : Web MVC + Form Validation - with InitBinder의 연속이다. Spring : Form Validation with @InitBinder -1. Form Validation은 시스템에서 원하는 값이 입력되도록 제한하고 검증하는 기능을 가진다. -1-1 서버단에서 처리하기 때문에 시스템에 부하를 가지고 올 수 밖에 없다. 0. Bean Validation은 단순한 speci kogle.tistory.com 1. Spring Validation은 다양한 에러메시지를 발생시킨다. 2. 에러 메시지를 받는 부분은 이전 포스팅에 있듯 Controller 내의 BindingResult라는 객체이다. 3. 아래 코드를 보면 bindingResult를 출력하는 부분이 있는데 이 부분에서 어떤 에러가 발생하는지 알 수 있다. @GetMapping("/processForm")
+  public String processForm(@Valid @ModelAttribute Customer customer, BindingResult bindingResult) {
+    
+    System.out.println("Last Name: |" + customer.getLastName() + "|");
+    System.out.println("BindingResult: "+ bindingResult.toString());
+    if (bindingResult.hasErrors()) {
+      return "customer-form";
+    }
+    
+    return "customer-confirmation";
+  } 4. 위의 코드를 가지고 에러 유형이 Integer값을 받아야 하는데 String값이 들어오는 경우를 가정해 본다. 4-1 오류 로그는 아래와 같고 중요한 부분은 4-1-1 첫줄의 에러가 1개라는 부분(1 errors fields)과 4-1-2 유형이 적합하지 않은 타입(typeMismatch)라는 부분이다. 4-2 1 Field error in object 'customer' on field 'freePass' -> customer객체의 freePass라는 속성에서 문제발생 4-3 rejected value [qwerqwer]; -> 정수가 들어와야 하는데 문자열이 qwerqwer이 들어와 오류가 생겼다. 4-4 codes [typeMismatch.customer.freePass, -> 이 부분이 가장 중요함 4-4-1 typeMismatch라는 게 오류유형, customer라는 게 객체, freePass라는 것이 속성이다. 4-4-2 custom 메시지를 만들 때 이걸 그대로 사용한다. BindingResult: org.springframework.validation.BeanPropertyBindingResult: 1 errors
+Field error in object 'customer' on field 'freePass': rejected value [qwerqwer]; 
+codes [typeMismatch.customer.freePass,typeMismatch.freePass,typeMismatch.java.lang.Integer,
+typeMismatch]; arguments [org.springframework.context.support.DefaultMessageSourceResolvable: 
+codes [customer.freePass,freePass]; arguments []; 
+default message [freePass]]; default message [Failed to convert property value of type 
+'java.lang.String' to required type 'java.lang.Integer' for property 'freePass'; nested 
+exception is java.lang.NumberFormatException: For input string: "qwerqwer"] 여기서 부터가 작업이다. 5. classpath 상에 messages.properties 파일을 만든다. 확장자가 properties가 되어야 한다. 5-1 MessageSource 인터페이스 구현소스의 setBasenames내에서 확장자가 .properties 파일을 읽어오기 때문이다. 5-1-1 정확히 말하면 AbstractResourceBasedMessageSource의 addaddBasenames 함수다. 5-1-2 6번 항목의 소스를 보면 property속성의 basenames가 이 함수와 매핑되는 xml 코드이다. 5-2 내용은 아래처럼 보여질 메시지의 에러타입 typeMismatch, 검증 객체 customer, 검증 속성 freePass다. typeMismatch.customer.freePass=Invalid number 5-3 다른 에러를 처리하고 싶으면 그대로 에러를 발생시키고 출력된 에러의 code를 따면 된다. 6. Spring Web configuration xml파일에서 MessageSource 인스턴스를 등록한다. 6-0 정해진 것이어서 아래 소스를 그대로 사용하면 된다. 6-1 name에 들어가는 것이 로딩될 클래스의 호출할 함수 이름, value가 들어갈 값 즉 파일이름이 된다. 6-2 간단하게 말하면 messages.properties를 classpath루트에서 읽으라는 의미다. 6-3 classpath root 설정하는 것은 이전 포스트를 참조한다. <bean id="messageSource" class="org.springframework.context.support.ResourceBundleMessageSource" >
+     <property name="basenames" value="messages" />
+  </bean> 7. 에러가 발생하면 자동으로 스프링이 사용자가 설정한 Invalid number라는 것을 form:error 테그에  표출한다. 1. 스프링 부트를 사용하는 경우는 보다 간단하다. resources 폴더 아래에 messages.properties 작성만 하면 된다. 1-1 Validation messages라고 표시된 부분에 어떤 형식으로 지정된 properties가 우선순위를 나타내는지를 보여준다. 1-2 2번 항목 캡처의 빨간색 네모를 보면 codes라는 것이 있고 우선순위가 지정되어야 할 코드가 주욱 나열되어 있다. 1-2-1 NotBlank.recipe.description, NotBlank.description, NotBlank.java.lang.String ... 1-2-2 이런 나열이 아래의 우선순위에서 지정한 형식과 일하는데 어떤 것을 고르는가에 따라 우선순위가 달라진다. 1-2-3 properties파일에서는 최우선 순위의 방식을 사용하였다. 1-3 아래의 properties에 보면 '{}'로 지정된 부분이 있는데 이것은 2번 항목 캡처 사진에 노란네모를 보면 1-3-1 default message에 있는 [description]이 입력한 정보, 즉 {0}, 255가 {1}, 3이 {2}에 매핑이 된다. 1-3-2 이 경우 {0} 아래 messages.properties의 첫 째 줄에 정의된 recipe.description의 값이 된다. # Set names of properties
+recipe.description=Description
+
+# Validation Messages
+# Order of precedence
+# 1 code.objectName.fieldName
+# 2 code.fieldName
+# 3 code.fieldType (Java data type)
+# 4 code
+NotBlank.recipe.description=Description Cannot Be Blank
+Size.recipe.description={0} must be between {2} and {1} characters long
+Max.recipe.cookTime={0} must be less than {1}
+URL.recipe.url=Please provide a valid URL 2. vscode 로그화면 캡처 3. 결과화면 4. 참고 타임리프 템플릿 <!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+
+<head>
+  <!-- Required meta tags -->
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+
+  <!-- Bootstrap CSS -->
+  <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.0/css/bootstrap.min.css"
+    integrity="sha384-9aIt2nRpC12Uk9gS9baDl411NQApFmC26EwAOH8WgZl5MYYxFfc+NcPb1dKGj7Sk" crossorigin="anonymous"
+    th:href="@{/webjars/bootstrap/4.5.0/css/bootstrap.min.css}">
+
+  <title>Recipe Homer</title>
+</head>
+
+<body>
+  <!--/*@thymesVar id="recipe" type="guru.springframework.domain.Recipe"*/-->
+  <div class="container-fluid" style="margin-top: 20px">
+    <div class="row">
+      <div class="col-md-6 offset-md-3">
+        <form th:object="${recipe}" th:action="@{/recipe/}" method="post">
+          <div th:if="${#fields.hasErrors('*')}" class="alert alert-danger pb-0">
+            <p>Please Correct Errors Below</p>
+          </div>
+          <input type="hidden" th:field="*{id}" />
+          <div class="card text-white bg-primary">
+            <div class="card-body p-0">
+              <div class="card-title">
+                <p class="m-2 font-weight-bold">Edit Recipe Information</p>
+              </div>
+              <div class="card-text bg-white text-dark m-0 p-2">
+                <div class="row form-group" 
+                  th:class="${#fields.hasErrors('description')} ? 'row form-group text-danger' : 'row form-group'">
+                  <label class="col-lg-4 col-xl-3 mx-0 pr-0 col-form-label">Recipe Description:</label>
+                  <div class="col-lg-8 col-xl-9">
+                    <input type="text" class="form-control" th:field="*{description}" th:errorclass="is-invalid" />
+                    <span  class="small form-text text-muted invalid-feedback" th:if="${#fields.hasErrors('description')}">
+                      <ul>
+                        <li th:each="err : ${#fields.errors('description')}" th:text="${err}"></li>
+                      </ul>
+                    </span>
+                  </div>
+                </div>
+                <div class="row form-group">
+                  <div class="col-form-label col-md-3">
+                    <label>Categories:</label>
+                  </div>
+                  <div class="col-md-9">
+                    <div class="form-check">
+                      <input class="form-check-input" type="checkbox" value="" />
+                      <label class="form-check-label">
+                        Cat 1
+                      </label>
+                    </div>
+                    <div class="form-check" th:remove="all">
+                      <input class="form-check-input" type="checkbox" value="" />
+                      <label class="form-check-label">
+                        Cat 2
+                      </label>
+                    </div>
+                  </div>
+                </div>
+                <div class="row">
+                  <div class="col-md-4 form-group" 
+                  th:class="${#fields.hasErrors('prepTime')} ? 'col-md-4 form-group text-danger' : 'col-md-4 form-group'">
+                    <label class="col-form-label">Prep Time:</label>
+                    <input type="text" class="form-control" th:field="*{prepTime}" th:errorclass="is-invalid" />
+                    <span  class="small form-text text-muted invalid-feedback" th:if="${#fields.hasErrors('prepTime')}">
+                      <ul>
+                        <li th:each="err : ${#fields.errors('prepTime')}" th:text="${err}"></li>
+                      </ul>
+                    </span>
+                  </div>
+                  <div class="col-md-4 form-group"
+                  th:class="${#fields.hasErrors('cookTime')} ? 'col-md-4 form-group text-danger' : 'col-md-4 form-group'">
+                    <label class="col-form-label">Cooktime:</label>
+                    <input type="text" class="form-control" th:field="*{cookTime}" th:errorclass="is-invalid" />
+                    <span  class="small form-text text-muted invalid-feedback" th:if="${#fields.hasErrors('cookTime')}">
+                      <ul>
+                        <li th:each="err : ${#fields.errors('cookTime')}" th:text="${err}"></li>
+                      </ul>
+                    </span>
+                  </div>
+                  <div class="col-md-4 form-group">
+                    <label class="col-form-label">Difficulty:</label>
+                    <select class="form-control" th:field="*{difficulty}">
+                      <option th:each="difficultyValue : ${T(pe.pilseong.recipe.domain.Difficulty).values()}"
+                        th:value="${difficultyValue.name()}"
+                        th:text="${difficultyValue.name()}">
+                        val
+                      </option>
+                    </select>
+                  </div>
+                </div>
+                <div class="row">
+                  <div class="col-md-4 form-group"
+                  th:class="${#fields.hasErrors('servings')} ? 'col-md-4 form-group text-danger' : 'col-md-4 form-group'">
+                    <label class="col-form-label">Servings:</label>
+                    <input type="text" class="form-control" th:field="*{servings}" th:errorclass="is-invalid" />
+                    <span  class="small form-text text-muted invalid-feedback" th:if="${#fields.hasErrors('servings')}">
+                      <ul>
+                        <li th:each="err : ${#fields.errors('servings')}" th:text="${err}"></li>
+                      </ul>
+                    </span>
+                  </div>
+                  <div class="col-md-4 form-group">
+                    <label class="col-form-label">Source:</label>
+                    <input type="text" class="form-control" th:field="*{source}" />
+                  </div>
+                  <div class="col-md-4 form-group"
+                  th:class="${#fields.hasErrors('url')} ? 'col-md-4 form-group text-danger' : 'col-md-4 form-group'">
+                    <label class="col-form-label">URL:</label>
+                    <input type="text" class="form-control" th:field="*{url}" th:errorclass="is-invalid" />
+                    <span  class="small form-text text-muted invalid-feedback" th:if="${#fields.hasErrors('url')}">
+                      <ul>
+                        <li th:each="err : ${#fields.errors('url')}" th:text="${err}"></li>
+                      </ul>
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="card-body p-0">
+              <div class="card-title mb-0">
+                <div class="row m-0">
+                  <div class="col-md-10 p-0">
+                    <p class="m-2 font-weight-bold">Ingredients</p>
+                  </div>
+                  <div class="col-md-2">
+                    <a class="btn btn-success font-weight-bold" href="#" role="button">View</a>
+                  </div>
+                </div>
+              </div>
+              <div class="card-text bg-white text-dark m-0 p-2">
+                <div class="row">
+                  <div class="col-md-12">
+                    <ul th:if="${not #lists.isEmpty(recipe.ingredients)}">
+                      <li th:remove="all">1 Cup of milk</li>
+                      <li th:remove="all">1 Teaspoon of chocolate</li>
+                      <li th:remove="all">1 Doggy of SAXU</li>
+                      <li th:each="ingredient : ${recipe.ingredients}" th:text="${(ingredient.getAmount() +
+                                        ' ' + ingredient.uom.getDescription() +
+                                        ' - ' + ingredient.getDescription())}">1 Teaspoon of Sugar
+                      </li>
+                    </ul>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+
+            <div class="card text-white bg-primary">
+              <div class="card-body p-0">
+                <div class="card-title">
+                  <p class="m-2 font-weight-bold">Directions</p>
+                </div>
+                <div class="card-text bg-white text-dark m-0 p-2">
+                  <div class="row">
+                    <div class="col-md-12 form-group">
+                      <textarea class="form-control" rows="3" th:field="*{directions}"></textarea>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="card text-white bg-primary">
+              <div class="card-body p-0">
+                <div class="card-title">
+                  <p class="m-2 font-weight-bold">Notes</p>
+                </div>
+                <div class="card-text bg-white text-dark m-0 p-2">
+                  <div class="row">
+                    <div class="col-md-12 form-group">
+                      <textarea class="form-control" rows="3" th:field="*{note.recipeNote}"></textarea>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <button type="submit" class="btn btn-primary">Submit</button>
+        </form>
+      </div>
+    </div>
+  </div>
+  <!-- Optional JavaScript -->
+  <!-- jQuery first, then Popper.js, then Bootstrap JS -->
+  <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"
+    integrity="sha384-DfXdz2htPH0lsSSs5nCTpuj/zy4C+OGpamoFVy38MVBnE+IbbVYUew+OrCXaRkfj" crossorigin="anonymous"
+    th:src="@{/webjars/jquery/3.5.1/jquery.min.js}">
+  </script>
+  <script src="https://cdn.jsdelivr.net/npm/popper.js@1.16.0/dist/umd/popper.min.js"
+    integrity="sha384-Q6E9RHvbIyZFJoft+2mJbHaEWldlvI9IOYy5n3zV9zzTtmI3UksdQRVvoxMfooAo" crossorigin="anonymous"
+    th:src="@{/webjars/popper.js/1.16.0/popper.min.js}">
+  </script>
+  <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.0/js/bootstrap.min.js"
+    integrity="sha384-OgVRvuATP1z7JjHLkuOU7Xw704+h835Lr+6QL9UvYjZE3Ipu6Tp75j7Bh/kR0JKI" crossorigin="anonymous"
+    th:src="@{/webjars/bootstrap/4.5.0/js/bootstrap.min.js}">
+  </script>
+
+</body>
+
+</html>

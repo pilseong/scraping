@@ -1,0 +1,330 @@
+1. 이 포스트의 내용은 1-1 Entity/DTO의 courseCode라는 속성에 @CourseCode라는 사용자 정의 validator를 사용하여 1-2 사용자가 입력한 코드가 지정된 단어로 시작한 경우에만 submit을 허용하도록 하는 예제이다. 1-3 아래 customer form(캡처)을 보면 마지막 Course Code 항목이 기능을 추가하는 부분이다. 1-4. 다른 속성에 대해서는 Spring : Web MVC + Form Validation - with InitBinder을 참고한다. Spring : Web MVC + Form Validation - Basic and @InitBinder -1. Form Validation은 시스템에서 원하는 값이 입력되도록 제한하고 검증하는 기능을 가진다. -1-1 서버단에서 처리하기 때문에 시스템에 부하를 가지고 올 수 밖에 없다. 0. Bean Validation은 단순한 speci kogle.tistory.com 사용자 UI 캡처 2. 기본 세팅 하기 2-0 org.apache.maven webapp archetype을 사용하면 https://kogle.tistory.com/70?category=867645 참조한다. 2-1 dependency 추가 2-2 webmvc 설정 (web.xml, spring-customer-validation.xml) 2-3 jsp 파일 생성 2-4 entity추가 및 validator 설정 2-5 controller 생성 2-6 customer validator 생성 3. dependency 추가 3-1 Web MVC + Hibernate Validation만 사용한다. 3-2 스프링 dependency Spring core, context, webmvc 3-3 하이버네이트 hibernate-validator 3-4 jsp, jstl, servlet 지원을 위한 javax.servlet-api, javax.servlet.jsp-api, jstl 3-5 개발 편의성을 위한 lombok <dependencies>
+	<dependency>
+		<groupId>junit</groupId>
+		<artifactId>junit</artifactId>
+		<version>4.11</version>
+		<scope>test</scope>
+	</dependency>
+	<dependency>
+		<groupId>org.springframework</groupId>
+		<artifactId>spring-core</artifactId>
+		<version>5.2.6.RELEASE</version>
+	</dependency>
+	<dependency>
+		<groupId>org.springframework</groupId>
+		<artifactId>spring-context</artifactId>
+		<version>5.2.6.RELEASE</version>
+	</dependency>
+	<dependency>
+		<groupId>org.springframework</groupId>
+		<artifactId>spring-webmvc</artifactId>
+		<version>5.2.6.RELEASE</version>
+	</dependency>
+	<dependency>
+		<groupId>org.hibernate</groupId>
+		<artifactId>hibernate-validator</artifactId>
+		<version>6.1.5.Final</version>
+	</dependency>
+	<dependency>
+		<groupId>javax.servlet</groupId>
+		<artifactId>jstl</artifactId>
+		<version>1.2</version>
+	</dependency>
+	<dependency>
+		<groupId>javax.servlet</groupId>
+		<artifactId>javax.servlet-api</artifactId>
+		<version>4.0.1</version>
+		<scope>provided</scope>
+	</dependency>
+	<dependency>
+		<groupId>javax.servlet.jsp</groupId>
+		<artifactId>javax.servlet.jsp-api</artifactId>
+		<version>2.3.3</version>
+		<scope>provided</scope>
+	</dependency>
+	<dependency>
+		<groupId>org.projectlombok</groupId>
+		<artifactId>lombok</artifactId>
+		<version>1.18.12</version>
+		<scope>provided</scope>
+	</dependency>
+</dependencies> 3. Web MVC 설정 (advanced 카테고리니 자세한 설명은 생략한다.) 3-1 web.xml 설정 3-1-1 서블릿 설정과 매핑 정보가 전부다. contextConfiguration에 spring 설정이 들어간다. <?xml version="1.0" encoding="UTF-8"?>
+<web-app xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xmlns="http://xmlns.jcp.org/xml/ns/javaee"
+  xsi:schemaLocation="http://xmlns.jcp.org/xml/ns/javaee http://xmlns.jcp.org/xml/ns/javaee/web-app_4_0.xsd"
+  id="WebApp_ID" version="4.0">
+
+  <display-name>spring-mvc-demo</display-name>
+
+  <absolute-ordering />
+
+  <!-- Spring MVC Configs -->
+
+  <!-- Step 1: Configure Spring MVC Dispatcher Servlet -->
+  <servlet>
+    <servlet-name>dispatcher</servlet-name>
+    <servlet-class>org.springframework.web.servlet.DispatcherServlet</servlet-class>
+    <init-param>
+      <param-name>contextConfigLocation</param-name>
+      <param-value>/WEB-INF/spring-custom-validation.xml</param-value>
+    </init-param>
+    <load-on-startup>1</load-on-startup>
+  </servlet>
+
+  <!-- Step 2: Set up URL mapping for Spring MVC Dispatcher Servlet -->
+  <servlet-mapping>
+    <servlet-name>dispatcher</servlet-name>
+    <url-pattern>/</url-pattern>
+  </servlet-mapping>
+</web-app> 3-2 spring container 설정 (spring-customer-validation.xml) 3-2-1 많은 기능을 사용하지 않기 때문에 간단하다. 3-2-2 리소스 폴더를 webapp/resources로 설정 3-2-3 annotation설정 사용을 위해 component-scan, annotation-driven사용 3-2-4 jsp파일 사용을 위한 ViewResolver 설정 <?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xmlns:context="http://www.springframework.org/schema/context"
+  xmlns:mvc="http://www.springframework.org/schema/mvc"
+  xsi:schemaLocation="
+    http://www.springframework.org/schema/beans
+    http://www.springframework.org/schema/beans/spring-beans.xsd
+    http://www.springframework.org/schema/context
+    http://www.springframework.org/schema/context/spring-context.xsd
+    http://www.springframework.org/schema/mvc
+    http://www.springframework.org/schema/mvc/spring-mvc.xsd">
+
+  <!-- Add support for reading web resources -->
+  <mvc:resources location="/resources/"
+    mapping="/resources/**"></mvc:resources>
+
+  <!-- Step 3: Add support for component scanning -->
+  <context:component-scan
+    base-package="pe.pilseong.customer_validation" />
+
+  <!-- Step 4: Add support for conversion, formatting and validation support -->
+  <mvc:annotation-driven />
+
+  <!-- Step 5: Define Spring MVC view resolver -->
+  <bean
+    class="org.springframework.web.servlet.view.InternalResourceViewResolver">
+    <property name="prefix" value="/WEB-INF/view/" />
+    <property name="suffix" value=".jsp" />
+  </bean>
+</beans> 4. jsp 파일 작성 4-1 customer-form.jsp 4-2 Customer entity의 courseCode 속성에 @CourseCode라는 속성을 사용할 예정이다. 4-3 form:errors element는 에러가 발생 시에 해당 속성에 저장된 error 메시지를 표출한다. 4-4 cssClass error은 styles.css파일에 정의된 .error 를 사용한다. 그냥 .error { color: red; } 가 전부다. <%@ taglib prefix="form" uri="http://www.springframework.org/tags/form"%>
+<%@ page language="java" contentType="text/html; charset=UTF-8"
+  pageEncoding="UTF-8"%>
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<link rel="stylesheet"
+  href="https://stackpath.bootstrapcdn.com/bootstrap/4.4.1/css/bootstrap.min.css"
+  integrity="sha384-Vkoo8x4CGsO3+Hhxv8T/Q5PaXtkKtu6ug5TOeNV6gBiFeWPGFN9MuhOf23Q9Ifjh"
+  crossorigin="anonymous">
+<link rel="stylesheet" href="${ pageContext.request.contextPath }/resources/css/style.css">
+<title>Customer Form</title>
+</head>
+<body>
+
+  <div class="container">
+    <h1 class="display-5 mb-3">Customer Form</h1>
+    <form:form method="GET" modelAttribute="customer"
+      action="processForm">
+      <p>Fill out the form. Asterisk (*) means required.</p>
+      <div class="form-group">
+        <label for="firstName">First Name</label>
+        <form:input class="form-control" path="firstName" id="firstName" />
+      </div>
+      <div class="form-group">
+        <label for="lastName">Last Name (*)</label>
+        <form:input class="form-control" path="lastName" id="lastName" />
+        <form:errors path="lastName" cssClass="error"></form:errors>
+      </div>
+      <div class="form-group">
+        <label for="freePass">Free pass</label>
+        <form:input class="form-control" path="freePass" id="freePass" />
+        <form:errors path="freePass" cssClass="error"></form:errors>
+      </div>
+      <div class="form-group">
+        <label for="postal">Postal Code</label>
+        <form:input class="form-control" path="postalCode" id="postalCode" />
+        <form:errors path="postalCode" cssClass="error"></form:errors>
+      </div>
+      <div class="form-group">
+        <label for="courseCode">Course Code</label>
+        <form:input class="form-control" path="courseCode" id="courseCode" />
+        <form:errors path="courseCode" cssClass="error"></form:errors>
+      </div>
+      <input class="btn btn-outline-primary" type="submit"
+        value="Submit"></input>
+    </form:form>
+  </div>
+
+
+  <script src="https://code.jquery.com/jquery-3.4.1.slim.min.js"
+    integrity="sha384-J6qa4849blE2+poT4WnyKhv5vZF5SrPo0iEjwBvKU7imGFAV0wwj1yYfoRSJoZ+n"
+    crossorigin="anonymous"></script>
+  <script
+    src="https://cdn.jsdelivr.net/npm/popper.js@1.16.0/dist/umd/popper.min.js"
+    integrity="sha384-Q6E9RHvbIyZFJoft+2mJbHaEWldlvI9IOYy5n3zV9zzTtmI3UksdQRVvoxMfooAo"
+    crossorigin="anonymous"></script>
+  <script
+    src="https://stackpath.bootstrapcdn.com/bootstrap/4.4.1/js/bootstrap.min.js"
+    integrity="sha384-wfSDF2E50Y2D1uUdj0O3uMBJnjuUD4Ih7YwaYd1iqfktj0Uod8GCExl3Og8ifwB6"
+    crossorigin="anonymous"></script>
+</body>
+</html> 4-3 customer-confirmation.jsp 4-3-1 결과를 표출하는 부분이다. 하나도 중요한 내용이 없다. Bootstrap 코드가 전부다. <%@ page language="java" contentType="text/html; charset=UTF-8" pageEncoding="UTF-8"%>
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<link rel="stylesheet"
+  href="https://stackpath.bootstrapcdn.com/bootstrap/4.4.1/css/bootstrap.min.css"
+  integrity="sha384-Vkoo8x4CGsO3+Hhxv8T/Q5PaXtkKtu6ug5TOeNV6gBiFeWPGFN9MuhOf23Q9Ifjh"
+  crossorigin="anonymous">
+<title>Customer Confirmation</title>
+</head>
+<body>
+
+  <div class="container">
+    <h1 class="display-5">Student Confirmation</h1>
+    <p class="text-success">
+      Your Name: ${ customer.lastName }, ${ customer.firstName }
+    </p>
+    <p class="text-success">
+      FreePass: ${ customer.freePass}
+    </p>
+    <p class="text-success">
+      Postal Code: ${ customer.postalCode}
+    </p>
+    <p class="text-success">
+      Course Code: ${ customer.courseCode}
+    </p>
+  </div>
+
+  <script src="https://code.jquery.com/jquery-3.4.1.slim.min.js"
+    integrity="sha384-J6qa4849blE2+poT4WnyKhv5vZF5SrPo0iEjwBvKU7imGFAV0wwj1yYfoRSJoZ+n"
+    crossorigin="anonymous"></script>
+  <script
+    src="https://cdn.jsdelivr.net/npm/popper.js@1.16.0/dist/umd/popper.min.js"
+    integrity="sha384-Q6E9RHvbIyZFJoft+2mJbHaEWldlvI9IOYy5n3zV9zzTtmI3UksdQRVvoxMfooAo"
+    crossorigin="anonymous"></script>
+  <script
+    src="https://stackpath.bootstrapcdn.com/bootstrap/4.4.1/js/bootstrap.min.js"
+    integrity="sha384-wfSDF2E50Y2D1uUdj0O3uMBJnjuUD4Ih7YwaYd1iqfktj0Uod8GCExl3Og8ifwB6"
+    crossorigin="anonymous"></script>  
+</body>
+</html> 5. Customer entity를 추가하고 Validator를 정의한다. 5-0 @NotNull을 사용하려면 공백 처리를 위한 Controller에 trimming을 위한 InitBinder 설정이 필요하다. 5-1 제일 아래 courseCode라는 속성의 @CourseCode annotation이 custom validator이다. package pe.pilseong.customer_validation;
+
+import javax.validation.constraints.Min;
+import javax.validation.constraints.NotNull;
+import javax.validation.constraints.Pattern;
+
+import org.hibernate.validator.constraints.Range;
+
+import lombok.Data;
+import pe.pilseong.customer_validation.validation.CourseCode;
+
+@Data
+public class Customer {
+  
+  private String firstName;
+  
+  @NotNull(message = "Empty string is not allowed")
+  @Min(value = 3, message = "At least 3 characters")
+  private String lastName;
+  
+  @NotNull(message = "is required")
+  @Range(min = 0, max = 10, message = "Range is from 0 to 10")
+  private Integer freePass;
+  
+  @NotNull(message = "is required")
+  @Pattern(regexp = "^[a-zA-Z0-9]{5}", message = "only 5 chars/digits" )
+  private String postalCode;
+  
+  @NotNull(message = "is required")
+  @CourseCode(value = "HEO", message = "must start with HEO")
+  private String courseCode;
+} 6. controller를 작성한다. 6-1 아주 단순하다. /customer/showForm으로 form화면을 표출하고 6-2 form 작성 후 /customer/processForm으로 GET 요청을 하면 검증을 거쳐 6-3 모든 validation이 통과할 경우 customer-confirmation.jsp로 넘어간다. 6-4 에러가 발생하면 다시 이전 페이지로 돌아간다. 6-5 당연한 사실이지만 @Valid @ModelAttribute, BindingResult 순서가 중요하다. 6-6 공백 입력의 null처리를 위해 InitBinder를 사용하였다. package pe.pilseong.customer_validation.controller;
+
+import javax.validation.Valid;
+
+import org.springframework.beans.propertyeditors.StringTrimmerEditor;
+import org.springframework.stereotype.Controller;
+import org.springframework.ui.Model;
+import org.springframework.validation.BindingResult;
+import org.springframework.web.bind.WebDataBinder;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.InitBinder;
+import org.springframework.web.bind.annotation.ModelAttribute;
+import org.springframework.web.bind.annotation.RequestMapping;
+
+import pe.pilseong.customer_validation.Customer;
+
+@Controller
+@RequestMapping("/customer")
+public class CustomerController {
+  
+  @InitBinder
+  public void initBinder(WebDataBinder dataBinder) {
+    StringTrimmerEditor editor = new StringTrimmerEditor(true);
+    dataBinder.registerCustomEditor(String.class, editor);
+  }  
+  
+  @GetMapping("/showForm")
+  public String showForm(Model model) {
+    model.addAttribute("customer", new Customer());
+    
+    return "customer-form";
+  }
+  
+  @GetMapping("/processForm")
+  public String processForm(@Valid @ModelAttribute("customer") Customer customer, BindingResult result) {
+    if (result.hasErrors()) {
+      return "customer-form";
+    }
+    return "customer-confirmation";
+  }
+} 7. CourseCode custome-validator를 작성한다. 7-1 @CourseCode annotation 작성 7-1-1 @Constraint는 어떤 클래스를 사용하여 @CourseCode annotation을 검증할 것인지 지정한다. 7-1-1-1 이 클래스는 ConstraintValidator 인터페이스를 구현한 별도의 클래스를 작성해야 한다. 7-1-1-2 CourseCodeConstraintValidator 클래스이다. 7-1-2 @Target은 annotation이 어디에 정의될 수 있는지 지정하는 것이고 메소드와 필드에 사용하도록 지정하였다. 7-1-3 @Retention은 언제 annotation이 사용할지에 대한 부분으로 실행 시에 실시간으로 사용된다는 의미다. 7-1-4 중요한 부분은 value(), message() 이 부분 7-1-4-1 이 두 함수는 @CourseCode(value = "", message ='")의 value와 message값을 가져온다. 7-1-4-2 default는 annotation의 속성이 설정되지 않았을 경우의 기본값이다. 7-1-5 나머지 groups, payload는 boilerplate이므로 특별한 경우가 아니면 그냥 복사해서 사용하면 된다. package pe.pilseong.customer_validation.validation;
+
+import java.lang.annotation.ElementType;
+import java.lang.annotation.Retention;
+import java.lang.annotation.RetentionPolicy;
+import java.lang.annotation.Target;
+
+import javax.validation.Constraint;
+import javax.validation.Payload;
+
+@Constraint(validatedBy = CourseCodeConstraintValidator.class)
+@Target({ElementType.FIELD, ElementType.METHOD})
+@Retention(RetentionPolicy.RUNTIME)
+public @interface CourseCode {
+  public String value() default "PIL";
+  
+  public String message() default "must start with PIL";
+  
+  public Class<?>[] groups() default {};
+  
+  public Class<? extends Payload>[] payload() default {};
+} 7-2 @CourseCode 검증 로직인 CourseCodeContraintValidator 작성 7-2-0 ConstraintValidator<T, R> Generic의 첫 번째는 Annotation클래스 두 번째는 입력 form값의 타입이다. 7-2-1 initialize는 처음 이 객체가 초기화 될 때 사용된다. 7-2-1-1 여기서는 어떤 문자로 시작하는지 시작기호를 받아와 coursePrefix에 저장한다. 초기값은 PIL 7-2-1-2 Customer entity 설정에서 value = "HEO" 이므로 결과가 HEO로 필터 된다. 7-2-2 isValid가 중요한데, inputCode는 사용자가 form에 입력한 값이 들어온다. 7-2-2-1 입력된 데이터가 coursePrefix에 저장된 문자열로 시작되는지 체크해서 boolean값을 돌려준다. package pe.pilseong.springmvcstudent.validation;
+
+import javax.validation.ConstraintValidator;
+import javax.validation.ConstraintValidatorContext;
+
+public class CourseCodeConstraintValidator implements ConstraintValidator<CourseCode, String> {
+
+  private String coursePrefix;
+  
+  public void initialize(CourseCode courseCode) {
+    this.coursePrefix = courseCode.value();
+  }
+  
+  @Override
+  public boolean isValid(String inputCode, ConstraintValidatorContext context) {
+    boolean result;
+    
+    if (inputCode!= null) {
+      result = inputCode.startsWith(coursePrefix);
+    } else {
+      result = false;
+    }
+    
+    return result;
+  }
+} 7-3 결과 화면 7-3-1 마지막 Course Code가 HEO로 시작하면 에러가 사라진다.

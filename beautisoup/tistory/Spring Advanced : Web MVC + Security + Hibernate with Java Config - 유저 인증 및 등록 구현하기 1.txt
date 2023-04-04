@@ -1,0 +1,355 @@
+1. 이 포스트는 Spring : Web MVC + Security + JDBC 시리즈에 연장이다. xml파일 설정은 사용하지 않는다. 1-1 하려는 것은 우선 in-memory로 인증을 구현한다. -> 이 포스트에서 할 내용 1-2 Database를 생성하고 hibernate로 유저 등록을 구현한다. - difficult 1-3 가입정보에 대한 Validation처리를 작성한다. Customer Validatior로 구현한다. - difficult 1-4 In-memory가 아닌 DaoAuthenticationProvider로 hibernate를 사용한 Spring security 인증처리로 변경 - not easy 1-5 처음부터 사용자 스키마로 스프링 security 로그인을 구현하려면 난이도가 헬이라서 이렇게 분리해서 한다. 2. 웬만하면 자세한 설명을 생략한다. Advanced 이깐 2-1 이 포스팅에 대한 세부적인 설명은 이 시리즈 처음부터 보면 다 있다. 3. 프로젝트 생성하기 - org.apache.maven webapp 1.4 사용한다. 3-1 web.xml 삭제한다. 3-2 파일 삭제 및 폴더 생성 3-2-1 webapp/index.jsp 삭제한다. 3-2-2 src/main/ 아래 java 폴더 생성한다. WEB-INF 아래 view 폴더 생성한다. 3-3 pom.xml을 수정한다. 3-3-1 버전 수정한다. 아래는 11버전 쓴다. 3-3-2 springfreame, springsecurity 버번 property 설정한다. <properties>
+    <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+    <maven.compiler.source>11</maven.compiler.source>
+    <maven.compiler.target>11</maven.compiler.target>
+    <springframework.version>5.2.6.RELEASE</springframework.version>
+    <springsecurity.version>5.3.2.RELEASE</springsecurity.version>
+  </properties> 3-3-3 의존성을 추가 한다. 여기서는 우선 데이터베이스는 없다. 3-3-3-1 WebMVC는 자동으로 core와 context를 가지고 오지만 아래는 그냥 명시했다. <!-- Spring Web MVC -->
+    <dependency>
+		<groupId>org.springframework</groupId>
+		<artifactId>spring-core</artifactId>
+		<version>${springframework.version}</version>
+	</dependency>
+	<dependency>
+		<groupId>org.springframework</groupId>
+		<artifactId>spring-context</artifactId>
+		<version>${springframework.version}</version>
+	</dependency>
+		<dependency>
+		<groupId>org.springframework</groupId>
+		<artifactId>spring-webmvc</artifactId>
+		<version>${springframework.version}</version>
+	</dependency>
+    
+    <!-- Spring Security -->
+	<dependency>
+		<groupId>org.springframework.security</groupId>
+		<artifactId>spring-security-web</artifactId>
+		<version>${springsecurity.version}</version>
+	</dependency>
+	<dependency>
+		<groupId>org.springframework.security</groupId>
+		<artifactId>spring-security-config</artifactId>
+		<version>${springsecurity.version}</version>
+	</dependency>
+	<dependency>
+		<groupId>org.springframework.security</groupId>
+		<artifactId>spring-security-taglibs</artifactId>
+		<version>${springsecurity.version}</version>
+	</dependency>
+    
+    <!-- jsp, jstl, servlet 지원 -->
+	<dependency>
+		<groupId>javax.servlet</groupId>
+		<artifactId>javax.servlet-api</artifactId>
+		<version>4.0.1</version>
+		<scope>provided</scope>
+	</dependency>
+	<dependency>
+		<groupId>javax.servlet</groupId>
+		<artifactId>jstl</artifactId>
+		<version>1.2</version>
+	</dependency>
+	<dependency>
+		<groupId>javax.servlet.jsp</groupId>
+		<artifactId>javax.servlet.jsp-api</artifactId>
+		<version>2.3.3</version>
+		<scope>provided</scope>
+	</dependency> 4. Web MVC, Security 설정한다. 4-1 Web MVC Config 파일 생성하고 jsp 처리 ViewResolver를 등록한다. package pe.pilseong.custom_registration.config;
+
+...
+
+@Configuration
+@EnableWebMvc
+@ComponentScan(basePackages = "pe.pilseong.custom_registration")
+public class WebConfig {
+  
+  @Bean
+  public ViewResolver viewResolver() {
+    return new InternalResourceViewResolver("/WEB-INF/view/", ".jsp");
+  }
+} 4-2 AnnotaionConfigDispatcherServletInitializer를 생성한다. package pe.pilseong.custom_registration.config;
+
+import org.springframework.web.servlet.support.AbstractAnnotationConfigDispatcherServletInitializer;
+
+public class WebAnnotationConfigDispatcherServlet extends AbstractAnnotationConfigDispatcherServletInitializer {
+
+  @Override
+  protected Class<?>[] getRootConfigClasses() {
+    return null;
+  }
+
+  @Override
+  protected Class<?>[] getServletConfigClasses() {
+    return new Class[] {WebConfig.class};
+  }
+
+  @Override
+  protected String[] getServletMappings() {
+    return new String[] {"/"};
+  }
+} 4-3 SecurityWebApplicationInitializer를 생성한다. package pe.pilseong.custom_registration.config;
+
+import org.springframework.security.web.context.AbstractSecurityWebApplicationInitializer;
+
+public class WebSecurityInitializer extends AbstractSecurityWebApplicationInitializer {} 4-4 WebSecurityConfigurerAdapter를 상속하여 Security Config을 생성한다. 4-4-1 in memory 방식으로 유저를 등록한다. 여기서는 advanced 답게 BCrypt로 hashing하였다. ㅋㅋ 4-4-2 아래 코드에서 username와 password가 동일하다. 인증 관리자를 통해 3명을 등록했다. 4-4-2-1 hashing 값은 https://www.bcryptcalculator.com 여기서 가지고 왔다. package pe.pilseong.custom_registration.config;
+
+...
+
+@Configuration
+@EnableWebSecurity
+public class SecurityConfig extends WebSecurityConfigurerAdapter {
+  @Override
+  protected void configure(AuthenticationManagerBuilder auth) throws Exception {
+    UserBuilder builder = User.builder();
+    
+    auth.inMemoryAuthentication().passwordEncoder(passwordEncoder())
+      .withUser(builder.username("pilseong")
+        .password("$2a$10$UwsYjhu/iNCKbRDEsYpoi.AvuQlxX1yv/9TbtEmnmbgFQkh4z0TWa")
+        .roles("EMPLOYEE"))
+        
+      .withUser(builder.username("suel")
+        .password("$2a$10$F1kAcy7iAw0790oaf4ATxeerP779yfrK.hncxhfU1jDoSLS.drNem")
+        .roles("EMPLOYEE", "MANAGER"))
+        
+      .withUser(builder.username("noel")
+        .password("$2a$10$G59j5AkWAujaRfp2AhJtPeoirdMiPlfYkEoVczYpwTiWXeWyHadPS")
+        .roles("EMPLOYEE", "ADMIN"));
+  }
+
+  @Bean
+  public BCryptPasswordEncoder passwordEncoder() {
+    return new BCryptPasswordEncoder();
+  } 4-5 이젠 url에 접근제어 코드를 넣는다. 당연히 SecurityHttp로 요청을 제어한다. 4-5-1 페이지 구조는 이전 포스팅을 참조하면 된다. 똑같은 것을 다시 붙이고 있는 거니깐 @Override
+  protected void configure(HttpSecurity http) throws Exception {
+    http.authorizeRequests()
+      .antMatchers("/").permitAll()
+      .antMatchers("/employees").hasRole("EMPLOYEE")
+      .antMatchers("/leaders/**").hasRole("MANAGER")
+      .antMatchers("/systems/**").hasRole("ADMIN")
+     .and()
+     .formLogin()
+       .loginPage("/showLoginPage")
+       .loginProcessingUrl("/authenticateUser")
+       .permitAll()
+     .and()
+     .logout()
+       .logoutSuccessUrl("/")
+       .permitAll()
+     .and()
+     .exceptionHandling()
+       .accessDeniedPage("/access-denied");    
+  }
+} 5. 이젠 위의 페이지 접근 제어에 따라 처리하는 controller를 만든다. 5-1 LoginController는 custom login 페이지에 관한 mapping을 가지고 있다. 5-2 권한 없는 페이지에 대한 에러 페이지도 설정한다. package pe.pilseong.custom_registration.controller;
+
+...
+
+@Controller
+public class LoginController {
+  
+  @GetMapping("/showLoginPage")
+  public String showLoginPage() {
+    return "plain-login";
+  }
+  
+  @GetMapping("/access-denied")
+  public String accessDenied() {
+    return "access-denied";
+  }
+} 5-2 HomeController는 페이지 이동에 대한 mapping을 가지고 있다. package pe.pilseong.custom_registration.controller;
+
+import org.springframework.stereotype.Controller;
+import org.springframework.web.bind.annotation.GetMapping;
+
+@Controller
+public class HomeController {
+  
+  @GetMapping("/employees")
+  public String home() {
+    return "home";
+  }
+  
+  @GetMapping("/leaders")
+  public String leaders() {
+    return "leaders";
+  }
+  
+  @GetMapping("/systems")
+  public String systems() {
+    return "systems";
+  }
+  
+  @GetMapping("/")
+  public String landing() {
+    return "landing";
+  }
+} 6. 나머지 jsp 페이지들 6-1 첫화면 landing.jsp <%@ page language="java" contentType="text/html; charset=UTF-8" pageEncoding="UTF-8"%>
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Welcome to Company</title>
+</head>
+<body>
+  <p>
+    Welcome to Company!!!<br><br>
+    
+    <a href="${ pageContext.request.contextPath }/employees">Click to the employee page</a>
+  </p>
+</body>
+</html> 6-2 custom login페이지 /showLoginPage 링크의 plain-login.jsp <%@ taglib prefix="c" uri="http://java.sun.com/jsp/jstl/core" %>
+<%@ taglib prefix="form" uri="http://www.springframework.org/tags/form"%>
+<%@ page language="java" contentType="text/html; charset=UTF-8"
+  pageEncoding="UTF-8"%>
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<link rel="stylesheet"
+  href="https://stackpath.bootstrapcdn.com/bootstrap/4.4.1/css/bootstrap.min.css"
+  integrity="sha384-Vkoo8x4CGsO3+Hhxv8T/Q5PaXtkKtu6ug5TOeNV6gBiFeWPGFN9MuhOf23Q9Ifjh"
+  crossorigin="anonymous">
+<title>Spring Security Custom Login Form</title>
+</head>
+<body>
+  <div class="container">
+    <div class="card" style="width: 350px; margin-left: auto; margin-right: auto; border: none;">
+      <h1 class="display-4">Please Login</h1>
+      <form:form action="${pageContext.request.contextPath}/authenticateUser" method="POST">
+        <div class="form-group">
+          <label for="username">Username</label> 
+          <input type="text" id="username" name="username" class="form-control" />
+        </div>
+        <div class="form-group">
+          <label for="password">Password</label>
+          <input type="password" id="password" name="password" class="form-control">
+          <c:if test="${ param.error != null }">
+            <small id="passwordHelpBlock" class="form-text text-warning">
+              Sorry! You entered invalid username/password.
+            </small>
+          </c:if>          
+          <c:if test="${ param.logout != null }">
+            <small id="passwordHelpBlock" class="form-text text-info">
+              You have been logged out.
+            </small>
+          </c:if>          
+        </div>  
+        <input type="submit" value="Login" class="btn btn-primary">
+      </form:form>
+    </div>
+  </div>
+
+  <script src="https://code.jquery.com/jquery-3.4.1.slim.min.js"
+    integrity="sha384-J6qa4849blE2+poT4WnyKhv5vZF5SrPo0iEjwBvKU7imGFAV0wwj1yYfoRSJoZ+n"
+    crossorigin="anonymous"></script>
+  <script
+    src="https://cdn.jsdelivr.net/npm/popper.js@1.16.0/dist/umd/popper.min.js"
+    integrity="sha384-Q6E9RHvbIyZFJoft+2mJbHaEWldlvI9IOYy5n3zV9zzTtmI3UksdQRVvoxMfooAo"
+    crossorigin="anonymous"></script>
+  <script
+    src="https://stackpath.bootstrapcdn.com/bootstrap/4.4.1/js/bootstrap.min.js"
+    integrity="sha384-wfSDF2E50Y2D1uUdj0O3uMBJnjuUD4Ih7YwaYd1iqfktj0Uod8GCExl3Og8ifwB6"
+    crossorigin="anonymous"></script>
+</body>
+</html> 6-3 로그인 후 기본 페이지 /employee 경로의 home.jsp <%@ taglib prefix="security" uri="http://www.springframework.org/security/tags" %>
+<%@ taglib prefix="form" uri="http://www.springframework.org/tags/form"%>
+<%@ page language="java" contentType="text/html; charset=UTF-8"
+  pageEncoding="UTF-8"%>
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<link rel="stylesheet"
+  href="https://stackpath.bootstrapcdn.com/bootstrap/4.4.1/css/bootstrap.min.css"
+  integrity="sha384-Vkoo8x4CGsO3+Hhxv8T/Q5PaXtkKtu6ug5TOeNV6gBiFeWPGFN9MuhOf23Q9Ifjh"
+  crossorigin="anonymous">
+<title>Spring Security Custom Login Form</title>
+</head>
+<body>
+  <div class="container">
+    <h2>Company Website</h2>
+    <hr>
+    <p>You are now logged in</p>
+    <p>
+      User :: <security:authentication property="principal.username"/>
+    </p>
+    <p>
+      Roles(s) :: <security:authentication property="principal.authorities"/>
+    </p>
+    <security:authorize access="hasRole('MANAGER')">
+      <hr>
+      <p>
+        <a href="${ pageContext.request.contextPath }/leaders">Leadership Meeting(Only for Managers)</a>
+      </p>
+      <hr>
+    </security:authorize>
+    <security:authorize access="hasRole('ADMIN')">
+      <hr>
+      <p>
+        <a href="${ pageContext.request.contextPath }/systems">System Meeting(Only for Admins)</a>
+      </p>
+      <hr>
+    </security:authorize>
+    <form:form action="${ pageContext.request.contextPath }/logout" method="POST">
+      <input type="submit" class="btn btn-primary" value="Logout"/>
+    </form:form>
+  </div>
+</body>
+</html> 6-4 MANAGER 권한 접근가능한 /leaders 링크의 leaders.jsp <%@ page language="java" contentType="text/html; charset=UTF-8"
+    pageEncoding="UTF-8"%>
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Insert title here</title>
+</head>
+<body>
+  <h1>Company Website</h1>
+  <hr>
+  <p>
+    This is a page for Managers. We need a long vacation~ go managers!!!
+  </p>
+  <hr>
+  <p>
+    <a href="${ pageContext.request.contextPath }/">Back to Landing Page</a>
+  </p>  
+</body>
+</html> 6-5 ADMIN 권한 접근가능한 /systems 링크의 systems.jsp <%@ page language="java" contentType="text/html; charset=UTF-8"
+    pageEncoding="UTF-8"%>
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Insert title here</title>
+</head>
+<body>
+  <h1>Company Website</h1>
+  <hr>
+  <p>
+    This is a page for Admins. Work sucks! Let's make a complaint!!!
+  </p>
+  <hr>
+  <p>
+    <a href="${ pageContext.request.contextPath }/">Back to Landing Page</a>
+  </p>
+</body>
+</html> 6-7 접근 불가 시 나오는 /access-denied 경로의 access-denied.jsp <%@ page language="java" contentType="text/html; charset=UTF-8"
+    pageEncoding="UTF-8"%>
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Access denied</title>
+</head>
+<body>
+  <h1>Company Website</h1>
+  <hr>
+  <p>
+    Access Denied - you are not authorized to access this page
+  </p>
+  <hr>
+  <p>
+    <a href="${ pageContext.request.contextPath }/">Back to Landing Page</a>
+  </p>
+</body>
+</html> 7. 여기까지 한 것은 7-0 Spring WebMVC Java Config 설정 without xml 7-1 데이터베이스 없이 스프링 Security filter가 in Memory 설정으로 사용자를 관리 7-2 권한에 따른 페이지 접근 7-3 custom 로그인 페이지 생성 7-4 권한에 따른 메뉴 보여주기

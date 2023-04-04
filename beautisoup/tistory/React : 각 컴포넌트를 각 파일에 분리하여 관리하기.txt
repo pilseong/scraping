@@ -1,0 +1,371 @@
+1. 지금까지는 모든 파일을 app.js 파일 하나에 다 몰아서 사용했다. 1-1 이 큰 파일을 각 컴포넌트 별로 파일에 넣으면 좀 더 깔끔하게 프로그램을 관리할 수 있다. import React from 'react'
+import ReactDOM from 'react-dom'
+
+class TodoApp extends React.Component {
+
+  constructor(props) {
+    super(props)
+
+    this.onRemoveAllClicked = this.onRemoveAllClicked.bind(this)
+    this.onNextTodoClicked = this.onNextTodoClicked.bind(this)
+    this.handleAddTodo = this.handleAddTodo.bind(this)
+
+    this.state = {
+      todos: [
+        "Take your mask",
+        "Wash your hands",
+        "Drink more water"
+      ]
+    }
+  }
+
+  componentDidMount() {
+    try {
+      const todos = localStorage.getItem("todos")
+      if (todos) {
+        console.log(todos)
+        this.setState(() => ({ todos: JSON.parse(todos) }))
+      }
+    } catch (e) {
+    }
+  }
+
+  componentDidUpdate(prevProps, prevState) {
+    if (prevState.todos.length !== this.state.todos.length) {
+      localStorage.setItem("todos", JSON.stringify(this.state.todos))
+    }
+  }
+
+  onRemoveAllClicked() {
+    this.setState(() => {
+      return {
+        todos: []
+      }
+    })
+  }
+
+  onNextTodoClicked() {
+    const index = Math.floor(Math.random() * this.state.todos.length)
+    alert(this.state.todos[index])
+  }
+
+  handleAddTodo(todo) {
+    if (!todo) {
+      return 'Please type vaild item'
+    } else if (this.state.todos.indexOf(todo) > -1) {
+      return 'Duplicated item typed'
+    }
+
+    this.setState((prevState) => {
+      return {
+        todos: prevState.todos.concat(todo)
+      }
+    })
+  }
+
+  render() {
+    // const title = "TO DO List"
+
+    return (
+      <div>
+        {/* <Header title={title} /> */}
+        <Header />
+        <Action 
+          hasTodos={this.state.todos.length > 0} 
+          onNextTodoClicked={this.onNextTodoClicked}
+        />
+        <TodoList 
+          hasTodos={this.state.todos.length > 0}
+          todos={this.state.todos}
+          onRemoveAllClicked={this.onRemoveAllClicked}
+        />
+        <AddTodo handleAddTodo={this.handleAddTodo} />
+      </div>
+    )
+  }
+}
+
+
+const Header = (props) => {
+  return (
+    <div>
+      <h1>{props.title}</h1>
+    </div>
+  )
+}
+
+Header.defaultProps = {
+  title: 'Your Todo List'
+}
+
+const Action = (props) => {
+  console.log('action performed')
+  return (
+    <div>
+      <button 
+        onClick={props.onNextTodoClicked}
+        disabled={!props.hasTodos}
+      >Next Todo?</button>
+    </div>
+  )
+}
+
+const TodoList = (props) => {
+  return (
+    <div>
+    <button 
+      onClick={props.onRemoveAllClicked}
+      disabled={!props.hasTodos}
+    >Remove All</button>
+    { props.todos.length === 0 && <p>No Item exists</p> }
+    { props.todos.map(todo => <Todo key={todo} todoText={todo} />) }
+    </div>
+  )
+}
+
+const Todo = (props) => {
+  return (
+    <div>
+      <p>
+        {propss.todoText}
+      </p>
+    </div>
+  )
+}
+
+class AddTodo extends React.Component {
+
+  constructor(props) {
+    super(props)
+
+    this.onFormSubmit = this.onFormSubmit.bind(this)
+
+    this.state = {
+      error: undefined
+    }
+  }
+
+  onFormSubmit(e) {
+    e.preventDefault()
+    const typedTodo = e.target.elements.newTodo.value
+
+    const error = this.props.handleAddTodo(typedTodo)
+
+    this.setState(() => {
+      return {
+        error
+      }
+    })
+
+    if (!error) {
+      e.target.elements.newTodo.value = ''
+    }
+  }
+
+  render() {
+    return (
+      <div>
+        {this.state.error && <p>{this.state.error}</p>}
+        <form onSubmit={this.onFormSubmit}>
+          <input type="text" name="newTodo" />
+          <button>Add</button>
+        </form>
+      </div>
+    )
+  }
+}
+
+ReactDOM.render(<TodoApp />, document.getElementById('app')) 2. src 안에 components라는 폴더를 생성하고 각 컴포넌트마다 파일을 생성한다. 2-0 각 분리한 파일에서는 React 컴포넌트를 import 해야 하고, 각 컴포넌트는 export default로 표출한다. 2-1 app.js import React from 'react'
+import ReactDOM from 'react-dom'
+
+import TodoApp from './components/TodpApp'
+
+ReactDOM.render(<TodoApp />, document.getElementById('app')) 2-2 TodoApp.js import React from 'react'
+
+import Header from './Header'
+import Action from './Action'
+import TodoList from './TodoList'
+import AddTodo from './AddTodo'
+
+export default class TodoApp extends React.Component {
+
+  constructor(props) {
+    super(props)
+
+    this.onRemoveAllClicked = this.onRemoveAllClicked.bind(this)
+    this.onNextTodoClicked = this.onNextTodoClicked.bind(this)
+    this.handleAddTodo = this.handleAddTodo.bind(this)
+
+    this.state = {
+      todos: [
+        "Take your mask",
+        "Wash your hands",
+        "Drink more water"
+      ]
+    }
+  }
+
+  componentDidMount() {
+    try {
+      const todos = localStorage.getItem("todos")
+      if (todos) {
+        console.log(todos)
+        this.setState(() => ({ todos: JSON.parse(todos) }))
+      }
+    } catch (e) {
+    }
+  }
+
+  componentDidUpdate(prevProps, prevState) {
+    if (prevState.todos.length !== this.state.todos.length) {
+      localStorage.setItem("todos", JSON.stringify(this.state.todos))
+    }
+  }
+
+  onRemoveAllClicked() {
+    this.setState(() => {
+      return {
+        todos: []
+      }
+    })
+  }
+
+  onNextTodoClicked() {
+    const index = Math.floor(Math.random() * this.state.todos.length)
+    alert(this.state.todos[index])
+  }
+
+  handleAddTodo(todo) {
+    if (!todo) {
+      return 'Please type vaild item'
+    } else if (this.state.todos.indexOf(todo) > -1) {
+      return 'Duplicated item typed'
+    }
+
+    this.setState((prevState) => {
+      return {
+        todos: prevState.todos.concat(todo)
+      }
+    })
+  }
+
+  render() {
+    // const title = "TO DO List"
+
+    return (
+      <div>
+        {/* <Header title={title} /> */}
+        <Header />
+        <Action 
+          hasTodos={this.state.todos.length > 0} 
+          onNextTodoClicked={this.onNextTodoClicked}
+        />
+        <TodoList 
+          hasTodos={this.state.todos.length > 0}
+          todos={this.state.todos}
+          onRemoveAllClicked={this.onRemoveAllClicked}
+        />
+        <AddTodo handleAddTodo={this.handleAddTodo} />
+      </div>
+    )
+  }
+} 2-3 Header.js import React from 'react'
+
+const Header = (props) => {
+  return (
+    <div>
+      <h1>{props.title}</h1>
+    </div>
+  )
+}
+
+Header.defaultProps = {
+  title: 'Your Todo List'
+}
+
+export default Header 2-4 Action.js import React from 'react'
+
+const Action = (props) => {
+  console.log('action performed')
+  return (
+    <div>
+      <button 
+        onClick={props.onNextTodoClicked}
+        disabled={!props.hasTodos}
+      >Next Todo?</button>
+    </div>
+  )
+}
+
+export default Action 2-5 TodoList.js import React from 'react'
+
+import Todo from './Todo'
+
+const TodoList = (props) => {
+  return (
+    <div>
+    <button 
+      onClick={props.onRemoveAllClicked}
+      disabled={!props.hasTodos}
+    >Remove All</button>
+    { props.todos.length === 0 && <p>No Item exists</p> }
+    { props.todos.map(todo => <Todo key={todo} todoText={todo} />) }
+    </div>
+  )
+}
+
+export default TodoList 2-6 Todo.js import React from 'react'
+
+const Todo = (props) => {
+  return (
+    <div>
+      <p>
+        {props.todoText}
+      </p>
+    </div>
+  )
+}
+
+export default Todo 2-7 AddTodo.js import React from 'react'
+
+export default class AddTodo extends React.Component {
+
+  constructor(props) {
+    super(props)
+
+    this.onFormSubmit = this.onFormSubmit.bind(this)
+
+    this.state = {
+      error: undefined
+    }
+  }
+
+  onFormSubmit(e) {
+    e.preventDefault()
+    const typedTodo = e.target.elements.newTodo.value
+
+    const error = this.props.handleAddTodo(typedTodo)
+
+    this.setState(() => {
+      return {
+        error
+      }
+    })
+
+    if (!error) {
+      e.target.elements.newTodo.value = ''
+    }
+  }
+
+  render() {
+    return (
+      <div>
+        {this.state.error && <p>{this.state.error}</p>}
+        <form onSubmit={this.onFormSubmit}>
+          <input type="text" name="newTodo" />
+          <button>Add</button>
+        </form>
+      </div>
+    )
+  }
+} 3. 결과 화면 3-1 의미는 없지만 전과 동일하게 잘 동작한다.

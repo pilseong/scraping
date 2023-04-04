@@ -1,0 +1,38 @@
+1. Spring web의 classpath root는 무조건 /WEB-INF/classes 이다. 1-0 src/main/java에 위치한 파일이 로딩되는 것은 빌드 시에 파일이 WEB-INF/classes 폴더로 복사되기 때문이다. 1-1 classpath: 사용시 '/'를 사용한 절대경로 지정이 불가능하다. 그냥 '/'가 삭제된다. 1-1-1 classpath:/countries.properties 같은 방식의 코드는 classpath:countries.properties로 변경될 뿐이다. 1-2 WEB-INF에 설정파일을 두기 위해서는 classpath:../countries.properties 로 지정해야 한다. 2. 외부 설정 파일을 사용하기 위해서는 우선 설정 파일을 생성하고 적당한 위치에 둔다. 2-1 WEB-INF/ 아래에 countries.properties가 있다고 가정한다. 3. spring MVC 설정 xml파일에 util을 사용할 수 있도록 아래처럼 변경한다. 3-1 xml는 디버깅이 최악이므로 그냥 붙여넣기 해야 한다. <?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans" 
+        xmlns:context="http://www.springframework.org/schema/context" 
+        xmlns:mvc="http://www.springframework.org/schema/mvc" 
+        xmlns:util="http://www.springframework.org/schema/util" 
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" 
+        xsi:schemaLocation="
+            http://www.springframework.org/schema/beans     
+            http://www.springframework.org/schema/beans/spring-beans.xsd     
+            http://www.springframework.org/schema/context     
+            http://www.springframework.org/schema/context/spring-context.xsd     
+            http://www.springframework.org/schema/mvc         
+            http://www.springframework.org/schema/mvc/spring-mvc.xsd 
+            http://www.springframework.org/schema/util     
+            http://www.springframework.org/schema/util/spring-util.xsd"> 3-2 xml파일의 시작은 항상 <?xml 이 위치해야 한다. 어떤 것이든 앞에 위치하면 에러가 발생한다. 아래 박스 참조 The processing instruction target matching "[xX][mM][lL]" is not allowed.
+
+// 위와 같은 에러가 발생할 경우는 xml파일 첫부분 아래 ?xml 시작코드 앞에 공백이 있기 때문이다. 
+// comment든 무엇이든 아무 것도 있어서는 안된다.
+<?xml version="1.0" encoding="UTF-8"?> 4. util:properties 테그를 사용하여 외부파일을 읽어온다. 경로는 classpath 루트인 WEB-INF/classes에서 시작한다. <util:properties id="countryOptions" location="classpath:../countries.properties" /> 4-0 properties 예시 파일이다. 키가 단축국가코드, 값이 국가 이름이 된다. KR=South Korea
+JP=Japan
+US=United State of America
+IN=India 4-1 location속성에 classpath기준으로 속성 파일 경로 지정한다. 4-2 id 속성으로 어떤 이름으로 값들을 가져올지를 지정한다. 5. 사용할 부분에서 @Value("#{name}") 구문을 사용하여 값을 읽어 온다. 여기서는 map에 저장한다. 5-1 #{} 구문이다. ${}가 아니다. #{}은 SpEL구문으로 다양한 기능을 가진다. 5-2 {} 내부에 들어갈 이름 값은 util:properties 테그의 id 속성에서 지정된 값이다. 5-3 아래에서 사용한 방식은 통으로 key, value를 가져와서 Map에 그대로 넣으라는 말이다. import java.util.Map;
+
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Controller;
+import org.springframework.ui.Model;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.ModelAttribute;
+import org.springframework.web.bind.annotation.RequestMapping;
+
+import pe.pilseong.springmvcstudent.Student;
+
+@Controller
+@RequestMapping("/student")
+public class StudentController {
+  
+  @Value("#{countryOptions}")
+  private Map<String, String> countryOptions;

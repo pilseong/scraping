@@ -1,0 +1,162 @@
+1. 이 포스트는 Sprnig Web + Hibernate Add의 연속 포스팅이다. 2. 고객의 정보를 업데이트하는 부분이다. 2-1 고객 리스트에서 각 고객의 리스트에 update 버튼을 추가하도록 jsp 페이지 수정 2-2 CustomerDAO에서 한 명의 고객정보를 가지고 오는 메소드를 추가 2-3 CustomerService에서 한 명의 고객정보를 가지고 오는 메소드를 추가 2-4 업데이트 버튼을 눌렀을 때 update 화면으로 가는 Controller를 작성한다. 2-5 수정한 정보를 처리하는 Controller 메소드 작성 2-6 고객정보 저장 뿐 아니라 수정도 가능하도록 CustomerDAO의 saveCustomer 메소드 수정 3. 고객 정보 수정이 가능하도록 list-customers.jsp를 수정한다. 3-1 주요변경 부분은 th의 Action과 td의 update 부분인데 3-2 그냥 아래처럼 href에 링크를 걸어서 사용할 수도 있겠지만 c:url을 사용하여 복잡함을 줄여주었다. <td><a href="showUpdateCustomerForm?id=${ customer.id }" class="nav-link">Update</a></td> 전체 list-customers.jsp 소스 <%@ taglib prefix="c" uri="http://java.sun.com/jsp/jstl/core"%>
+<%@ page language="java" contentType="text/html; charset=UTF-8"
+  pageEncoding="UTF-8"%>
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<link rel="stylesheet"
+  href="https://stackpath.bootstrapcdn.com/bootstrap/4.4.1/css/bootstrap.min.css"
+  integrity="sha384-Vkoo8x4CGsO3+Hhxv8T/Q5PaXtkKtu6ug5TOeNV6gBiFeWPGFN9MuhOf23Q9Ifjh"
+  crossorigin="anonymous">
+<link rel="stylesheet" href="${pageContext.request.contextPath}/resources/css/sytle.css"/>
+<title>List of Customers</title>
+</head>
+<body>
+  <div class="container">
+    <h2 class="mb-5 mt-5">CRM - Customer Relationship Manager</h2>
+    <a href="showAddCustomerForm" class="btn btn-secondary mb-3">Add Customer</a>
+    <table class="table">
+      <thead>
+        <tr>
+          <th>First Name</th>
+          <th>Last Name</th>
+          <th>Email</th>
+          <th>Action</th>
+        </tr>
+      </thead>
+      <tbody>
+        <c:forEach var="customer" items="${ customers }">
+          <c:url var="updateLink" value="showUpdateCustomerForm">
+            <c:param name="id" value="${ customer.id }"></c:param>
+          </c:url>
+          <tr>
+            <td>${ customer.firstName }</td>
+            <td>${ customer.lastName }</td>
+            <td>${ customer.email }</td>
+            <td><a href="${ updateLink }" class="nav-link">Update</a></td>
+          </tr>
+        </c:forEach>
+      </tbody>
+    </table>
+  </div>
+  <script src="https://code.jquery.com/jquery-3.4.1.slim.min.js"
+    integrity="sha384-J6qa4849blE2+poT4WnyKhv5vZF5SrPo0iEjwBvKU7imGFAV0wwj1yYfoRSJoZ+n"
+    crossorigin="anonymous"></script>
+  <script
+    src="https://cdn.jsdelivr.net/npm/popper.js@1.16.0/dist/umd/popper.min.js"
+    integrity="sha384-Q6E9RHvbIyZFJoft+2mJbHaEWldlvI9IOYy5n3zV9zzTtmI3UksdQRVvoxMfooAo"
+    crossorigin="anonymous"></script>
+  <script
+    src="https://stackpath.bootstrapcdn.com/bootstrap/4.4.1/js/bootstrap.min.js"
+    integrity="sha384-wfSDF2E50Y2D1uUdj0O3uMBJnjuUD4Ih7YwaYd1iqfktj0Uod8GCExl3Og8ifwB6"
+    crossorigin="anonymous"></script>
+</body>
+</html> 4. CustomerDAO를 수정한다. 4-1 수정된 부분은 한 명의 고객 정보를 id를 가지고 가지오는 기능과 4-2 수정된 정보를 저장하는 부분이다. saveOrUpdate 메소드를 사용하도록 변경하였다. 4-3 saveOrUpdate는 저장할 객체의 id 유무에 따라 save할지 update 할지 결정한다. // 인터페이스
+public interface CustomerDAO {
+  List<Customer> getCustomers();
+  void saveCustomer(Customer customer);
+  Customer getCustomer(Long id);
+}
+
+// 구현 클래스
+@Repository
+public class CustomerDAOImpl implements CustomerDAO {
+
+  @Autowired
+  private SessionFactory sessionFactory;
+
+  @Override
+  public List<Customer> getCustomers() {
+    Session session = this.sessionFactory.getCurrentSession();
+
+    return session.createQuery("from Customer order by firstName", Customer.class).getResultList();
+  }
+
+  // 수정된 메소드로 기존에는 save 메소드를 호출했으지만 지금은 saveOrUpdate를 호출한다.
+  // saveOrUpdate는 저장할 객체에 id 정보가 없는 경우 save를 하고 id정보가 있는 경우는 update한다.
+  @Override
+  public void saveCustomer(Customer customer) {
+    Session session = this.sessionFactory.getCurrentSession();
+    
+    session.saveOrUpdate(customer);
+  }
+
+  // 추가된 한명의 고객정보를 가지고 오는 메소드이다.
+  @Override
+  public Customer getCustomer(Long id) {
+    Session session = this.sessionFactory.getCurrentSession();
+    
+    return session.get(Customer.class, id);
+  }
+} 5. CustomerService를 업데이트 한다. 5-1 save 기능은 DAO에서 수정되므로 손댈 필요가 없다. 5-2 한 명의 고객 정보를 가지고 오는 getCustomer만 추가하였다. public interface CustomerService {
+  List<Customer> getCustomers();
+  void saveCustomer(Customer customer);
+  Customer getCustomer(Long id);
+}
+
+
+@Service
+public class CustomerServiceImpl implements CustomerService {
+
+  @Autowired
+  private CustomerDAO customerDAO;
+  
+  @Override
+  @Transactional
+  public List<Customer> getCustomers() {
+    return this.customerDAO.getCustomers();
+  }
+
+  @Override
+  @Transactional
+  public void saveCustomer(Customer customer) {
+    this.customerDAO.saveCustomer(customer);
+  }
+
+  @Override
+  @Transactional
+  public Customer getCustomer(Long id) {
+    return this.customerDAO.getCustomer(id);
+  }
+} 6. update 화면을 보여주고 처리하는 메소드를 CustomerController에 추가한다. @Controller
+@RequestMapping("/customer")
+public class CustomerController {
+  
+  @Autowired
+  private CustomerService customerService;
+  
+  @GetMapping("/list")
+  public String listCustomers(Model model) {
+    
+    model.addAttribute("customers", this.customerService.getCustomers());
+    
+    return "list-customers";
+  }
+  
+  @GetMapping("/showAddCustomerForm")
+  public String showAddCustomerForm(Model model) {
+    model.addAttribute("customer", new Customer());
+    
+    return "customer-form";
+  }
+  
+  // update와 save 기능 모두 동일한 메소드를 사용한다.
+  // 수정할 부분이 없다.
+  @PostMapping("/saveCustomer")
+  public String saveCustomer(@ModelAttribute Customer customer) {
+    
+    System.out.println(customer.getId());
+    this.customerService.saveCustomer(customer);
+    return "redirect:/customer/list";
+  }
+  
+  // update화면을 보여주는 부분으로 한명의 고객정보를 가져온다.
+  @GetMapping("/showUpdateCustomerForm")
+  public String showUpdateCustomerForm(@RequestParam("id") Long id, Model model) {
+    
+    model.addAttribute("customer", this.customerService.getCustomer(id));
+    
+    return "customer-form";
+  }
+}

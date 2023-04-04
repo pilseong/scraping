@@ -1,0 +1,101 @@
+1. 이 포스트는 javax.persistence @OrderBy annotation을 설명한다. 2. @OrderBy는 데이터베이스의 Query 구문의 Order by 구문과 동일한 효과를 가진다. 2-0 @OrderBy("fieldname [ASC | DESC] ") 형식으로 사용된다. 2-1 데이터베이스 실행 시 가장 끝에 order by가 붙으며 지정된 field와 정렬 순서가 그대로 삽입된다. 2-2 가지고 올 때도 순서를 지정하기 때문에 List, Set, Map에서는 의미가 있다. 2-3 하지만, 별도의 Comparator를 지정해야 하는 SortedMap, SortedSet에는 의미가 없다. 2-3-1 가져올 때 순서가 있어도 실제 Collection에 저장할 때 기본값으로 설정된 정렬기준으로 재정렬되기 때문이다. 2-3-2 그렇기 때문에 SortedMap, SortedSet라고 하는 것이다. 3. 이 포스트의 프로그램을 테스트 하려면 우선 값을 입력한 후, hbm2ddl을 update로 변경하여 값이 사라지지 않게 해야 한다. 4. Student Entity 4-1 @OrderBy에 course_name이 지정되어 있고 DESC가 있어 역순으로 나와야 한다. package pe.pilseong.hibernateorderby.entity;
+
+import java.util.HashMap;
+import java.util.Map;
+
+import javax.persistence.CollectionTable;
+import javax.persistence.Column;
+import javax.persistence.ElementCollection;
+import javax.persistence.Entity;
+import javax.persistence.GeneratedValue;
+import javax.persistence.GenerationType;
+import javax.persistence.Id;
+import javax.persistence.JoinColumn;
+import javax.persistence.MapKeyColumn;
+import javax.persistence.OrderBy;
+import javax.persistence.Table;
+
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+@Entity
+@Table(name = "student")
+@NoArgsConstructor
+@Data
+public class Student {
+  
+  public Student(String firstName, String lastName, String email) {
+    this.firstName = firstName;
+    this.lastName = lastName;
+    this.email = email;
+  }
+
+  @Id
+  @GeneratedValue(strategy = GenerationType.IDENTITY)
+  private Long id;
+  
+  @Column(name = "first_name")
+  private String firstName;
+  
+  @Column(name = "last_name")
+  private String lastName;
+  
+  @Column(name = "email")
+  private String email;
+  
+  @ElementCollection
+  @CollectionTable(
+      name = "course",
+      joinColumns = @JoinColumn(name = "student_id")
+  )
+  @MapKeyColumn
+  @OrderBy(value = "course_name DESC")
+  @Column(name = "course_name")
+  private Map<String, String> courses = new HashMap<>();
+} 5. 실행 코드 package pe.pilseong.hibernateorderby;
+
+import org.hibernate.Session;
+import org.hibernate.SessionFactory;
+import org.hibernate.cfg.Configuration;
+
+import pe.pilseong.hibernateorderby.entity.Student;
+
+/**
+ * Hello world!
+ *
+ */
+public class App {
+  public static void main(String[] args) {
+    
+    SessionFactory factory = new Configuration().configure()
+        .addAnnotatedClass(Student.class)
+        .buildSessionFactory();
+    
+    Session session = factory.getCurrentSession();
+    
+    session.beginTransaction();
+    
+//    Student student = new Student("Pilseong", "Heo", "heops79@gmail.com");
+//    Map<String, String> courses = student.getCourses();
+//    
+//    courses.put("MT","Math");
+//    courses.put("SC", "Science");
+//    courses.put("EC", "Economics");
+//    courses.put("LG1", "Language");
+//    courses.put("LG2", "Language");
+//    
+//    
+//    session.persist(student);
+    
+    Student student = session.get(Student.class, 1L);
+    System.out.println("Student :: " + student.toString());
+    
+    for (String st : student.getCourses().keySet()) {
+      System.out.println("Course :: " + student.getCourses().get(st));
+    }
+    
+    session.getTransaction().commit();
+    
+    factory.close();
+  }
+} 6. 결과 화면 6-1 실행 전 데이터베이스 값 6-2 실행 값 6-2-1 순서가 Science 부터 Economics 까지 순서가 역순으로 출력되고 있다.

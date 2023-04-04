@@ -1,0 +1,116 @@
+1. Global variable은 define만 한 경우에도 값이 0으로 초기화 된다. 2. 반면 Local variable은 define만 한 경우에는 garbage value가 들어간다. 3. extern은 외부에서 해당 변수나 함수를 정의했다는 의미다. static의 활용 - static은 storage class specifier라고 불린다. 4. global 변수로 사용하면서 특정한 함수에서만 사용하기 원하는 경우는 4-1 함수 안에서 static으로 선언하면 된다. int main() {
+
+    func1();
+    
+    func1();
+    
+    func1();
+    
+    func1();
+}
+
+
+void func1() {
+    static int count = 0;
+    
+    printf("counter is :: \d", ++count);
+} 5. 여러 파일간에 공유되는 global 변수를 정의한 파일에서만 사용하기를 원하는 경우 static을 붙인다. // main.c 파일
+
+#include <stdio.h>
+
+void myFun();
+
+int globalInt;
+
+int main() {
+  globalInt = 100;
+  
+  printf("Global variable is %d \n", globalInt);
+  
+  myFun();
+  
+  printf("Global variable is %d", globalInt);
+
+  return 0;
+}
+
+
+// func.c 파일
+
+extern int globalInt;
+
+void myFun() {
+  globalInt = 900;
+} 5-1 위의 코드를 실행하면 아래처럼 프로젝트의 모든 파일에서 globalInt가 접근가능하다. 5-2 static을 붙이고 실행하면 #include <stdio.h>
+
+void myFun();
+
+static int globalInt;
+
+int main() {
+  globalInt = 100;
+  
+  printf("Global variable is %d \n", globalInt);
+  
+  myFun();
+  
+  printf("Global variable is %d", globalInt);
+
+  return 0;
+} 5-3 실행 결과는 아래처럼 컴파일 에러가 발생한다. 6. 함수를 특정 파일에서만 호출하고 싶은 경우에 해당 함수에 static을 붙인다. 6-1 우선 static이 없는 함수를 생성하고 다른 파일에서 이 함수를 호출한다. // main.c 파일
+
+#include <stdio.h>
+
+void myFun();
+
+static int globalInt;
+
+int main()
+{
+  globalInt = 100;
+  
+  printf("Global variable is %d \n", globalInt);
+  
+  myFun();
+  
+  printf("Global variable is %d", globalInt);
+
+  return 0;
+}
+
+void change_system_clock(int system_clock) {
+  printf("System clock changed to %d \n", system_clock);
+}
+
+
+
+// func.c 파일
+
+extern void change_system_clock(int);
+
+extern int globalInt;
+
+void myFun() {
+  change_system_clock(0);
+} 6-1 실행 결과는 다음과 같다. 6-2 static을 해당 함수에 붙이고 실행한다. #include <stdio.h>
+
+void myFun();
+
+static int globalInt;
+
+int main()
+{
+  globalInt = 100;
+  
+  printf("Global variable is %d \n", globalInt);
+  
+  myFun();
+  
+  printf("Global variable is %d", globalInt);
+
+  return 0;
+}
+
+static void change_system_clock(int system_clock) {
+  printf("System clock changed to %d \n", system_clock);
+} 6-3 실행 결과

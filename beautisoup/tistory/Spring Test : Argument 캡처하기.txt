@@ -1,0 +1,65 @@
+1. JUnit 4 버전의 테스트 코드이다. 2. ArgumentCaptor이라는 클래스를 사용하여 인자 값을 받아올 수 있다. 2-1 ArgumentCaptor의 capture는 verify 구문 내에서 사용할 수 있다. 2-2 반환되는 값은 Recipe Set이 되고 검증에 사용할 수 있다. package pe.pilseong.recipe.controller;
+
+import org.junit.Test;
+import org.mockito.ArgumentCaptor;
+import org.mockito.Mock;
+import org.mockito.MockitoAnnotations;
+import org.springframework.ui.Model;
+
+import pe.pilseong.recipe.domain.Recipe;
+import pe.pilseong.recipe.service.RecipeService;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+
+import java.util.HashSet;
+import java.util.Set;
+
+import org.junit.Before;
+
+public class IndexControllerTest {
+
+  IndexController indexController;
+
+  @Mock
+  RecipeService recipeService;
+
+  @Mock
+  Model model;
+
+  @Before
+  public void setup() {
+    MockitoAnnotations.initMocks(this);
+
+    indexController = new IndexController(recipeService);
+  }
+
+  @Test
+  public void getIndexPage() {
+
+    Set<Recipe> recipes = new HashSet<>();
+    recipes.add(Recipe.builder().id(1L).build());
+    recipes.add(Recipe.builder().id(2L).build());
+
+    when(recipeService.getRecipes()).thenReturn(recipes);
+
+    ArgumentCaptor<Set<?>> argumentCaptor = ArgumentCaptor.forClass(Set.class);
+
+    String viewName = indexController.getIndexPage(model);    
+
+    assertEquals(viewName, "main");
+
+    verify(recipeService, times(1)).getRecipes();
+    verify(model, times(1)).addAttribute(eq("recipes"), argumentCaptor.capture());
+    Set<?> setInController = argumentCaptor.getValue();
+    assertEquals(2, setInController.size());
+  }
+
+  @Test
+  public void test() {
+
+  }
+}

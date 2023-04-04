@@ -1,0 +1,196 @@
+1. 이 포스트는 아래 링크의 포스트의 연속이다. Spring : REST + Hibernate with Java Config - CRUD 서비스 서버 구현 1. 앞의 포스트 내용을 기반으로 CRUD를 수행하는 서비스를 구현한다. 1-1 데이터베이스 구조가 동일한 이 포스트를 참조한다. Spring : Web MVC + Hibernate - 설정하기 -1. 예제를 위해 Customer 테이블을 생� kogle.tistory.com 2. 이미 구현된 Hibernate기반 REST API에 인증 부분을 추가한다. 2-1 인증 관련 데이터베이스는 스프링 Security 기본스키마를 사용한다. 3. 보안 설정을 위한 Spring Security dependency를 추가한다. <!-- Spring Security  -->
+    <dependency>
+      <groupId>org.springframework.security</groupId>
+      <artifactId>spring-security-web</artifactId>
+      <version>${springsecurity.verison}</version>
+    </dependency>
+    
+    <dependency>
+      <groupId>org.springframework.security</groupId>
+      <artifactId>spring-security-config</artifactId>
+      <version>${springsecurity.verison}</version>
+    </dependency> 4. 보안 설정파일들을 작성한다. 4-1 WebSecurityInitializer 추가 package pe.pilseong.restcrud;
+
+import org.springframework.security.web.context.AbstractSecurityWebApplicationInitializer;
+
+public class WebSecurityInitializer extends AbstractSecurityWebApplicationInitializer {
+
+} 4-2 SecurityConfig 추가 4-2-1 중요한 부분은 보안 관리자설정에서 DaoAuthenticationProvider를 사용하는 부분이다. 4-2-2 DaoAuthenticationProvider는 인증 데이터를 가져오기 위해서 UserDetailsDetail을 사용한다. 4-2-3 인증은 Http Basic을 사용한다. 브라우저를 사용하면 인증 팝업이 화면에 나타난다. 4-2-3-1 postman같은 브라우저 외의 도구를 사용할 때는 4-2-3-2 헤더의 Authorization에 Basic Auth 타입을 설정하고 username, password를 추가해야 한다. 4-2-4 csrf 를 disable한 것은 REST라서 클라이언트가 서버와 다른 곳에 있을 확율이 높아서 이다. 4-2-5 Session Context 설정은 Stateless로 되어 있어 세션을 아예 사용하지 않는다. 4-2-5-1 stateless라도 웹브라우저를 사용하면 비밀번호가 브라우저에 저장되어 매번 인증을 요구하지 않는다. 4-2-5-2 따라서 제대로 설정되었는지 확인할 수가 없다. REST client를 사용하면 정상동작을 확인할 수 있다. package pe.pilseong.restcrud;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
+import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
+import org.springframework.security.config.annotation.authentication.builders.AuthenticationManagerBuilder;
+import org.springframework.security.config.annotation.web.builders.HttpSecurity;
+import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
+import org.springframework.security.config.annotation.web.configuration.WebSecurityConfigurerAdapter;
+import org.springframework.security.config.http.SessionCreationPolicy;
+import org.springframework.security.core.userdetails.UserDetailsService;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import org.springframework.security.crypto.password.PasswordEncoder;
+
+@EnableWebSecurity
+@Configuration
+public class SecurityConfig extends WebSecurityConfigurerAdapter {
+  
+  @Autowired
+  private UserDetailsService userDetailsService;
+  
+  @Override
+  protected void configure(AuthenticationManagerBuilder auth) throws Exception {
+    auth.authenticationProvider(daoAuthenticationProvider());
+  }
+  
+  @Override
+  protected void configure(HttpSecurity http) throws Exception {
+    http.authorizeRequests()
+      .antMatchers(HttpMethod.GET, "/api/customers").hasRole("EMPLOYEE")
+      .antMatchers(HttpMethod.GET, "/api/customers/**").hasRole("EMPLOYEE")
+      .antMatchers(HttpMethod.POST, "/api/customers").hasAnyRole("MANAGER", "ADMIN")
+      .antMatchers(HttpMethod.POST, "/api/customers/**").hasAnyRole("MANAGER", "ADMIN")
+      .antMatchers(HttpMethod.PUT, "/api/customers").hasAnyRole("MANAGER", "ADMIN")
+      .antMatchers(HttpMethod.PUT, "/api/customers/**").hasAnyRole("MANAGER", "ADMIN")
+      .antMatchers(HttpMethod.DELETE, "/api/customers/**").hasRole("ADMIN")
+      .and()
+      .httpBasic()
+      .and()
+      .csrf().disable()
+      .sessionManagement().sessionCreationPolicy(SessionCreationPolicy.STATELESS);
+  }
+  
+  @Bean
+  public DaoAuthenticationProvider daoAuthenticationProvider() {
+    DaoAuthenticationProvider authenticationProvider = new DaoAuthenticationProvider();
+    authenticationProvider.setUserDetailsService(userDetailsService);
+    authenticationProvider.setPasswordEncoder(passwordEncoder());
+    
+    return authenticationProvider;    
+  }
+  
+  @Bean
+  public PasswordEncoder passwordEncoder() {
+    return new BCryptPasswordEncoder();
+  }
+} 5. 사용자를 데이터베이스에서 끌어오므로 Entity 클래스를 만들어야 한다. 5-1 이 프로그램은 스프링 Security의 기본 스키마를 사용하고 있다. 5-1-1 User 클래스다. package pe.pilseong.restcrud.entity;
+
+import java.util.List;
+
+import javax.persistence.Column;
+import javax.persistence.Entity;
+import javax.persistence.Id;
+import javax.persistence.JoinColumn;
+import javax.persistence.OneToMany;
+import javax.persistence.Table;
+
+import lombok.Data;
+
+@Entity
+@Table(name = "users")
+@Data
+public class User {
+
+  @Id
+  private String username;
+  
+  @Column
+  private String password;
+  
+  @Column
+  private boolean enabled;
+  
+  @OneToMany
+  @JoinColumn(name = "username")
+  private List<Authority> authorities;
+} 5-1-2 Authority 클래스다. package pe.pilseong.restcrud.entity;
+
+import java.io.Serializable;
+
+import javax.persistence.Entity;
+import javax.persistence.Id;
+import javax.persistence.Table;
+
+import lombok.Data;
+
+@Entity
+@Table(name = "authorities")
+@Data
+public class Authority implements Serializable {
+
+  @Id
+  private String username;
+  
+ 
+  @Id
+  private String authority;
+} 6. 이제 DaoAuthenticationProvider에서 사용할 UserDetailsService 인터페이스를 구현해야 한다. 6-1 UserDetailsService인터페이스를 상속하는 UserService 작성한다. 인증말고는 사용하지 않는다. package pe.pilseong.restcrud.service;
+
+import org.springframework.security.core.userdetails.UserDetailsService;
+
+public interface UserService extends UserDetailsService {
+
+} 6-2  구현 클래스 6-2-1 Annotation 붙이는 것과 권한 변환부분에 주의한다. package pe.pilseong.restcrud.service;
+
+import java.util.stream.Collectors;
+
+import javax.transaction.Transactional;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.security.core.userdetails.UsernameNotFoundException;
+import org.springframework.stereotype.Service;
+
+import pe.pilseong.restcrud.dao.UserDAO;
+import pe.pilseong.restcrud.entity.User;
+
+@Service
+public class UserServiceImpl implements UserService {
+
+  @Autowired
+  private UserDAO userDAO;
+  
+  @Override
+  @Transactional
+  public UserDetails loadUserByUsername(String username) throws UsernameNotFoundException {
+    
+    User user = userDAO.loadUserByUsername(username);    
+    
+    return new org.springframework.security.core.userdetails.User(
+        user.getUsername(), 
+        user.getPassword(), 
+        user.getAuthorities().stream()
+            .map(role-> new SimpleGrantedAuthority(role.getAuthority()))
+            .collect(Collectors.toList()));   
+  }
+} 7. 사용자 데이터를 가져오는 UserDAO를 구현한다. 7-1 UserDAO 인터페이스 package pe.pilseong.restcrud.dao;
+
+import pe.pilseong.restcrud.entity.User;
+
+public interface UserDAO {
+
+  User loadUserByUsername(String username);
+
+} 7-2 UserDAOImpl 클래스 package pe.pilseong.restcrud.dao;
+
+import org.hibernate.Session;
+import org.hibernate.SessionFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Repository;
+
+import pe.pilseong.restcrud.entity.User;
+
+@Repository
+public class UserDAOImpl implements UserDAO {
+
+  @Autowired
+  private SessionFactory sessionFactory;
+  
+  @Override
+  public User loadUserByUsername(String username) {
+    Session session = sessionFactory.getCurrentSession();
+    
+    return session.get(User.class, username);
+  }
+}

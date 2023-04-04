@@ -1,0 +1,246 @@
+1. 아래는 간단한 이진 트리의 생성과 방문에 대한 자바스크립트 코드이다. 2. 다 쉽게 이해될 것이지만 post order traversal를 iteration으로 구현하는 경우 상당히 까다롭다. 2-1 노드의 데이터가 찍히는 시점이 좌우 트리를 모두 방문한 후가 되기 때문에 2번의 stack의 insertion이 필요하다. 2-2 C언어의 경우는 주소 직접 다루기 때문에 별도의 값이 필요가 없지만, 자바스크립트는 대신 객체가 있어 편리하다. 3. 대부분의 언어는 문제 풀이에서 사용할 수 있는 단순한 stdin을 지원하는데 자바스크립트는 없다. 3-1 그래서 readline-sync라는 node 라이브러리를 npm으로 설치하여 사용하였다. var readlineSync = require("readline-sync");
+const { LinkedList, Node } = require('./linkedlist');
+
+class TreeNode {
+  constructor(data) {
+    this.data = data;
+    this.left = null;
+    this.right = null;
+  }
+}
+class BinaryTree {
+  constructor() {
+    this.root = null;
+  }
+
+  // 10 20 30 -1
+
+  create() {
+    const queue = new LinkedList();
+
+    let v = readlineSync.question("Root value: ");
+    this.root = new TreeNode(v);
+    let cur = null;
+    queue.enqueue(this.root);
+    while (!queue.isEmpty()) {
+      cur = queue.dequeue();
+      v = readlineSync.question(`Left value of ${cur.data}: `);
+      if (+v != -1) {
+        cur.left = new TreeNode(v);
+        queue.enqueue(cur.left);
+      } else {
+        cur.left = null;
+      }
+
+      v = readlineSync.question(`Right value of ${cur.data}: `);
+      if (+v !== -1) {
+        cur.right = new TreeNode(v);
+        queue.enqueue(cur.right);
+      } else {
+        cur.right = null;
+      }
+    }
+  }
+
+
+  // recursive
+  preorderR(node) {
+    if (node === null) {
+      return;
+    }
+
+    console.log(node.data);
+    this.preorderR(node.left);
+    this.preorderR(node.right);
+  }
+
+  inorderR(node) {
+    if (node === null) {
+      return;
+    }
+
+    this.inorderR(node.left);
+    console.log(node.data);
+    this.inorderR(node.right);
+  }
+
+  postorderR(node) {
+    if (node === null) {
+      return;
+    }
+
+    this.postorderR(node.left);
+    this.postorderR(node.right);
+    console.log(node.data);
+  }
+
+
+  //iteration
+  preorder() {
+    let cur = this.root;
+    const stack = new LinkedList();
+    while (cur !== null || !stack.isEmpty()) {
+      if (cur !== null) {
+        console.log(cur.data);
+        stack.push(cur);
+        cur = cur.left;
+      } else {
+        cur = stack.pop();
+        cur = cur.right;
+      }
+    }
+  }
+
+  inorder() {
+    let cur = this.root;
+    const stack = new LinkedList();
+    while (cur !== null || !stack.isEmpty()) {
+      if (cur !== null) {
+        stack.push(cur);
+        cur = cur.left;
+      } else {
+        cur = stack.pop();
+        console.log(cur.data);
+        cur = cur.right;
+      }
+    }
+  }
+
+  // we can put additional information for post order to know that 
+  // this item is for traveral or printing out the node
+  // In this program, I chose to give additional information by objects
+  postorder() {
+    let cur = this.root;
+    let sec = -1;
+    const stack = new LinkedList();
+
+    while (cur !== null || !stack.isEmpty()) {
+      if (cur !== null) {
+        stack.push({cur, sec: 1});
+        cur = cur.left;
+      } else {
+        const node = stack.pop();
+        cur = node.cur;
+        if (node.sec === 1) {
+          stack.push({cur, sec: 2})
+          cur = cur.right;
+        } else {
+          console.log(cur.data);
+          cur = null;
+        }
+      }
+    }
+  }
+}
+
+const tree = new BinaryTree();
+tree.create();
+console.log(JSON.stringify(tree));
+
+// tree.preorder();
+// tree.inorder();
+// tree.preorderR(tree.root);
+// tree.inorderR(tree.root);
+// tree.postorderR(tree.root);
+tree.postorder(); 2. 위의 코드를 위해서는 stack과 queue가 필요하다. 단순히 linkedlist를 만들어 두 가지 기능을 모두 추가하였다. class LinkedList {
+    constructor() {
+        this.head = null;
+        this.tail = null;
+        this.size = 0;
+    }
+
+    push(data) {
+        const node = new Node(data);
+        if (this.isEmpty()) {
+            this.head = node;
+            this.tail = node;
+        } else {
+            node.next = this.head;
+            this.head = node;
+        }
+        this.size++;
+    }
+
+    pop(data) {
+        const temp = this.head;
+        this.head = this.head.next;
+        temp.next = null;
+        this.size--;
+
+        if (this.size === 1) {
+            this.tail = null;
+        }
+        return temp.data;
+    }
+
+    enqueue(data) {
+        const node = new Node(data);
+        if (this.isEmpty()) {
+            this.head = node;
+            this.tail = node;
+        } else {
+            this.tail.next = node;
+            this.tail = node;
+        }
+        this.size++;
+    }
+
+    dequeue() {
+        if (this.size > 0) {
+            const target = this.head;
+            this.head = this.head.next;
+            target.next = null;
+            this.size--;
+            return target.data;
+        }
+    }
+
+    isEmpty() {
+        return this.size === 0;
+    }
+}
+
+class Node {
+    constructor(data) {
+        this.data = data;
+        this.next = null;
+    }
+}
+
+module.exports = {
+    LinkedList,
+    Node
+}
+
+// --> push  head  enqueue --> head
+// <-- pop   head  dequeue     --> head
+// const stack = new LinkedList();
+// stack.push(1);
+// stack.push(2);
+// stack.push(3);
+// stack.push(4);
+
+// console.log(JSON.stringify(stack));
+
+// stack.pop();
+// console.log(JSON.stringify(stack));
+// stack.pop();
+// console.log(JSON.stringify(stack));
+// stack.pop();
+// console.log(JSON.stringify(stack));
+
+// stack.pop();
+// console.log(JSON.stringify(stack));
+
+// const queue = new LinkedList();
+// queue.enqueue(1);
+// queue.enqueue(2);
+// queue.enqueue(3);
+// queue.enqueue(4);
+
+// console.log(JSON.stringify(queue))
+
+// console.log(queue.dequeue());
+// console.log(queue.dequeue());
+// console.log(queue.dequeue());
+// console.log(queue.dequeue());

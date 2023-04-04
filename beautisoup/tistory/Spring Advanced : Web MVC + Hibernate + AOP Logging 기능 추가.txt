@@ -1,0 +1,447 @@
+1. 이 포스트는 Spring : Web MVC + Hibernate 시리즈의 연속이다. Spring : Web MVC + Hibernate - 설정하기 -1. 예제를 위해 Customer 테이블을 생성한다. -1-0 사용자 springstudent를 만들고 암호도 springstudent를 생성한다. -1-1 web_customer_tracker라는 데이터베이스를 생성한다. -1-2 Customer 테이블을 생성한다.. kogle.tistory.com 2. 지난 포스트에서 세팅을 마치고 1번에서 작성한 프로그램을 새로 재작성하고 AOP 기능을 추가한다. 2-1 따라서 세부적인 것을 언급하지 않는다. 2-2 중요한 부분은 AOP의 Logging기능을 사용하는 부분이다. 3. 여기서는 Controller, Service, DAO 패키지의 모든 클래스의 메소드들이 실행될 때 3-1 @Before, @AfterReturning Advice를 등록하여 실행메소드와 파라메터를 출력하는 간단한 프로그램이다. 4. 기존 프로젝트에서 일부 파일을 가지고 온다. 4-1 1번 항목 시리즈의 view아래 jsp 페이지(customer-form.jsp, list-customer.jsp)들을 WEB-INF/view에 복사한다. 4-1-1 list-customers.jsp - bootstrap을 걷어내면 사실 코드가 많지 않다. <%@ taglib prefix="c" uri="http://java.sun.com/jsp/jstl/core"%>
+<%@ page language="java" contentType="text/html; charset=UTF-8"
+  pageEncoding="UTF-8"%>
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<link rel="stylesheet"
+  href="https://stackpath.bootstrapcdn.com/bootstrap/4.4.1/css/bootstrap.min.css"
+  integrity="sha384-Vkoo8x4CGsO3+Hhxv8T/Q5PaXtkKtu6ug5TOeNV6gBiFeWPGFN9MuhOf23Q9Ifjh"
+  crossorigin="anonymous">
+<link rel="stylesheet" href="${pageContext.request.contextPath}/resources/css/sytle.css"/>
+<title>List of Customers</title>
+</head>
+<body>
+  <div class="container">
+    <h2 class="mb-5 mt-5">CRM - Customer Relationship Manager</h2>
+    <a href="showAddCustomerForm" class="btn btn-secondary mb-3">Add Customer</a>
+    <div>
+      <form method="GET" action="search" class="form-inline">
+        <div class="input-group mb-3">
+          <input type="text" class="form-control" placeholder="search first 
+              name" aria-label="search" name="search">
+          <div class="input-group-append">
+            <button class="btn btn-outline-secondary" type="submit">Search</button>
+          </div>
+        </div>       
+      </form>
+    </div>
+    <table class="table table-hover">
+      <thead>
+        <tr class="thead-dark">
+          <th>First Name</th>
+          <th>Last Name</th>
+          <th>Email</th>
+          <th>Action</th>
+        </tr>
+      </thead>
+      <tbody>
+        <c:forEach var="customer" items="${ customers }">
+          <c:url var="updateLink" value="showUpdateCustomerForm">
+            <c:param name="id" value="${ customer.id }"></c:param>
+          </c:url>
+          <c:url var="deleteLink" value="deleteCustomer">
+            <c:param name="id" value="${ customer.id }"></c:param>
+          </c:url>
+          
+          <tr>
+            <td>${ customer.firstName }</td>
+            <td>${ customer.lastName }</td>
+            <td>${ customer.email }</td>
+            <td>
+              <a href="${ updateLink }">Update</a> | 
+              <a href="${ deleteLink }" 
+                onclick="if (!confirm('Do you really want to delete?')) return false">Delete</a>
+            </td>
+          </tr>
+        </c:forEach>
+      </tbody>
+    </table>
+  </div>
+  <script src="https://code.jquery.com/jquery-3.4.1.slim.min.js"
+    integrity="sha384-J6qa4849blE2+poT4WnyKhv5vZF5SrPo0iEjwBvKU7imGFAV0wwj1yYfoRSJoZ+n"
+    crossorigin="anonymous"></script>
+  <script
+    src="https://cdn.jsdelivr.net/npm/popper.js@1.16.0/dist/umd/popper.min.js"
+    integrity="sha384-Q6E9RHvbIyZFJoft+2mJbHaEWldlvI9IOYy5n3zV9zzTtmI3UksdQRVvoxMfooAo"
+    crossorigin="anonymous"></script>
+  <script
+    src="https://stackpath.bootstrapcdn.com/bootstrap/4.4.1/js/bootstrap.min.js"
+    integrity="sha384-wfSDF2E50Y2D1uUdj0O3uMBJnjuUD4Ih7YwaYd1iqfktj0Uod8GCExl3Og8ifwB6"
+    crossorigin="anonymous"></script>
+</body>
+</html> 4-1-2 customer-form.jsp <%@ taglib prefix="c" uri="http://java.sun.com/jsp/jstl/core"%>
+<%@ taglib prefix="form" uri="http://www.springframework.org/tags/form" %>
+<%@ page language="java" contentType="text/html; charset=UTF-8"
+  pageEncoding="UTF-8"%>
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<link rel="stylesheet"
+  href="https://stackpath.bootstrapcdn.com/bootstrap/4.4.1/css/bootstrap.min.css"
+  integrity="sha384-Vkoo8x4CGsO3+Hhxv8T/Q5PaXtkKtu6ug5TOeNV6gBiFeWPGFN9MuhOf23Q9Ifjh"
+  crossorigin="anonymous">
+<link rel="stylesheet" href="${pageContext.request.contextPath}/resources/css/sytle.css"/>
+<title>Add Customer</title>
+</head>
+<body>
+  <div class="container">
+    <h2 class="mb-3 mt-5">CRM - Customer Relationship Manager</h2>
+    <h3>Save Customer</h3>
+    <form:form modelAttribute="customer" method="POST" action="saveCustomer">
+      <form:input type="hidden" value="${ customer.id }" path="id" />
+      <div class="form-group">
+        <label for="firstname">First Name:</label>
+        <form:input class="form-control" path="firstName" id="firstname"/>
+      </div>
+      <div class="form-group">
+        <label for="lastname">Last Name:</label>
+        <form:input class="form-control" path="lastName" id="lastname"/>
+      </div>
+      <div class="form-group">
+        <label for="email">Email:</label>
+        <form:input class="form-control" path="email" id="email"/>
+      </div>
+      <button type="submit" class="btn btn-secondary">Save</button>
+    </form:form>
+    <p class="lead mt-4">
+      <a href="${ pageContext.request.contextPath }/customer/list">Back To List</a>
+    </p>
+  </div>
+  <script src="https://code.jquery.com/jquery-3.4.1.slim.min.js"
+    integrity="sha384-J6qa4849blE2+poT4WnyKhv5vZF5SrPo0iEjwBvKU7imGFAV0wwj1yYfoRSJoZ+n"
+    crossorigin="anonymous"></script>
+  <script
+    src="https://cdn.jsdelivr.net/npm/popper.js@1.16.0/dist/umd/popper.min.js"
+    integrity="sha384-Q6E9RHvbIyZFJoft+2mJbHaEWldlvI9IOYy5n3zV9zzTtmI3UksdQRVvoxMfooAo"
+    crossorigin="anonymous"></script>
+  <script
+    src="https://stackpath.bootstrapcdn.com/bootstrap/4.4.1/js/bootstrap.min.js"
+    integrity="sha384-wfSDF2E50Y2D1uUdj0O3uMBJnjuUD4Ih7YwaYd1iqfktj0Uod8GCExl3Og8ifwB6"
+    crossorigin="anonymous"></script>
+</body>
+</html> 4-2 controller패키지의 CustomerController.java, entity패키지의 Customer.java를 복사해 온다. 4-2-1 entity패키지에 Customer.java을 생성한다. 아래 코드는 1번 항목의 데이터베이스를 참고하면 된다. package pe.pilseong.spring_hibernate_aop.entity;
+
+import javax.persistence.Column;
+import javax.persistence.Entity;
+import javax.persistence.GeneratedValue;
+import javax.persistence.GenerationType;
+import javax.persistence.Id;
+
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+@Entity
+@Data
+@NoArgsConstructor
+public class Customer {
+  @Id
+  @GeneratedValue(strategy = GenerationType.IDENTITY)
+  private Long id;
+  
+  @Column(name = "first_name")
+  private String firstName;
+  
+  @Column(name = "last_name")
+  private String lastName;
+  
+  @Column
+  private String email;
+
+  public Customer(String firstName, String lastName, String email) {
+    super();
+    this.firstName = firstName;
+    this.lastName = lastName;
+    this.email = email;
+  }
+} 4-2-2 CustomerController.java package pe.pilseong.spring_hibernate_aop.controller;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Controller;
+import org.springframework.ui.Model;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.ModelAttribute;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+
+import pe.pilseong.spring_hibernate_aop.entity.Customer;
+import pe.pilseong.spring_hibernate_aop.service.CustomerService;
+
+
+@Controller
+@RequestMapping("/customer")
+public class CustomerController {
+  
+  @Autowired
+  private CustomerService customerService;
+  
+  @GetMapping("/list")
+  public String listCustomers(Model model) {
+    model.addAttribute("customers", this.customerService.getCustomers(""));
+    
+    return "list-customers";
+  }
+  
+  @GetMapping("/search")
+  public String searchCustomers(@RequestParam("search") String search, Model model) {
+    model.addAttribute("customers", this.customerService.getCustomers(search));
+
+    return "list-customers";
+  }
+  
+  @GetMapping("/showAddCustomerForm")
+  public String showAddCustomerForm(Model model) {
+    model.addAttribute("customer", new Customer());
+    
+    return "customer-form";
+  }
+  
+  @PostMapping("/saveCustomer")
+  public String saveCustomer(@ModelAttribute Customer customer) {
+    
+    this.customerService.saveCustomer(customer);
+    return "redirect:/customer/list";
+  }
+  
+  @GetMapping("/showUpdateCustomerForm")
+  public String showUpdateCustomerForm(@RequestParam("id") Long id, Model model) {
+    
+    model.addAttribute("customer", this.customerService.getCustomer(id));
+    
+    return "customer-form";
+  }
+  
+  @GetMapping("/deleteCustomer")
+  public String deleteCustomer(@RequestParam("id") Long id) {
+    
+    this.customerService.deleteCustomer(id);
+    
+    return "redirect:/customer/list";
+  }
+} 5. Controller에 필요한 Service와 DAO 클래스를 생성한다. 5-1 Service 클래스를 생성한다. 5-1-1 IDE에서 Controller에 빨간색이 뜨는 부분을 눌러 생성하거나 추가하면 쉽다. 5-1-2 예외처리는 하나도 하지 않고 그냥 무조건 구현한 코드이다. // 서비스 인터페이스
+package pe.pilseong.spring_hibernate_aop.service;
+
+import java.util.List;
+
+import pe.pilseong.spring_hibernate_aop.entity.Customer;
+
+public interface CustomerService {
+
+  List<Customer> getCustomers(String keyword);
+
+  void saveCustomer(Customer customer);
+
+  Customer getCustomer(Long id);
+
+  void deleteCustomer(Long id);
+}
+
+// 서비스 구현 클래스
+package pe.pilseong.spring_hibernate_aop.service;
+
+import java.util.List;
+
+import javax.transaction.Transactional;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+
+import pe.pilseong.spring_hibernate_aop.dao.CustomerDAO;
+import pe.pilseong.spring_hibernate_aop.entity.Customer;
+
+@Service
+public class CustomerServiceImpl implements CustomerService {
+
+  @Autowired
+  private CustomerDAO customerDAO;
+  
+  @Override
+  @Transactional
+  public List<Customer> getCustomers(String keyword) {
+    return this.customerDAO.getCustomers(keyword);    
+  }
+
+  @Override
+  @Transactional
+  public void saveCustomer(Customer customer) {
+    this.customerDAO.saveCustomer(customer);
+  }
+
+  @Override
+  @Transactional
+  public Customer getCustomer(Long id) {
+    return this.customerDAO.getCustomer(id);
+  }
+
+  @Override
+  @Transactional
+  public void deleteCustomer(Long id) {
+    this.customerDAO.deleteCustomer(id);
+  }
+} 5-2 DAO 클래스를 생성한다. // 인터페이스
+package pe.pilseong.spring_hibernate_aop.dao;
+
+import java.util.List;
+
+import pe.pilseong.spring_hibernate_aop.entity.Customer;
+
+public interface CustomerDAO {
+  List<Customer> getCustomers(String keyword);
+
+  void saveCustomer(Customer customer);
+
+  Customer getCustomer(Long id);
+
+  void deleteCustomer(Long id);
+}
+
+
+// 구현 클래스
+package pe.pilseong.spring_hibernate_aop.dao;
+
+import java.util.List;
+
+import org.hibernate.Session;
+import org.hibernate.SessionFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Repository;
+
+import pe.pilseong.spring_hibernate_aop.entity.Customer;
+
+@Repository
+public class CustomerDAOImpl implements CustomerDAO {
+
+  @Autowired
+  private SessionFactory factory;
+  
+  @Override
+  public List<Customer> getCustomers(String keyword) {
+    Session session = factory.getCurrentSession();
+    
+    if (keyword == null || keyword.length() == 0)
+      return session.createQuery("from Customer order by firstName", Customer.class).getResultList();
+    else {
+      return session.createQuery("from Customer where firstName like :keyword", Customer.class)
+          .setParameter("keyword", "%"+keyword+"%").getResultList();
+    }
+  }
+
+  @Override
+  public void saveCustomer(Customer customer) {
+    Session session = this.factory.getCurrentSession();
+    
+    session.save(customer);
+  }
+
+  @Override
+  public Customer getCustomer(Long id) {
+    Session session = this.factory.getCurrentSession();
+    
+    return session.get(Customer.class, id);
+  }
+
+  @Override
+  public void deleteCustomer(Long id) {
+    Session session = factory.getCurrentSession();
+    
+    String deleteQuery = "delete from Customer where id=:id";
+    session.createQuery(deleteQuery).setParameter("id", id).executeUpdate();
+  }
+} 6. Logging을 위해서 AOP 클래스를 추가한다. 6-1 아래는 아주 간단한 Aspect 클래스로 4개의 point cut 메소드와 2개의 Advice로 구성된다. 6-2 @Before advice는 forControllerServiceDao()를 point cut으로 사용한다. 6-2-0 point cut은 controller, service, dao 패키지에 있는 모든 클래스의 모든 메소드가 호출 시에 advice가 실행된다. 6-2-1 타겟클래스 signiture와 호출 시에 등록된 parameter을 출력한다. 6-3 @AfterReturning 역시 forControllerServiceDao()를 point cut으로 사용한다. 6-3-1 어떤 메소드가 실행된 후 실행되는지 signiture를 출력하고 반환 값도 같이 찍어준다. package pe.pilseong.spring_hibernate_aop.aspect;
+
+import java.util.Arrays;
+
+import org.aspectj.lang.JoinPoint;
+import org.aspectj.lang.annotation.AfterReturning;
+import org.aspectj.lang.annotation.Aspect;
+import org.aspectj.lang.annotation.Before;
+import org.aspectj.lang.annotation.Pointcut;
+import org.springframework.stereotype.Component;
+
+@Aspect
+@Component
+public class LoggingAspect {
+  
+  @Pointcut(value = "execution(* pe.pilseong.spring_hibernate_aop.controller.*.*(..))")
+  public void forController() {}
+  
+  @Pointcut(value = "execution(* pe.pilseong.spring_hibernate_aop.service.*.*(..))")
+  public void forService() {}
+  
+  @Pointcut(value = "execution(* pe.pilseong.spring_hibernate_aop.dao.*.*(..))")
+  public void forDao() {}
+  
+  @Pointcut("forController() || forService() || forDao()")
+  public void forControllerServiceDao() {}
+  
+  @Before(value = "forControllerServiceDao()")
+  public void beforeAdvice(JoinPoint joinPoint) {
+    System.out.println("@Before beforeAdvice before " + 
+      joinPoint.getSignature().toLongString() + " " + joinPoint.getArgs().toString());
+    System.out.println("@Before arguement start");
+    Arrays.stream(joinPoint.getArgs()).forEach(System.out::println);
+    System.out.println("@Before arguement end\n");
+  }
+  
+  @AfterReturning(
+      pointcut = "forControllerServiceDao()",
+      returning = "args"
+  )
+  public void afterReturningAdvice(JoinPoint joinPoint, Object args) {
+    System.out.println("@AfterReturning AfterReturningAdvice after " + 
+      joinPoint.getSignature().toShortString());
+    System.out.println("@AfterReturning Returning value is :: " + args.toString() + "\n");
+  }
+} 7. 결과 7-1 리스트 조회와 su라는 문자로 검색한 내용의 로그들이다. 7-2 @Before와 @AfterReturning 모두 제대로 출력된다. @Before beforeAdvice before public java.lang.String pe.pilseong.spring_hibernate_aop.controller.CustomerController.listCustomers(org.springframework.ui.Model) [Ljava.lang.Object;@48479751
+@Before arguement start
+{}
+@Before arguement end
+
+@Before beforeAdvice before public abstract java.util.List pe.pilseong.spring_hibernate_aop.service.CustomerService.getCustomers(java.lang.String) [Ljava.lang.Object;@1c1b3f9a
+@Before arguement start
+
+@Before arguement end
+
+@Before beforeAdvice before public abstract java.util.List pe.pilseong.spring_hibernate_aop.dao.CustomerDAO.getCustomers(java.lang.String) [Ljava.lang.Object;@1fe0ff53
+@Before arguement start
+
+@Before arguement end
+
+Hibernate: select customer0_.id as id1_0_, customer0_.email as email2_0_, customer0_.first_name as first_na3_0_, customer0_.last_name as last_nam4_0_ from Customer customer0_ order by customer0_.first_name
+@AfterReturning AfterReturningAdvice after CustomerDAO.getCustomers(..)
+@AfterReturning Returning value is :: [Customer(id=14, firstName=Hosam, lastName=Park, email=park@gmail.com), Customer(id=17, firstName=Jone, lastName=Doe, email=jone@gmail.com), Customer(id=1, firstName=Pilseong, lastName=Heo, email=heops79@gmail.com), Customer(id=4, firstName=Rael, lastName=Kim, email=rael@gmail.com), Customer(id=6, firstName=Segu, lastName=Heo, email=segu@gmail.com), Customer(id=2, firstName=Suel, lastName=Heo, email=suel@gmail.com), Customer(id=9, firstName=Sungdo, lastName=Choi, email=sungdo@gmail.com), Customer(id=7, firstName=Sunja, lastName=Lee, email=sunja@gmail.com)]
+
+@AfterReturning AfterReturningAdvice after CustomerService.getCustomers(..)
+@AfterReturning Returning value is :: [Customer(id=14, firstName=Hosam, lastName=Park, email=park@gmail.com), Customer(id=17, firstName=Jone, lastName=Doe, email=jone@gmail.com), Customer(id=1, firstName=Pilseong, lastName=Heo, email=heops79@gmail.com), Customer(id=4, firstName=Rael, lastName=Kim, email=rael@gmail.com), Customer(id=6, firstName=Segu, lastName=Heo, email=segu@gmail.com), Customer(id=2, firstName=Suel, lastName=Heo, email=suel@gmail.com), Customer(id=9, firstName=Sungdo, lastName=Choi, email=sungdo@gmail.com), Customer(id=7, firstName=Sunja, lastName=Lee, email=sunja@gmail.com)]
+
+@AfterReturning AfterReturningAdvice after CustomerController.listCustomers(..)
+@AfterReturning Returning value is :: list-customers
+
+@Before beforeAdvice before public java.lang.String pe.pilseong.spring_hibernate_aop.controller.CustomerController.searchCustomers(java.lang.String,org.springframework.ui.Model) [Ljava.lang.Object;@6354fa4
+@Before arguement start
+su
+{}
+@Before arguement end
+
+@Before beforeAdvice before public abstract java.util.List pe.pilseong.spring_hibernate_aop.service.CustomerService.getCustomers(java.lang.String) [Ljava.lang.Object;@357ad3d6
+@Before arguement start
+su
+@Before arguement end
+
+@Before beforeAdvice before public abstract java.util.List pe.pilseong.spring_hibernate_aop.dao.CustomerDAO.getCustomers(java.lang.String) [Ljava.lang.Object;@79795229
+@Before arguement start
+su
+@Before arguement end
+
+Hibernate: select customer0_.id as id1_0_, customer0_.email as email2_0_, customer0_.first_name as first_na3_0_, customer0_.last_name as last_nam4_0_ from Customer customer0_ where customer0_.first_name like ?
+@AfterReturning AfterReturningAdvice after CustomerDAO.getCustomers(..)
+@AfterReturning Returning value is :: [Customer(id=2, firstName=Suel, lastName=Heo, email=suel@gmail.com), Customer(id=7, firstName=Sunja, lastName=Lee, email=sunja@gmail.com), Customer(id=9, firstName=Sungdo, lastName=Choi, email=sungdo@gmail.com)]
+
+@AfterReturning AfterReturningAdvice after CustomerService.getCustomers(..)
+@AfterReturning Returning value is :: [Customer(id=2, firstName=Suel, lastName=Heo, email=suel@gmail.com), Customer(id=7, firstName=Sunja, lastName=Lee, email=sunja@gmail.com), Customer(id=9, firstName=Sungdo, lastName=Choi, email=sungdo@gmail.com)]
+
+@AfterReturning AfterReturningAdvice after CustomerController.searchCustomers(..)
+@AfterReturning Returning value is :: list-customers

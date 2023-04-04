@@ -1,0 +1,106 @@
+1. XML파일 없이 스프링을 설정한다. 2. Configuration 클래스를 생성한다. 2-1 클래스 정의 위에 @Configuration을 붙인다 - xml 설정 파일처럼 이 클래스를 설정파일로 사용한다. 2-2 Annotation을 사용하기 위해 클래스 정의 위에 @ComponentScan("basepackage")를 사용한다. 3. 외부 properites파일에서 내용을 읽어 클래스에서 사용하기 3-0 Configuration 클래스에 @PropertySource("classpath: + location of properties file") 형식으로 정의한다. # logger.properties 파일 내용
+logger.rootLoggerLevel=FINEST
+logger.printedLoggerLevel=FINEST 3-1 첫번째 방법은 값을 사용할 부분에서 환경변수를 연결하는 Environment 클래스를 주입받아 사용한다. 3-1-1 사용 방법은 아래 포스트의 5번 항목의 WebConfig를 참고한다. 어떻게 불러와서 쓰는지만 보면 된다. Spring : Web MVC + Security + JDBC 으로 인증 구현하기 0. 이 포스트는 이전 Spring : Web MVC + Sping 시리즈의 연속이다. 1. 이 포스트는 in-Memory 인증에서 MySql(JDBC)을 이용한 인증으로 프로그램을 변경하는 내용이다. 2. 기본적으로 스프링 Seucirty는 로그인을 kogle.tistory.com 3-2 두번째 방법은 placeholder을 통한 사용으로 실제 값을 읽을 부분에서 @Value("${}") 형식으로 사용한다. 3-0 ${}로 값을 읽어오는 방식을 placeholder라고 하는데 이 기능을 사용하려면 추가적으로 할 것이 있다. 3-1 PropertySourcesPlaceHolderConfigurer를 스프링에서 생성하여 사용해야 한다. 3-2 스프링 4.2 이후의 버전은 자동적으로 스프링이 빈 객체를 생성하고 관리하여 별도의 설정이 필요 없다. 3-3 만일 스프링 4.2 이전 버전을 사용할 경우에는 3-3-1 PropertySourcesPlaceHolderConfigurer 인스턴스를 컨테이너에 먼저 생성해야 한다. // 아래 코드는 오직 스프링 4.2 이하의 버전에서만 필요하다.
+// add support to resolve ${...} properties
+@Bean
+public static PropertySourcesPlaceholderConfigurer
+                propertySourcesPlaceHolderConfigurer() {
+    
+    return new PropertySourcesPlaceholderConfigurer();
+} // 자바 설정파일 내용
+package pe.pilseong.springjavaconfig;
+
+import org.springframework.context.annotation.ComponentScan;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.PropertySource;
+
+@ComponentScan("pe.pilseong.springjavaconfig")
+@PropertySource("classpath:logger.properties")
+@Configuration
+public class JavaConfig {
+} // 실제 Properties를 사용하는 부분
+
+package pe.pilseong.springjavaconfig.util;
+ 
+import java.util.logging.ConsoleHandler;
+import java.util.logging.Level;
+import java.util.logging.Logger;
+import java.util.logging.SimpleFormatter;
+
+import javax.annotation.PostConstruct;
+
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.annotation.AnnotationConfigApplicationContext;
+import org.springframework.stereotype.Component;
+ 
+@Component
+public class MyLoggerConfig {
+ 
+  @Value("${logger.rootLoggerLevel}")
+  private String rootLoggerLevel;
+  
+  @Value("${logger.printedLoggerLevel}")
+  private String printedLoggerLevel;
+  
+  @PostConstruct
+  public void initLogger() {
+ 
+    // parse levels
+    Level rootLevel = Level.parse(rootLoggerLevel);
+    Level printedLevel = Level.parse(printedLoggerLevel);
+    
+    // get logger for app context
+    Logger applicationContextLogger = Logger.getLogger(AnnotationConfigApplicationContext.class.getName());
+ 
+    // get parent logger
+    Logger loggerParent = applicationContextLogger.getParent();
+ 
+    // set root logging level
+    loggerParent.setLevel(rootLevel);
+    
+    // set up console handler
+    ConsoleHandler consoleHandler = new ConsoleHandler();
+    consoleHandler.setLevel(printedLevel);
+    consoleHandler.setFormatter(new SimpleFormatter());
+    
+    // add handler to the logger
+    loggerParent.addHandler(consoleHandler);
+  }
+  
+} 4. Component scan을 사용할 경우에도 스프링 기능들을 사용하기 위해 수동으로 Bean을 정의해야 할 경우가 있다. 4-1 Java Configuration 클래스를 하나 만든다. 4-2 아래 소스 경우는 예제를 위해 @ComponentScan을 사용하지 않았다. 사용하면 코드가 필요가 없어진다. 4-3 아래처럼 메소드에 @Bean을 붙이고 해당 객체를 생성하고 반환하는 설정을 한다. 4-4 아래처럼 스프링 인스턴스 생성 시에 dependency injection을 위해 관련 메소드를 호출한다. 4-5 dependency injection은 constructor 기반, method기반 모두 가능하다. 4-5-1 첫번째 예시는 BaseballCoach는 constructor기반이고 두번째는 예시는 setter기반이다. 4-5-2 constructor기반이 일반적으로 권장된다. package pe.pilseong.springjavaconfigwithoutcomponentscan;
+
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+
+@Configuration
+public class SportConfig {
+  
+  @Bean
+  public FortuneService fortuneService() {
+    return new GoodFortuneService();
+  }
+  
+  @Bean
+  public Coach baseballCoach() {
+    return new BaseballCoach(this.fortuneService());
+  }
+}
+
+
+// setter를 사용하는 경우
+@Configuration
+public class SportConfig {
+  
+  @Bean
+  public FortuneService fortuneService() {
+    return new GoodFortuneService();
+  }
+  
+  @Bean
+  public Coach baseballCoach() {
+//    return new BaseballCoach(this.fortuneService());
+    BaseballCoach baseballCoach = new BaseballCoach();
+    baseballCoach.setFortuneService(this.fortuneService());
+    return baseballCoach;
+  }
+}

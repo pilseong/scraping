@@ -1,0 +1,1 @@
+이전에 썼던 글들을 읽어보니 나도 이해못하겠다. 그래서 다시 미래의 백지가 된 나를 위해서 다시 써 놓는다. 1. @RequestBody는 JSON -> 객체 매핑, @ResponseBody는 객체 -> JSON 변환 1-1 @RequestBody는 JSON 형식으로 데이터를 수신할 경우 반드시 변환할 클래스 앞에 명시해야 한다. 2. @RestController는 @Controller + @RespnoseBody이다. 그냥 객체를 리턴하면 Json을 보낸다.

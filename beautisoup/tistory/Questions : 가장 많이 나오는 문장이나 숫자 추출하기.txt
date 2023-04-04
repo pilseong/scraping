@@ -1,0 +1,174 @@
+0. 사용된 lambda 0-1 foreach는 가장 일반적인 함수로 반환값이 없이 코드만 수행한다. for루프를 대신하는 경우가 많다. 0-2 sorted 함수는 인자가 없는 것과 있는 게 있는데 있는 것은 Comparator를 구현한 함수가 들어간다. 0-2-1 아래의 경우는 두개의 entry set을 받아 비교하는 구문을 사용한다. 0-3 map은 하나의 타입을 다른 타입으로 변환하는 기능이 있다. 아래는 entry list를 key list로 변환하고 있다. 0-4 limit은 통과시킬 item의 최대 갯수를 지정한다. 1. 인터넷에서 가져온 문제들이다. 1-1 이 형식의 문제들은 변환과 정렬이 가장 핵심이다. List, Set, Map, Array를 자유자제로 변환가능해야 한다. 692 . Top K Frequent Words Given a non-empty list of words, return the k most frequent elements. Your answer should be sorted by frequency from highest to lowest. If two words have the same frequency, then the word with the lower alphabetical order comes first. Example 1: Input: ["i", "love", "leetcode", "i", "love", "coding"], k = 2 Output: ["i", "love"] Explanation: "i" and "love" are the two most frequent words. Note that "i" comes before "love" due to a lower alphabetical order. Example 2: Input: ["the", "day", "is", "sunny", "the", "the", "the", "sunny", "is", "is"], k = 4 Output: ["the", "is", "sunny", "day"] Explanation: "the", "is", "sunny" and "day" are the four most frequent words, with the number of occurrence being 4, 3, 2 and 1 respectively. Note: You may assume k is always valid, 1 ≤ k ≤ number of unique elements. Input words contain only lowercase letters. Follow up: Try to solve it in O ( n log k ) time and O ( n ) extra space. * Follow up을 보면 O(n log k)로 해결하도록 노력하라고 하는데, 이 알고리즘의 효율성을 달성하려면 PriorityQueue로 해결해야 한다. 물론 그렇게 구현하지 않았다. ;) 물론 sort할 때 merge sort나 quick sort을 사용해도 가능하긴 하다. 2. 문제는 words 배열에서 가장 많이 나온 단어 k개를 List에 담아서 반환하는 것이다. 2-1 words를 한번 스캔하면서 word : count 테이블을 만든다. 2-2 생성된 테이블을 값을 기준으로 정렬하고 값이 같은 경우는 alphabet 순으로 정렬한다. 2-3 가장 많이 나온 숫자 k개를 잘라서 리스트를 만들고 반환한다. 2-4 map의 computeIfAbsent는 key가 등록되어 있지 않은 경우, 두번에 인자로 들어오는 function을 실행한다. 2-4-1 두번 째 function은 일반 Function<T,R>이고 T는 key값이 된다. 사용할 일이 없다. 2-4-2 반환 값은 처음 등록하는 경우는 계산한 값을 반환하고, 기존에 있다면 그 값을 돌려준다. 2-4-3 null이 처음 등록으로 실행되는 function에서 null을 반환하지 않는 경우 반환될 일이 없다. 2-5 computeIfPresent는 key값이 존재할 경우 두번재 인자의 function을 실행한다. 2-5-1 BiFunction<T,U,R>이 되고 T, U는 각각 key, value가 된다. 2-5-2 key값이 존재하지 않을 경우 무조건 null이 반환 된다. 2-6 아래의 소스의 경우 computIfPresent를 상용하였는데, 기존에 있으면 더하기 1을 하고 2-6-1 기존에 없으면 null을 받아 추가하는 로직이 수행된다. import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Map.Entry;
+import java.util.stream.Collectors;
+
+public class App {
+  public static void main(String[] args) throws Exception {
+    Solution sol = new Solution();
+
+    String[] words = { "A", "A", "B", "B", "C", "C", "C", "D" };
+    sol.topKFrequent(words, 2);
+  }
+}
+
+class Solution {
+  public List<String> topKFrequent(String[] words, int k) {
+
+    List<String> result = new ArrayList<>();
+    if (words == null || words.length == 0) {
+      return result;
+    }
+
+    Map<String, Integer> wordTable = new HashMap<>();
+
+    Arrays.stream(words).forEach(word -> {
+      // Integer count = wordTable.computeIfAbsent(word, value -> 1);
+      // System.out.println(count);
+      // if (count != 1) wordTable.put(word, wordTable.get(word) + 1);
+
+      Integer count = wordTable.computeIfPresent(word, (key, value) -> value + 1);
+      if (count == null)
+        wordTable.put(word, 1);
+    });
+
+    List<Entry<String, Integer>> sortedMap = wordTable.entrySet().stream().sorted((a, b) -> {
+      int diff = b.getValue() - a.getValue();
+      if (diff == 0) {
+        return a.getKey().compareTo(b.getKey());
+      } else {
+        return diff;
+      }
+    }).collect(Collectors.toList());
+
+    System.out.println(sortedMap.toString());
+
+    result = sortedMap.stream()
+      .limit(k)
+      .map(entry -> entry.getKey())
+      .collect(Collectors.toList());
+
+    System.out.println(result.toString());
+
+    return result;
+  }
+} 자바 스크립트로 만든 솔루션 1. 아래 주의해야 할 부분이 있는데 자바스크립트의 sort 메소드는 숫자를 반환한다. 양수는 오름, 음수는 내림이다. 2. 그런데 문자열 비교시에는 문자열 - 문자열은 NaN을 반환하기 때문에 Java처럼  사용할 수 없다. 3. 즉 > 비교를 통해서 양수, 음수를 명식적으로 반환해야 한다. 4. 한가지 더 배열을 자를 때 splice와 slice가 있는데 splice는 현재 배열을 잘라서 그대로 반환하고 slice는 새로운 배열을 반환한다. class Frequency {
+  getMost(strs, k) {
+    const resultObj = {};
+
+    strs.forEach(str => {
+      if (!resultObj[str]) {
+        resultObj[str] = 1;
+      } else {
+        resultObj[str] += 1;
+      }
+    });
+
+    const arr = [];
+    for (const key in resultObj) {
+      arr.push([key, resultObj[key]]);
+    }
+
+    arr.sort((a, b) => {
+      if (b[1] === a[1]) {
+        return a[0] >= b[0] ? 1 : -1;
+      } else {
+        return b[1] - a[1];
+      }
+    })
+
+    return arr.map(data => data[0]).slice(0, k);
+  }
+}
+
+const freq = new Frequency();
+
+const strs1 = ["i", "love", "leetcode", "i", "love", "coding"];
+const strs2 = ["the", "day", "is", "sunny", "the", "the", "the", "sunny", "is", "is"];
+
+console.log(freq.getMost(strs1, 2));
+console.log(freq.getMost(strs2, 4)); TypeScript 솔루션이다. 여기서는 for in 대신 Object.entries를 사용하였다. function topKFrequent(words: string[], k: number): string[] {
+  type Cache = {
+    [key: string]: number;
+  }
+  const map: Cache = {};
+
+  for (const word of words) {
+    if (map[word]) map[word]++;
+    else map[word] = 1;
+  }
+  
+  // Object.entries는 아주 편리하다. 객체를 그대로 배열로 전환
+  return Object.entries(map).sort((a: any, b: any) => {
+    if (b[1] === a[1]) {
+      return a[0] >= b[0] ? 1 : -1
+    } else
+      return b[1] - a[1];
+  }).map(item => item[0]).splice(0, k);
+}
+
+topKFrequent(["i", "love", "leetcode", "i", "love", "coding"], 3); 3. 비슷한 문제 하나 더 347 . Top K Frequent Elements Given a non-empty array of integers, return the k most frequent elements. Example 1: Input: nums = [1,1,1,2,2,3] , k = 2 Output: [1,2] Example 2: Input: nums = [1] , k = 1 Output: [1] Note: You may assume k is always valid, 1 ≤ k ≤ number of unique elements. Your algorithm's time complexity must be better than O( n log n ), where n is the array's size. It's guaranteed that the answer is unique, in other words the set of the top k frequent elements is unique. You can return the answer in any order. 4. 위의 문제와 동일한 구조이다. 차이가 있다면 숫자를 사용하였고, 반환값이 List아닌 배열이다. 4-1 위의 문제와 동일한 방식으로 동작한다. 4-2 nums를 1회 죽 스캔하면서 key : count map을 만든다. 4-3 map을 value 순으로 정렬하면서 가장 최상위 k만 받아 배열을 만들어 반환한다. 4-4 제일 어려운 부분은 int[]을 만드는 부분인데 mapToInt라는 함수를 사용해야 한다. import java.util.Arrays;
+import java.util.HashMap;
+import java.util.Map;
+
+public class App2 {
+
+  public static void main(String[] args) {
+    Solution1 sol = new Solution1();
+    int[] nums = { 1, 1, 1, 2, 2, 3, 3, 3, 3 };
+
+    sol.topKFrequent(nums, 2);
+  }
+}
+
+class Solution1 {
+
+  public int[] topKFrequent(int[] nums, int k) {
+
+    if (nums == null || nums.length == 0) {
+      return new int[] {};
+    }
+
+    Map<Integer, Integer> tempTable = new HashMap<>();
+
+    Arrays.stream(nums).forEach(num -> {
+      if (tempTable.computeIfPresent(num, (key, value) -> value + 1) == null) {
+        tempTable.put(num, 1);
+      }
+    });
+
+    return tempTable.entrySet().stream()
+      .sorted((a,b)-> b.getValue()-a.getValue())
+      .limit(k)
+      .map(entry-> entry.getKey())
+      .mapToInt(i-> i).toArray();
+  }
+} 자바 스크립트 버전 class FrequencyInteger {
+
+  getMost(numArr, n) {
+    const numMap = {};
+
+    for (const num of numArr) {
+      if (!numMap[num]) numMap[num] = 1;
+      else numMap[num] += 1;
+    }
+
+    const arr = [];
+    for (const key in numMap) {
+      arr.push([key, numMap[key]]);
+    }
+
+    return arr.sort((a, b) => b[1] - a[1]).map(item => +item[0]).slice(0, n);
+  }
+}
+
+const freq = new FrequencyInteger();
+
+const nums1 = [1, 1, 1, 2, 2, 3];
+const nums2 = [1];
+
+console.log(freq.getMost(nums1, 2));
+console.log(freq.getMost(nums2, 1));

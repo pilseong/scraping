@@ -1,0 +1,142 @@
+0. 용어 정리 0-1 Component Template - 사용자에게 User Interface를 보여주는 HTML 형식의 코드 0-2 Component Class - 이벤트 발생시 처리를 위한 코드를 가지고 있다. 페이지에 대한 정보와 상태를 저장한다. 0-3 Property Binding - HTML element의 속성 값을 변경한다. Component Class의 속성과 메소드에 접근 가능하다. 0-4 Event Binding - HTML element에 이벤트 리스너(handler)를 설정한다. 0-5 Interpolation - Component Template내에 정보를 표시하기 위해서 사용한다. Component Class에 접근가능하다. 1. Angular는 객체지향 프로그래밍이라고 생각하는 게 편하다. 1-1 각 element는 하나의 component로 만들어지고 그 component는 하나의 객체이다. 1-2 이벤트와 바인딩에 의해 각 속성값들이 변경되고 속성 값이 해당 컴포넌트 객체의 상태값이 된다. 1-3 따라서 개발하는 방법이 2가지로 나누어지는데 1-3-1 component class에 상태만 저장하고 값의 계산과 표출은 component template에서 처리하는 방식 1-3-2 component class에 모든 상태 및 기능들을 가지고 component template은 단순히 값을 읽어 보여주는 방식 2. 바인딩에는 3가지 종류가 있다. 2-0 바인딩이 필요한 이유는 Angular는 인스턴스(객체)를 생성하여 페이지를 다루기 때문이다. 2-0-1 보통 페이지 마다 객체가 생성되며 그 객체의 속성 값으로 상태를 저장하고 2-0-2 메소드를 호출하여 상태를 변경하고 DOM을 변경한다. 2-1 이벤트 바인딩 2-1-1 (이벤트이름) = "javascript code" 형식으로 작성하며 "" 내부의 코드는 실행되는 코드가 들어간다. <button class="btn btn-primary" (click)="onButtonClick()">Generate</button> 2-1-2 input element type에 따른 발생가능한 이벤트의 쌍을 기억한다. 2-1-2-1 text, number 같은 형들은 input, keyup, keydown 등의 이벤트가 발생한다. 2-1-2-2 checkbox의 경우는 change 2-1-2-3 submit의 경우는 click - button element에서도 click 이벤트가 발생할 수 있다. 2-2 프로퍼티(속성) 바인딩 2-2-1 [속성이름] = "javascript code" 형식으로 작성 2-2-1 아래의 disabled의 경우가 속성 바인딩이다. "" 안은 코드로 인식되어 실행된다. <button [disabled]="!(length && (useLetter || useNumber || useSymbol))" 
+  class="btn btn-primary" (click)="onButtonClick()">Generate</button> 2-3 인터폴레이션 interpolation 2-3-1 {{ javascript code }} 형식이 된다. 여기에 오는 코드 역시 실행이 된다. 2-3-2 일반적으로 component class에 있는 값을 읽어봐서 화면에 보여주는데 사용한다. 3. 이벤트 리스너(handler)의 parameter 3-0 component template에서 특정리스너에 대한 이벤트 리스너를 등록할 경우 parameter에 주의 한다. 3-1 공식 Document를 참조하여 등록할 이벤트 대상이 이벤트 발생시 어떤 argument를 받아오지는지 확인한다. 3-2 일반적으로 $event이지만 이 이름은 정해진 것이라 변경하지 못한다. 정확한 이름을 사용해야 동작한다. 3-3 아래 소스의 id가 lengthOfPassword인 input element에 input 이벤트에 $event 인자 받아오는 부분이 있다. <div class="container">
+  <h1>Password Generator</h1>
+  <div class="form-group">
+    <label for="lengthOfPassword">Length</label>
+    <input type="number" class="form-control" id="lengthOfPassword" 
+      (input)="onInputLenOfPassword($event.target.value)">
+  </div>
+  <div class="form-check">
+    <input type="checkbox" name="letters" id="letters" class="form-check-input" (change)="onChangeUseLetter()">
+    <label for="letters" class="form-check-label">Letters</label>
+  </div>
+  <div class="form-check">
+    <input type="checkbox" name="numbers" id="numbers" class="form-check-input" (change)="onChangeUseNumber()">
+    <label for="numbers" class="form-check-label">Numbers</label>
+  </div>
+  <div class="form-check">
+    <input type="checkbox" name="symbols" id="symbols" class="form-check-input" (change)="onChangeUseSymbol()">
+    <label for="symbols" class="form-check-label">Symbols</label>
+  </div>
+  <div class="form-group mt-3">
+    <button [disabled]="!(length && (useLetter || useNumber || useSymbol))" 
+      class="btn btn-primary" (click)="onButtonClick()">Generate</button>
+  </div>
+  <div class="form-group">
+    <label for="password">Your Password</label>
+    <input type="text" class="form-control" [value]="password">
+  </div>
+</div> 3-4 숫자를 받는 input element를 다룰 때 주의 할 점 3-4-0 위 template의 lengthOfPassword에 유저가 값을 입력할 경우 event가 발생하여 등록된 callback이 실행된다. 3-4-1 이 경우는 비밀번호길이 즉, 숫자만 받기 때문에 $event.target.value 값이 숫자가 아닌 경우를 신경 써야 한다. 3-4-2 아래 소스를 보면 유저가 해당 input에 값을 입력하면 값을 숫자로 반환하여 숫자인지를 확인한다. 3-4-3 숫자가 아닌 경우를 체크해서 적절한 조치가 필요하다. 3-4-3-1 처리하지 않으면 예상할 수 없는 동작이 발생할 수 있다. 3-4-3-2 아래 소스는 숫자만 받기 때문에 숫자가 아니거나 빈 공백인 경우는 0을 할당하도록 하였다. import { Component } from '@angular/core';
+
+@Component({
+  selector: 'app-root',
+  templateUrl: './app.component.html',
+  styleUrls: ['./app.component.css']
+})
+export class AppComponent {
+
+  password = ""
+
+  length: number = 0
+  useLetter: boolean = false
+  useNumber: boolean = false
+  useSymbol: boolean = false
+
+  letters = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
+  numbers = "1234567890"
+  symbols = "!@#$%^&*()_+-=`~"
+
+
+  onChangeUseLetter() {
+    this.useLetter = !this.useLetter
+  }
+
+  onChangeUseNumber() {
+    this.useNumber = !this.useNumber
+  }
+
+  onChangeUseSymbol() {
+    this.useSymbol = !this.useSymbol
+  }
+
+  onInputLenOfPassword(value: string) {
+    let parsedLength = parseInt(value);
+    // NaN일 경우에 처리하지 않으면 length가 그대로 이전 값이 남아 있다.
+    if (!isNaN(parsedLength)) {
+      this.length = parsedLength
+    } else {
+      this.length = 0
+    }
+    console.log(this.length)
+  }
+
+  onButtonClick() {
+    let seedString = ""
+
+    if (this.useLetter) {
+      seedString += this.letters
+    }
+
+    if (this.useNumber)  {
+      seedString += this.numbers
+    }
+
+    if (this.useSymbol) {
+      seedString += this.symbols
+    }
+
+    if (seedString.length > 0) {
+      this.password = ""
+
+      for (let i = 0; i < this.length; i++) {
+        this.password += seedString.charAt(Math.floor(Math.random() * seedString.length))
+      }
+    }
+  }
+} 4. Directive에는 2가지 종류가 있다. 4-1 Structural Directive - *ngIf, *ngFor 같이 로직의 분기에 사용한다. 4-2 Property Directive - HTML element의 속성을 변경하는 용도로 사용한다. 5. *ngFor (NgForOf) Directive 5-1 *ngFor는 다음과 코드 처럼 로컬 변수들을 사용할 수 있다. 5-2 아래의 소스의 index와 first는 exported value라고 하는 추가적인 정보를 제공한다. <li *ngFor="let user of users; index as i; first as isFirst">
+  {{i}}/{{users.length}}. {{user}} <span *ngIf="isFirst">default</span>
+</li> 5-3 exported values 리스트는 다음과 같다. $implicit: T: The value of the individual items in the iterable (ngForOf).
+
+ngForOf: NgIterable<T>: The value of the iterable expression. 
+Useful when the expression is more complex then a property access, 
+for example when using the async pipe (userStreams | async).
+
+index: number: The index of the current item in the iterable. 현재 가져온 값이 저장된 배열 인덱스
+
+count: number: The length of the iterable. 배열의 길이
+
+first: boolean: True when the item is the first item in the iterable.  첫번째 값이면 true
+
+last: boolean: True when the item is the last item in the iterable. 마지막 값이면 true
+
+even: boolean: True when the item has an even index in the iterable. 배열 인덱스가 짝수면 true
+
+odd: boolean: True when the item has an odd index in the iterable. 배열 인덱스가 홀수면 true 6. Javascipt의 tips 6-1 Javascript 논리연산에서 false로 여겨지는 값들 6-1-0 0, -0, "", undefined, null, false, NaN 6-1-1 Javascript 배열을 인덱스를 통해 접근할 때 배열의 범위를 벗어나는 값에 접근할 경우 undefined가 반환된다. 7. form 테그에서 (submit) 이벤트로 데이터를 처리할 때 화면 전체가 리프레쉬 되는데 이를 방지하려면 7-0 템플릿에서는 특별하게 할 것이 없고 <form (submit)="onSubmit($event)">
+  <div class="form-group">
+    <input type="text" class="form-control" (input)="onInputChange($event.target.value)">
+  </div>
+</form> 7-1 아래 코드처럼 컴포넌트에서 event 객체를 받아서 preventDefault() 함수를 호출하여야 한다. import { Component, OnInit, Output, EventEmitter } from '@angular/core';
+
+@Component({
+  selector: 'app-search',
+  templateUrl: './search.component.html',
+  styleUrls: ['./search.component.css']
+})
+export class SearchComponent implements OnInit {
+
+  @Output() search = new EventEmitter<string>()
+
+  constructor() { }
+
+  ngOnInit(): void {
+  }
+
+  onInputChange(keyword) {
+    this.search.emit(keyword)
+  }
+
+  onSubmit(event: any) {
+    event.preventDefault()
+    console.log('event');
+  }
+}

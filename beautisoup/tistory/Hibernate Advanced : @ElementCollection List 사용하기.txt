@@ -1,0 +1,94 @@
+1. 이 포스트는 HIbernate에서 List를 사용하는 방법에 대한 내용이다. 1-0 세팅과 기본적인 내용은 이전 포스트를 참조한다. 필요한 부분만 설명한다. 1-1 List는 순서가 중요하고 중복을 허용하는 데이터의 집합이다. 1-2 활용 용도는 1-2-1 예약명부에 예약 순서가 중요한 경우나 1-2-2 이메일 프로그램에서 받은 편지함의 온 순서대로 정렬된 메시지들 1-2-3 야구선수들의 타순정보 2 Annotation 설명 2-1 @OrderColumn는 Collection의 순서를 저장하는 필드를 데이터베이스에 추가 해준다. 2-1-1 이 수식자는 List가 저장하고 있는 순서를 실제로 데이터베이스에 기록해준다. 2-1-2 나중에 이 field를 기준으로 정렬하여 데이터를 받아오면 언제나 순서를 유지할 수 있다. 2-1-3 @OrderColumn을 속성지정없이 사용하면 속성이름+_ORDER이 붙는다. 아래는 courses_ORDER 3. Student Entity 3-1 다른 것들은 다 동일하고 @OrderColumn이 추가 되었다. package pe.pilseong.hibernatelist.entity;
+
+import java.util.ArrayList;
+import java.util.List;
+
+import javax.persistence.CollectionTable;
+import javax.persistence.Column;
+import javax.persistence.ElementCollection;
+import javax.persistence.Entity;
+import javax.persistence.GeneratedValue;
+import javax.persistence.GenerationType;
+import javax.persistence.Id;
+import javax.persistence.JoinColumn;
+import javax.persistence.OrderColumn;
+import javax.persistence.Table;
+
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+@Entity
+@Table(name = "student")
+@NoArgsConstructor
+@Data
+public class Student {
+  
+  public Student(String firstName, String lastName, String email) {
+    this.firstName = firstName;
+    this.lastName = lastName;
+    this.email = email;
+  }
+
+  @Id
+  @GeneratedValue(strategy = GenerationType.IDENTITY)
+  private Long id;
+  
+  @Column(name = "first_name")
+  private String firstName;
+  
+  @Column(name = "last_name")
+  private String lastName;
+  
+  @Column(name = "email")
+  private String email;
+  
+  @ElementCollection
+  @CollectionTable(
+      name = "course",
+      joinColumns = @JoinColumn(name = "student_id")
+  )
+  @OrderColumn
+  @Column(name = "course_name")
+  private List<String> courses = new ArrayList<>();
+} 3. 실행코드 3-1 별 다른 내용이 없다. Set과는 다르게 중복하여 같은 값이 2개 있다 하더라도 그대로 입력이 된다. package pe.pilseong.hibernatelist;
+
+import java.util.List;
+
+import org.hibernate.Session;
+import org.hibernate.SessionFactory;
+import org.hibernate.cfg.Configuration;
+
+import pe.pilseong.hibernatelist.entity.Student;
+
+/**
+ * Hello world!
+ *
+ */
+public class App {
+  public static void main(String[] args) {
+    
+    SessionFactory factory = new Configuration().configure()
+        .addAnnotatedClass(Student.class)
+        .buildSessionFactory();
+    
+    Session session = factory.getCurrentSession();
+    
+    session.beginTransaction();
+    
+    Student student = new Student("Pilseong", "Heo", "heops79@gmail.com");
+    List<String> courses = student.getCourses();
+    
+    courses.add("Math");
+    courses.add("Science");
+    courses.add("Economics");
+    courses.add("Language");
+    courses.add("Language");
+    
+    
+    session.persist(student);
+    
+    session.getTransaction().commit();
+    
+    factory.close();
+  }
+} 3-2 결과 캡처 3-3 생성된 테이블 구조

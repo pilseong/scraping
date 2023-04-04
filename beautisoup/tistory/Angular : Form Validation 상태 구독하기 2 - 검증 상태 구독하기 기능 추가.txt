@@ -1,0 +1,110 @@
+1. 이 포스트는 검증 상태 구독하기 시리즈의 연속이다. 2. 여기서는 지난 포스트에서 작성한 코드로 검증상태를 구독하는 로직을 작성한다. 3. 검증결과를 구독하는 부분 작성한다. 3-1 FormGroup, FormControl에는 statusChanges라는 속성이 존재한다. 3-2 이것은 둘다 AbstractControl 추상클래스를 상속하고 있기 때문이다. 3-2-1 이 부모클래스에서 검증구독과 검증의 상태값을 모두 관리하고 있다. 3-3 FormGroup, FormControl의 코드를 보면 Form 구조에 대한 관리 기능과 접근 메소드가 대부분을 차지한다. 3-4 코드에서 중요한 부분은 statusChange를 구독하는 ngOnInit이다. 3-4-0 검증결과값은 검증에 따라서 'VALID', 'INVALID'가 전달된다. 3-4-1 모든 Form 세팅이 끝나는 시점인 ngOnInit에서 구독을 해야 하고 OnInit을 구현한다. 3-4-2 핵심적인 부분은 RxJs로 검증로직이 수행될 때마다 어떤 데이터를 넘겨줄지 pipe를 통해서 가공하고 3-4-3 결과 데이터를 subscribe하여 원하는 데이터를 받아 처리한다. 3-4-4 RxJS 연산자 중 delay는 값의 출력을 단순히 지연시키는 역할을 한다. 인자는 ms단위가 된다. 3-4-5 filter는 배열의 filter와 동일하게 논리연산이 참인 값만 pipe를 통과시킨다. 3-4-6 scan은 reduce와 아주 유사한데 scan((누적변수, 값)=> 반환 연산코드, 누적변수의 초기값)으로 구성된다. 3-4-6-1 구조가 reduce와 완전동일한데 차이는 scan은 매 값마다 값을 반환하고 누적변수의 값은 유지되는 점이다. 3-4-6-2 reduce는 모든 배열 값을 다 연산한 후에 결과 값만 반환하게 된다. 반환문이 아닌 연산문만 존재한다. 3-4-6-3 아래의 코드는 초기값을 객체로 지정하여 여러 개의 값도 관리가능함을 보여준다. 3-4-6-4 얼마나 많은 질문을 풀었는지를 numOfQuestions, 시작시점에 대한 시간정보를 startTime에 담고 있다. 3-4-6-5 로직은 검증 결과값이 pipe를 통해 전달되면 해결한 문제값을 1 증가시킨 후 객체를 다시 반환하고 있다. 3-4-6-6 결과값은 필터를 거쳐 무조건 VALID만 들어오니 신경쓸 필요없고 누적 문제와 시작시간만 있으면 된다. 3-4-7 구독함수에서는 scan의 누적 객체를 받아서 출력하고 있다. 여기에서 필요한 로직을 구현하면 된다. 3-4-8 2가지 누적객체를 넣은 이유는 문제풀이 평균시간을 측정하려고 하기 때문이다. 3-4-8-1 처음부터 얼마나 많은 문제를 풀었는지와 시작 시간을 알면 평균을 구할 수 있다. 3-4-9 구독함수에 값을 받았다는 의미는 정답을 맞추었다는 의미이므로 새로운 값을 받아오는 부분을 추가하였다. import { Component, OnInit } from '@angular/core';
+import { FormGroup, FormBuilder, Validators } from '@angular/forms';
+import { MathValidators } from './math-validators';
+import { filter, tap, scan, delay } from 'rxjs/operators';
+
+@Component({
+  selector: 'app-root',
+  templateUrl: './app.component.html',
+  styleUrls: ['./app.component.css'],
+})
+export class AppComponent implements OnInit {
+  multiplicationGroup: FormGroup;
+
+  constructor(private formBuilder: FormBuilder) {
+    this.multiplicationGroup = this.formBuilder.group(
+      {
+        op1: this.getRandom(),
+        op2: this.getRandom(),
+        answer: ['', [Validators.required]],
+      },
+      {
+        validators: MathValidators.multiply('op1', 'op2', 'answer'),
+      }
+    );
+  }
+
+  get op1() {
+    return this.multiplicationGroup.value['op1'];
+  }
+
+  get op2() {
+    return this.multiplicationGroup.value['op2'];
+  }
+
+  getRandom() {
+    return Math.floor(Math.random() * 10);
+  }
+
+  ngOnInit(): void {
+    this.multiplicationGroup.statusChanges
+      .pipe(
+        filter((value) => value === 'VALID'),
+        delay(500),
+        scan(
+          (acc, value) => {
+            return {
+              numOfQuestions: acc.numOfQuestions + 1,
+              startTime: acc.startTime,
+            };
+          },
+          { numOfQuestions: 0, startTime: new Date() }
+        )
+      )
+      .subscribe(({ numOfQuestions, startTime }) => {
+        console.log(numOfQuestions);
+        this.multiplicationGroup.setValue({
+          op1: this.getRandom(),
+          op2: this.getRandom(),
+          answer: '',
+        });
+      });
+  }
+} 4. 이제 시작시간과 누적문제풀이를 포함하는 객체를 받아 시간정보를 계산하고 보여주는 부분만 남았다. 4-1 현재 statusChange Observable은 정답이 맞은 경우만 시작시간, 해결한 문제 정보를 넘겨주고 있다. 4-2 따라서 subscribe에서 새로운 문제를 설정하는 코드를 작성하였다. 4-2-1 FormGroup의 setValue 메소드는 주의할 부분이 있는데 모든 맴버속성을 다 포함해야 에러가 발생하지 않는다. 4-2-2 부분적인 업데이터가 필요하면 patchValue 메소드를 사용하면 된다. 4-3 코드를 보면 avgTime이라는 맴버 속성을 선언하여 template에서 사용할 수 있도록 하였다. 4-4 이 avgTime을 계산하는 부분이 구독부분에 들어가는데 간단히 평균을 구하는 로직이다. ...
+
+  avgTime = 0
+  
+  ...
+  
+  ngOnInit(): void {
+    this.multiplicationGroup.statusChanges
+      .pipe(
+        filter((value) => value === 'VALID'),
+        delay(500),
+        scan(
+          (acc, value) => {
+            return {
+              numOfQuestions: acc.numOfQuestions + 1,
+              startTime: acc.startTime,
+            };
+          },
+          { numOfQuestions: 0, startTime: new Date() }
+        )
+      )
+      .subscribe(({ numOfQuestions, startTime }) => {
+
+        const interval =  (new Date().getTime()) - startTime.getTime()
+        this.avgTime = interval / numOfQuestions / 1000
+
+        this.multiplicationGroup.setValue({
+          op1: this.getRandom(),
+          op2: this.getRandom(),
+          answer: '',
+        });
+      });
+  } 4-5 이 로직을 사용하는 template이다. 4-5-1 아래는 보면 avgTime을 받아 소수점 2번째 자리 까지 끊어서 보여주고 있다. <div class="container">
+  <form [formGroup]="multiplicationGroup">
+    <div class="form-inline">
+      {{ op1 }} * {{ op2 }} = <input formControlName="answer" class="form-control d-inline" type="text">
+    </div>
+  </form>
+  <div>{{ avgTime | number: '1.0-2' }}</div>
+</div>
+
+<hr>
+<div>
+  <p>
+    Muliplication Valid : {{ multiplicationGroup.valid }}<br>
+    Muliplication errors : {{ multiplicationGroup.errors | json }}
+  </p>
+</div> 4-6 결과 화면 이다.

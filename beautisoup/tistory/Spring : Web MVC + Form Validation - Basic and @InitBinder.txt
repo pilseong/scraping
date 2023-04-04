@@ -1,0 +1,232 @@
+-1. Form Validation은 시스템에서 원하는 값이 입력되도록 제한하고 검증하는 기능을 가진다. -1-1 서버단에서 처리하기 때문에 시스템에 부하를 가지고 올 수 밖에 없다. 0. Bean Validation은 단순한 specification이다. 1. Hibernate Validator는 하나의 Bean Validation을 구현하는 프로젝트이다. 1-1 Hibernate ORM과는 별도의 프로젝트를 구성하고 별도의 버전을 가진다. 1-2 maven에서 Hibernate Validator 의존성을 추가해야 한다. <!-- https://mvnrepository.com/artifact/org.hibernate/hibernate-validator -->
+<dependency>
+	<groupId>org.hibernate</groupId>
+	<artifactId>hibernate-validator</artifactId>
+	<version>6.1.4.Final</version>
+</dependency> 2. 구현을 위해서 validation을 사용할 객체(Entity나 DTO)에 원하는 검증기능을 추가한다. 2-1 아래의 Customer 클래스는 lastName, firstName이라는 두개의 속성을 가진다. 2-2 검증 annoataion의 의미는 lastName에 값이 null될 수 없고, 입력한 문자열의 길이가 1은 넘어야 한다. 2-3 기본적으로 html은 input text의 경우 null 아닌 빈문자열을 반환하기 때문에 @NotNull은 실행되지 않는다. 2-3-0 그래서 보통 공백을 원하지 않으면 @NotBlank를 사용한다. 2-3-1 하지만 @NotNull을 쓰는 이유는 있다. 2-3-2 @InitBinder에서 StringTrimmerEditor을 사용하면 2-3-2-1 입력된 값의 앞뒤의 공백을 제거해 주지만 2-3-2-2 아무것도 입력하지 않았을 때는 공백문자열을 null로 처리하기 때문에 null을 처리할 조건이 필요해 진다. 2-3-3 공백 문자열은 스페이스나 tab 등의 입력값들이 들어있는 경우를 말한다. 2-4 아래의 조건으로는 공백 입력 시 조건을 그냥 만족한다. 2-4-1. 공백입력 검증을 위해 Controller에 request마다 실행되는 전처리가 필요하다. 2-4-2. 전처리에 대해서는 아래 5 항목을 참조한다. import javax.validation.constraints.NotNull;
+import javax.validation.constraints.Size;
+
+import lombok.Data;
+
+@Data
+public class Customer {
+  
+  private String firstName;
+  
+  @NotNull(message = "is required")
+  @Size(min = 1, message = "is required")
+  private String lastName;
+} 3. 이 객체를 사용할 form을 view에 구현한다. 3-0 form:form테그는 customer라는 이름의 객체와 바인딩 되는데 modelAttribute로 지정한다. 3-1 아래의 customer form부분을 보면 lastName 부분에 form:error 테그를 사용하고 있다. 3-1-1 form:error 테그는 Controller에서 에러검증 시 에러가 발견되었을 경우 다시 화면으로 돌아왔을 때 실행된다. 3-1-2 form:error에 나타나는 내용은 validation객체에서 정의한 해당 제약의 message이다. <%@ taglib prefix="form" uri="http://www.springframework.org/tags/form" %>
+<%@ page language="java" contentType="text/html; charset=UTF-8"
+  pageEncoding="UTF-8"%>
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<link rel="stylesheet"
+  href="https://stackpath.bootstrapcdn.com/bootstrap/4.4.1/css/bootstrap.min.css"
+  integrity="sha384-Vkoo8x4CGsO3+Hhxv8T/Q5PaXtkKtu6ug5TOeNV6gBiFeWPGFN9MuhOf23Q9Ifjh"
+  crossorigin="anonymous">
+<title>Customer Form</title>
+</head>
+<body>
+
+  <div class="container">
+    <h1 class="display-5">Customer Form</h1>
+    <form:form method="GET" modelAttribute="customer" action="processForm">
+      <div class="form-group">
+        <label for="firstName">First Name</label>
+        <form:input class="form-control" path="firstName" id="firstName" />
+      </div>
+      <div class="form-group">
+        <label for="lastName">Last Name</label>
+        <form:input class="form-control" path="lastName" id="lastName" />
+        <form:errors path="lastName" cssClass="error"></form:errors>
+      </div>
+      <input class="btn btn-outline-primary" type="submit"
+        value="Submit"></input>
+    </form:form>
+  </div>
+
+
+  <script src="https://code.jquery.com/jquery-3.4.1.slim.min.js"
+    integrity="sha384-J6qa4849blE2+poT4WnyKhv5vZF5SrPo0iEjwBvKU7imGFAV0wwj1yYfoRSJoZ+n"
+    crossorigin="anonymous"></script>
+  <script
+    src="https://cdn.jsdelivr.net/npm/popper.js@1.16.0/dist/umd/popper.min.js"
+    integrity="sha384-Q6E9RHvbIyZFJoft+2mJbHaEWldlvI9IOYy5n3zV9zzTtmI3UksdQRVvoxMfooAo"
+    crossorigin="anonymous"></script>
+  <script
+    src="https://stackpath.bootstrapcdn.com/bootstrap/4.4.1/js/bootstrap.min.js"
+    integrity="sha384-wfSDF2E50Y2D1uUdj0O3uMBJnjuUD4Ih7YwaYd1iqfktj0Uod8GCExl3Og8ifwB6"
+    crossorigin="anonymous"></script>
+</body>
+</html> 4. form을 처리하는 Controller를 작성한다. 4-1 아래 processForm메소드는 /customer/processForm으로 GET 메소드로 요청이 왔을 때 실행된다. 4-1-1 검증할 객체 앞에 @Valid를 사용해야 한다. 4-1-2 검증할 객체는 form에서 받아온 객체이기 때문에 @ModelAttribute로 바인딩 되어야 한다. 4-1-3 가장 중요한 부분은 ModelAttribute으로 받아오는 객체의 이름을 명시하는 것이다. 4-1-3-1 예를 들면 아래 소스의 RegistrationForm을 받아오는데 객체이름을 form으로 등록했다면 4-1-3-2 반드시 아래처럼 @ModelAttribute("form")으로 명시를 해야 한다. 4-1-3-3 만약 하지 않으면 form 객체가 아닌 registrationForm이라는 이름의 객체를 생성하여 전달하게 된다. 4-1-3-4 그냥 무조건 이름을 명시적으로 지정하는 것이 좋다. 오랜 시간 동안 삽질한 결론이다. @PostMapping
+  public String processRegistration(@Valid @ModelAttribute("form") RegistrationForm form, 
+    BindingResult errors, Model model) {
+    log.info(("processRegistration in UserController :: " + form.toString()));
+
+    log.info("model data ::: => " + model.toString());
+    if (errors.hasErrors()) {
+      log.info(errors.toString());
+      return "registration-form";
+    }
+
+    return "registration-form";
+  }
+} 4-2 BindingResult는 반드시 @ModelAttribute 바인딩 객체 바로 뒤에 추가되어야 한다. 4-2-1 이것은 @GetMapping, @ResultMapping의 규약으로 어길 시 검증로직이 동작하지 않는다. import pe.pilseong.springmvcstudent.Customer;
+
+@Controller
+@RequestMapping("/customer")
+public class CustomerController {
+  
+  @GetMapping("/showForm")
+  public String showCustomerForm(Model model) {
+    model.addAttribute("customer", new Customer());
+    
+    return "customer-form";
+  }
+  
+  @GetMapping("/processForm")
+  public String processForm(@Valid @ModelAttribute Customer customer, BindingResult bindingResult) {
+    if (bindingResult.hasErrors()) {
+      return "customer-form";
+    }
+    
+    return "customer-confirmation";
+  }
+} 5. 공백검증을 위해 전처리가 필요하다. 5-1 Controller에 @InitBinder로 지정된 함수는 request가 들어올 때 실행할 전처리 기능을 등록하는데 사용된다. 5-1-1 이 방식을 채용할 경우 모든 검증 대상 속성에 @NotNull을 추가하여 예외처리를 해야 한다. 5-1-2 또 null을 저장할 수 없는 primitive 타입은 모두 Wrapper type으로 변경해야 한다. 예) int -> Integer 5-2 아래 소스의 StringTrimmerEditor는 앞뒤의 공백을 제거해주는 기능을 제공한다. 5-2-1 전체가 공백문자열인 경우 null을 반환하도록 한다. 5-3 코드는 아래를 참조한다. @InitBinder
+  public void initBinder(WebDataBinder dataBinder) {
+    StringTrimmerEditor stringTimmerEditor = new StringTrimmerEditor(true);
+    dataBinder.registerCustomEditor(String.class, stringTimmerEditor);
+  } 몇 가지 Validator 기능 6. 숫자입력의 최소 최대값 검증 @Min, @Max annotation, 숫자값 을 체크한다. 6-1 둘 다 같을(equal) 경우를 허용한다. @Min(value=5) 라고 되어 있을 때 5 입력되는 경우는 OK 6-2 위에도 언급했지만 initBinder를 사용하는 경우 안전하게 Integer나 Long 같은 Wrapper로 적용한다. @NotNull(message = "is required")
+  @Min(value = 0, message = "must be greater than or equal to zero")
+  @Max(value = 10, message = "must be less than or equal to 10")
+  private Integer freePass; 7. regular express를 사용할 수 있다. @Pattern(regexp = "expression", message = "") 이런 방식이다. 7-1 정규식을 사용하면 세부적인 검증을 할 수 있다. 7-2 아래는 5자리 우편번호를 검증하는 코드이다. @NotNull(message = "is required")
+  @Pattern(regexp = "^[a-zA-Z0-9]{5}", message = "only 5 chars/digits")
+  private String postalCode; 8. 신용카드 검증에 유용한 몇가지 8-1 신용카드를 처리하기 위해 특화된 @CreditCardNumber가 있다. 8-2 @Digit이라는 것도 있는데, integer, fraction 기능이 있어 정확한 포멧의 숫자를 입력받을 수 있다. 8-2-1 CVV를 받기 원하면 integer = 3, fraction = 0 으로 하면 된다. 즉 정수 3자리, 소수점 0자리를 의미한다. 8-3 신용카드 만료일의 경우 아래의 예시를 사용할 수 있다. @Pattern(regexp = "^(0[1-9]|1[0-2])([\\/])([1-9][0-9])$", message = "Must be formatted MM/YY") 9. 최종으로 수정된 소스를 붙인다. 9-1 Customer.java package pe.pilseong.springmvcstudent;
+
+import javax.validation.constraints.Max;
+import javax.validation.constraints.Min;
+import javax.validation.constraints.NotNull;
+import javax.validation.constraints.Pattern;
+import javax.validation.constraints.Size;
+
+import lombok.Data;
+import pe.pilseong.springmvcstudent.validation.CourseCode;
+
+@Data
+public class Customer {
+  
+  private String firstName;
+  
+  @NotNull(message = "Empty string is not allowed")
+  @Size(min = 3, message = "You need to type more than 3 characters")
+  private String lastName;
+  
+  @NotNull(message = "is required")
+  @Min(value = 0, message = "must be greater than or equal to zero")
+  @Max(value = 10, message = "must be less than or equal to 10")
+  private Integer freePass;
+  
+  @NotNull(message = "is required")
+  @Pattern(regexp = "^[a-zA-Z0-9]{5}", message = "only 5 chars/digits")
+  private String postalCode;
+} 9-2 customer-form.jsp <%@ taglib prefix="form" uri="http://www.springframework.org/tags/form"%>
+<%@ page language="java" contentType="text/html; charset=UTF-8"
+  pageEncoding="UTF-8"%>
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<link rel="stylesheet"
+  href="https://stackpath.bootstrapcdn.com/bootstrap/4.4.1/css/bootstrap.min.css"
+  integrity="sha384-Vkoo8x4CGsO3+Hhxv8T/Q5PaXtkKtu6ug5TOeNV6gBiFeWPGFN9MuhOf23Q9Ifjh"
+  crossorigin="anonymous">
+<link rel="stylesheet" href="${ pageContext.request.contextPath }/resources/style.css">
+<title>Customer Form</title>
+</head>
+<body>
+
+  <div class="container">
+    <h1 class="display-5 mb-3">Customer Form</h1>
+    <form:form method="GET" modelAttribute="customer"
+      action="processForm">
+      <p>Fill out the form. Asterisk (*) means required.</p>
+      <div class="form-group">
+        <label for="firstName">First Name</label>
+        <form:input class="form-control" path="firstName" id="firstName" />
+      </div>
+      <div class="form-group">
+        <label for="lastName">Last Name (*)</label>
+        <form:input class="form-control" path="lastName" id="lastName" />
+        <form:errors path="lastName" cssClass="error"></form:errors>
+      </div>
+      <div class="form-group">
+        <label for="freePass">Free pass</label>
+        <form:input class="form-control" path="freePass" id="freePass" />
+        <form:errors path="freePass" cssClass="error"></form:errors>
+      </div>
+      <div class="form-group">
+        <label for="postal">Postal Code</label>
+        <form:input class="form-control" path="postalCode" id="postalCode" />
+        <form:errors path="postalCode" cssClass="error"></form:errors>
+      </div>
+      <input class="btn btn-outline-primary" type="submit"
+        value="Submit"></input>
+    </form:form>
+  </div>
+
+
+  <script src="https://code.jquery.com/jquery-3.4.1.slim.min.js"
+    integrity="sha384-J6qa4849blE2+poT4WnyKhv5vZF5SrPo0iEjwBvKU7imGFAV0wwj1yYfoRSJoZ+n"
+    crossorigin="anonymous"></script>
+  <script
+    src="https://cdn.jsdelivr.net/npm/popper.js@1.16.0/dist/umd/popper.min.js"
+    integrity="sha384-Q6E9RHvbIyZFJoft+2mJbHaEWldlvI9IOYy5n3zV9zzTtmI3UksdQRVvoxMfooAo"
+    crossorigin="anonymous"></script>
+  <script
+    src="https://stackpath.bootstrapcdn.com/bootstrap/4.4.1/js/bootstrap.min.js"
+    integrity="sha384-wfSDF2E50Y2D1uUdj0O3uMBJnjuUD4Ih7YwaYd1iqfktj0Uod8GCExl3Og8ifwB6"
+    crossorigin="anonymous"></script>
+</body>
+</html> 9-3 customer-confirmation.jsp <%@ page language="java" contentType="text/html; charset=UTF-8" pageEncoding="UTF-8"%>
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<link rel="stylesheet"
+  href="https://stackpath.bootstrapcdn.com/bootstrap/4.4.1/css/bootstrap.min.css"
+  integrity="sha384-Vkoo8x4CGsO3+Hhxv8T/Q5PaXtkKtu6ug5TOeNV6gBiFeWPGFN9MuhOf23Q9Ifjh"
+  crossorigin="anonymous">
+<title>Customer Confirmation</title>
+</head>
+<body>
+
+  <div class="container">
+    <h1 class="display-5">Student Confirmation</h1>
+    <p class="text-success">
+      Your Name: ${ customer.lastName }, ${ customer.firstName }
+    </p>
+    <p class="text-success">
+      FreePass: ${ customer.freePass}
+    </p>
+    <p class="text-success">
+      Postal Code: ${ customer.postalCode}
+    </p>
+  </div>
+
+
+  <script src="https://code.jquery.com/jquery-3.4.1.slim.min.js"
+    integrity="sha384-J6qa4849blE2+poT4WnyKhv5vZF5SrPo0iEjwBvKU7imGFAV0wwj1yYfoRSJoZ+n"
+    crossorigin="anonymous"></script>
+  <script
+    src="https://cdn.jsdelivr.net/npm/popper.js@1.16.0/dist/umd/popper.min.js"
+    integrity="sha384-Q6E9RHvbIyZFJoft+2mJbHaEWldlvI9IOYy5n3zV9zzTtmI3UksdQRVvoxMfooAo"
+    crossorigin="anonymous"></script>
+  <script
+    src="https://stackpath.bootstrapcdn.com/bootstrap/4.4.1/js/bootstrap.min.js"
+    integrity="sha384-wfSDF2E50Y2D1uUdj0O3uMBJnjuUD4Ih7YwaYd1iqfktj0Uod8GCExl3Og8ifwB6"
+    crossorigin="anonymous"></script>  
+</body>
+</html>

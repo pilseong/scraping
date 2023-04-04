@@ -1,0 +1,29 @@
+1. DispatcherServlet이 경로 매핑을 할 때 사용하는 Annotation이 @RequstMapping이다. 1-1 예전엔 그냥 @RequestMapping("경로", 메소드) 방식으로 사용했다. 1-2 현재는 REST 덕분에 @GetMapping("경로") 형식의 Post, Delete, Put 등의 지정방식을 많이 사용한다. 1-3 클래스 level의 uri 분기는 @RequestMapping, 메소드 level의 uri 구분은 @GetMapping 방식을 많이 쓴다. 1-4 아래는 '/funny/showForm' 의 경로에 접근할 경우의 예시이다. import javax.servlet.http.HttpServletRequest;
+
+import org.springframework.stereotype.Controller;
+import org.springframework.ui.Model;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RequestMapping;
+
+@Controller
+@RequestMapping("/funny")
+public class HelloWorldContoller {
+  
+  @GetMapping("/showForm")
+  public String showForm() {
+    return "helloworld-form";
+  }
+
+  @GetMapping("/processForm")
+  public String processForm(HttpServletRequest request, Model model) {
+    String name = request.getParameter("studentName");
+    model.addAttribute("name", name.toUpperCase());
+    return "helloworld";
+  }
+  
+//  @GetMapping("/processForm")
+//  public String processForm(@RequestParam("studentName") String name, Model model) {
+//    model.addAttribute("name", name.toUpperCase());
+//    return "helloworld";
+//  }
+}

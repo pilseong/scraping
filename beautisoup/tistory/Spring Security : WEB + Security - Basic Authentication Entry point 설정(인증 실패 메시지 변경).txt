@@ -1,0 +1,92 @@
+1. Basic Authentication ? 1-1 웹인증에 사용되는 로그인이나 세션 검증 같은 기술들은 웹브라우저를 사용하지 않는 경우에는 적합하지 않다. 1-2 그리고 한 서버가 다른 서버의 서비스를 사용하는 경우와 같이 사용자의 관여가 없는 경우도 있다. 1-3 Basic Authentication은 보안이 강력하지는 않지만 이런 문제들에 대한 하나의 해결책이 될 수있다. 1-4 client는 Base64로 코드화된 인증정보를 HTTP Authrorization Header에 담아 전송한다. 1-5 각 Request 마다 인증정보가 포함되고 각 Request는 원자성을 가지기 때문에 서버는 session 관리가 필요없다. 2. 스프링에서 설정하기 2-1 Spring Security 설정에서 HttpBasic을 사용하도록 한다. 2-1-1 아래 소스에서 보면 HttpSecurity에서 사용한 httpBasic() 이 부분에 해당한다. 2-2 BasicAuthenticationEntryPoint를 통하여 Entry point를 설정해야 한다. 2-2-1 BasicAuthenticationEntryPoint은 AuthenticationEntryPoint인터페이스를 구현하고 있다. 2-2-1 Entry point는 어렵게 느껴지지만, 로그화면 같은 인증을 할 수 있는 통로라고 생각하면 된다. 2-2-2 웹브라우저의 Entry point는 로그인 화면인데 REST는 이런 게 없기 때문에 수정해 주어야 한다. 2-2-3 이 작업은 인증 실패 시에 결과 처리에 가까운데, REST에서는 기본 html 반환이 적합하지 않다. 2-3-4 아래 소스를 보면  httpBasic().authenticationEntryPoint() 메소드가 있는데 여기에 지정하면 된다. 2-3-5 빈 생성은 @Comoponent도 괜찮지만 Security Config에서 지정했는데 개발자가 인지하기 좋다. package pe.pilseong.crmserver.security;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
+import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
+import org.springframework.security.config.annotation.authentication.builders.AuthenticationManagerBuilder;
+import org.springframework.security.config.annotation.web.builders.HttpSecurity;
+import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
+import org.springframework.security.config.annotation.web.configuration.WebSecurityConfigurerAdapter;
+import org.springframework.security.config.http.SessionCreationPolicy;
+import org.springframework.security.core.userdetails.UserDetailsService;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+
+@EnableWebSecurity
+@Configuration
+public class SecurityConfig extends WebSecurityConfigurerAdapter {
+
+  @Autowired
+  private UserDetailsService userDetailsService;
+  
+  @Override
+  protected void configure(AuthenticationManagerBuilder auth) throws Exception {
+    auth.authenticationProvider(authenticationProvider());
+  }
+  
+  @Override
+  protected void configure(HttpSecurity http) throws Exception {
+    http.authorizeRequests()
+    .antMatchers(HttpMethod.GET, "/api/customers").hasRole("EMPLOYEE")
+    .antMatchers(HttpMethod.GET, "/api/customers/**").hasRole("EMPLOYEE")
+    .antMatchers(HttpMethod.POST, "/api/customers").hasAnyRole("MANAGER", "ADMIN")
+    .antMatchers(HttpMethod.POST, "/api/customers/**").hasAnyRole("MANAGER", "ADMIN")
+    .antMatchers(HttpMethod.PUT, "/api/customers").hasAnyRole("MANAGER", "ADMIN")
+    .antMatchers(HttpMethod.PUT, "/api/customers/**").hasAnyRole("MANAGER", "ADMIN")
+    .antMatchers(HttpMethod.DELETE, "/api/customers/**").hasRole("ADMIN")
+    .and()
+    .httpBasic().authenticationEntryPoint(authenticationEntryPoint())
+    .and()
+    .csrf().disable()
+    .sessionManagement().sessionCreationPolicy(SessionCreationPolicy.STATELESS);
+  }
+  
+  @Bean
+  public DaoAuthenticationProvider authenticationProvider() {
+    DaoAuthenticationProvider authenticationProvider = new DaoAuthenticationProvider();
+    authenticationProvider.setUserDetailsService(userDetailsService);
+    authenticationProvider.setPasswordEncoder(passwordEncoder());
+    
+    return authenticationProvider;
+  }
+  
+  @Bean
+  public CustomeBasicAuthenticationEntryPoint authenticationEntryPoint() {
+    return new CustomeBasicAuthenticationEntryPoint();
+  }
+  
+  @Bean
+  public BCryptPasswordEncoder passwordEncoder() {
+    return new BCryptPasswordEncoder();
+  }
+} 2-3 BasicAuthenticationEntryPoint를 사용한 에러 처리 소스이다. 2-3-1 중요한 부분은 response에 오류타입과 로그인 challenge를 위한 헤더 설정이다. 2-3-2 challenge라고 하는데 인증오류가 발생했을 때 인증페이지를 다시 보여주게 유도하는 안내정보이다. 2-3-3 Realm이라고 있는데 인증 기술의 하나의 속성이라고 할 수 있는데, 같은 Realm이면 인증을 공유한다. 2-3-3-0 Root URL + Realm 문자열을 합해서 값이 지정되는 값이다. 2-3-3-1 아이디, 비번이 먹히는 범위라고 할 수 있다. 보통 서버 단위이겠지만, 범위는 정하기 나름이다 2-3-3-2 Realm은 문자열 값이고 인증페이지에서 보여지는 값이다. 2-3-4 아래처럼 설정하면 긴 html페이지 한줄짜리 에러 메시지가 출력된다. 2-3-5 Entry Point를 예외처리하여 @ControllerAdvice로 처리할 수 없다. 처리단계가 달라서 그렇게 할 수 없다. package pe.pilseong.crmserver.security;
+
+import java.io.IOException;
+import java.io.PrintWriter;
+
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
+
+import org.springframework.security.core.AuthenticationException;
+import org.springframework.security.web.authentication.www.BasicAuthenticationEntryPoint;
+
+public class CustomeBasicAuthenticationEntryPoint extends BasicAuthenticationEntryPoint {
+  @Override
+  public void commence(HttpServletRequest request, HttpServletResponse response, 
+      AuthenticationException authException)
+      throws IOException {
+
+    response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+    response.addHeader("WWW-Authenticate", "Basic realm=" + super.getRealmName() + "");
+    
+    PrintWriter writer = response.getWriter();
+    writer.println("HTTP Status 401 - " + authException.getMessage());    
+  }
+  
+  @Override
+  public void afterPropertiesSet() {
+    super.setRealmName("pilseong");
+    super.afterPropertiesSet();
+  }
+} 3. 결과화면이다.

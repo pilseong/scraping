@@ -1,0 +1,242 @@
+1. 이 포스트는 Email Client를 작성하는 시리즈의 일부이다 1-1 지금까지 부가적인 기능들을 추가했는데 이번에는 가입하기와 로그인 기능을 구현한다. 2. 가입하기 구현하기 2-1 가입하기는 post로 전달하며 url은 https://api.angular-email.com/auth/signup 이다. 2-2 중복된 username인 경우 { username: string } 형식의 데이터와 422 코드를 돌려준다. 값은 'usename in use' 2-3 정상인 경우에도 { username; string } 형식을 반납하는데 200 코드이다. 여기서는 가입한 username이 들어간다. 3. 이제 필요한 것은 다 알았으니 가입하기를 구현한다. 3-1 sign up template에서 form에 ngSubmit 이벤트 발생 시 onSubmit을 실행하도록 하였다. <h1 class="my-5">Create an Account</h1>
+<form class="col-sm-8" [formGroup]="registrationGroup" (ngSubmit)="onSubmit()">
+  <div class="form-group">
+    <label class="form-label" for="username">Username</label>
+    <input id="username" class="form-control" type="text" formControlName="username">
+    <app-validation-message [control]="registrationGroup.get('username')"></app-validation-message>
+  </div>
+  <div class="form-group">
+    <label class="form-label" for="password">Password</label>
+    <input id="password" class="form-control" type="password" formControlName="password">
+    <app-validation-message [control]="registrationGroup.get('password')"></app-validation-message>
+  </div>
+  <div class="form-group">
+    <label class="form-label" for="passwordConfirmation">Password Confirmation</label>
+    <input id="passwordConfirmation" class="form-control" type="password" formControlName="passwordConfirmation">
+    <app-validation-message [control]="registrationGroup.get('passwordConfirmation')"></app-validation-message>
+    <app-validation-message [control]="registrationGroup"></app-validation-message>
+  </div>
+  <div class="my-4">
+    <button type="submit" class="btn btn-secondary mr-2" [disabled]="!registrationGroup.valid">Submit</button>
+    <button type="reset" class="btn btn-warning">Reset</button>
+  </div>
+</form> 3-2 sign up 클래스에 onSubmit을 구현한다. 3-2-1 onSubmit에서 auth 서비스의 signup을 호출하면서 필요한 정보를 다 넘겨준다. 3-2-2 200번 코드로 가입 성공하면 inbox 페이지로 이동하도록 하고, 3-2-3 실패한 경우는 422코드가 반환되고 결과 값에 따라서 다양한 에러 값들을 설정하여 문제가 무엇인지 알려준다. 3-2-3-1 여기서는 있어야 하는 데이터가 없는 경우 인터넷 연결 없음, 중복의 경우 중복에러를 세팅한다. import { Component, OnInit } from '@angular/core';
+import { FormGroup, FormBuilder, Validators } from '@angular/forms';
+import { AuthValidators } from '../validators/auth-validators';
+import { AuthService } from '../auth.service';
+import { Router } from '@angular/router';
+
+@Component({
+  selector: 'app-sign-up',
+  templateUrl: './sign-up.component.html',
+  styleUrls: ['./sign-up.component.css'],
+})
+export class SignUpComponent implements OnInit {
+  registrationGroup: FormGroup;
+
+  constructor(
+    private formBuilder: FormBuilder,
+    private authService: AuthService,
+    private router: Router
+
+  ) {}
+
+  ngOnInit(): void {
+    this.registrationGroup = this.formBuilder.group(
+      {
+        username: [
+          '',
+          [
+            Validators.required,
+            Validators.minLength(4),
+            Validators.maxLength(20),
+          ], AuthValidators.checkUniqueUsername(this.authService)
+        ],
+        password: [
+          '',
+          [
+            Validators.required,
+            Validators.minLength(4),
+            Validators.maxLength(20),
+          ],
+        ],
+        passwordConfirmation: [
+          '',
+          [
+            Validators.required,
+            Validators.minLength(4),
+            Validators.maxLength(20),
+          ],
+        ],
+      },
+      {
+        validators: AuthValidators.checkPasswordMatch(
+          'password',
+          'passwordConfirmation'
+        ),
+      }
+    );
+  }
+
+  onSubmit() {
+    this.authService.signUp({
+      username: this.registrationGroup.value['username'],
+      password: this.registrationGroup.value['password'],
+      passwordConfirmation: this.registrationGroup.value['passwordConfirmation'],
+    }).subscribe(
+      () => this.router.navigateByUrl("/inbox"),
+      (err) => {
+        console.log(err);
+        if (err.error.username) {
+          this.registrationGroup.setErrors({ duplication: true })
+        } else {
+          this.registrationGroup.setErrors({ noInternet: true })
+        }
+      }
+    )
+  }
+} 3-3 auth 서비스에서 signup 메소드를 작성한다. 3-3-0 가입과 로그인에 사용될 인터페이스를 AuthResponse 파일에 추가한다. export class AuthResponses {
+}
+
+export interface AuthCredential {
+  username: string
+  password: string
+  passwordConfirmation: string
+}
+
+export interface LoginCredential {
+  username: string,
+  password: string
+} 3-3-1 post로 가입 정보를 넣어 http로 전송한다. 3-3-1-1 성공했을 경우 tap을 통해 로그인 유저이름과 현재 로그인 상태인 것을 signedIn$구독자에게 알려준다. 3-3-1-2 Inbox페이지로의 이동은 sign up 컴포넌트에서 구독하는 곳에서 처리하였다. 3-3-1-2 실패했을 때도 실패 코드도 sign up 컴포넌트에서 이미 처리하였다. signUp(crediential: AuthCredential): Observable<SignUpResponse> {
+    return this.http.post<SignUpResponse>(`${this.url}/signup`, crediential).pipe(
+      tap(({username})=> {
+        this.username = username
+        this.signedIn$.next(true)
+      })
+    )
+  } 3-4 결과화면 - 가입에 성공하면 inbox 페이지가 열리고 sign out이 화면에 나오게 된다. 3-4-1 inbox가 열린다는 의미는 guard도 통과했다는 말이다. 4. 이번에는 로그인 기능을 구현하기 위한 기본 정보이다. 4-1 로그인은 post 메소드로 요청하며 url은 https://api.angular-email.com/auth/signin 이다. 4-2 username, password를 전송하게 되며, 4-3 성공시에는 200번 코드로 { username: string } 형식이 반환되며 username은 로그인 성공한 username이다. 4-4 실패시에는 422번 코드가 반환되며 아이디가 없는 경우 { username: string, password: string } 형식이 반환된다. 4-4-1 아이디가 있지만 비밀번호가 안맞으면 422번 코드로 { password: string } 형식이 반환된다. 5. 로그인을 작성한다. 5-1 우선 sign in 컴포넌트에서 ngSubmit 이벤트를 수신한 경우 onSubmit이 실행되도록 작성하였다. 5-1-1 자세히 보면 로그인 버튼 위에 검증 메시지 컴포넌트가 2개가 있는데 5-1-2 로그인에 실패했을 때 메시지를 보여주기 위해서 추가한 부분이다. form group을 넘기고 있음에 주의한다. <h1 class="my-5">Log In</h1>
+<form class="col-sm-8" [formGroup]="loginGroup" (ngSubmit)="onSubmit()">
+  <div class="form-group">
+    <label class="form-label" for="username">Username</label>
+    <input id="username" class="form-control" type="text" formControlName="username">
+    <app-validation-message [control]="loginGroup.get('username')"></app-validation-message>
+  </div>
+  <div class="form-group">
+    <label class="form-label" for="password">Password</label>
+    <input id="password" class="form-control" type="password" formControlName="password">
+    <app-validation-message [control]="loginGroup.get('password')"></app-validation-message>
+    <app-validation-message [control]="loginGroup"></app-validation-message>
+  </div>
+  <div class="my-3">
+    <button type="submit" class="btn btn-secondary mr-2" [disabled]="!loginGroup.valid">Submit</button>
+    <button type="reset" class="btn btn-warning">Reset</button>
+  </div>
+</form> 5-2 sign in 컴포넌트에서 onSubmit을 구현한다. 5-2-1 authService를 주입받아서 username, password를 전달하면서 signin 메소드를 호출하고 있다. 5-2-2 성공한 경우 inbox로 이동하는 코드가 있다. 5-2-3 실패한 경우 유저이름을 못찾은 경우, 비밀번호가 안맞는 경우, 네트워크 오류인 경우로 에러처리 하였다. import { Component, OnInit } from '@angular/core';
+import { FormGroup, FormBuilder, Validators } from '@angular/forms';
+import { AuthService } from '../auth.service';
+import { Router } from '@angular/router';
+
+@Component({
+  selector: 'app-sign-in',
+  templateUrl: './sign-in.component.html',
+  styleUrls: ['./sign-in.component.css']
+})
+export class SignInComponent {
+
+  loginGroup: FormGroup
+
+  constructor(
+    private formBuilder: FormBuilder,
+    private authService: AuthService,
+    private router: Router
+  ) {
+    this.loginGroup = this.formBuilder.group({
+      username: ['', [
+        Validators.required,
+        Validators.minLength(4),
+        Validators.maxLength(20)
+      ]],
+      password: ['', [
+        Validators.required,
+        Validators.minLength(4),
+        Validators.maxLength(20)
+      ]],
+    })
+  }
+
+  onSubmit() {
+    this.authService.signIn({
+      username: this.loginGroup.value['username'],
+      password: this.loginGroup.value['password']
+    }).subscribe(
+      () => this.router.navigateByUrl('/inbox'),
+      (err) => {
+        console.log(err);
+        if (err.error.password && err.error.username) {
+          this.loginGroup.setErrors({ usernameNotFound: true })
+        } else if (err.error.password) {
+          this.loginGroup.setErrors({ wrongPassword: true })
+        } else {
+          this.loginGroup.setErrors({ noInternet: true })
+        }
+      }
+    )
+  }
+} 5-3 이제 auth 서비스의 signin 메소드를 작성한다. 5-3-1 위에서 부분 코드를 넣었으니 여긴 최종 코드들 다 넣었다. 5-3-2 로직은 가입하기와 거의 동일하다. 5-3-2-1 다만 결과데이터의 속성이 경우마다 다르므로 Observable<any>로 처리했다. 5-3-2-2 class로 처리하면 더 명확하긴 하지만 그냥 넘어간다. 5-3-2-3 성공하면 username을 저장하고 로그인 상태변화를 signedIn$으로 전송한다. import { Injectable } from '@angular/core';
+import { HttpClient } from '@angular/common/http';
+import { Observable, BehaviorSubject } from 'rxjs';
+import { tap } from 'rxjs/operators'
+import { AuthCredential, LoginCredential } from './auth-responses';
+
+@Injectable({
+  providedIn: 'root'
+})
+export class AuthService {
+
+  signedIn$ = new BehaviorSubject<boolean>(null)
+  username: string = ''
+
+  url = 'https://api.angular-email.com/auth'
+  constructor(private http: HttpClient) { }
+
+  signedIn(): Observable<SignedInResponse> {
+    return this.http.get<SignedInResponse>(`${this.url}/signedIn`).pipe(
+      tap((response: SignedInResponse)=> {
+        this.username = response.username
+        this.signedIn$.next(response.authenticated)
+      })
+    )
+  }
+
+  signUp(crediential: AuthCredential): Observable<SignUpResponse> {
+    return this.http.post<SignUpResponse>(`${this.url}/signup`, crediential).pipe(
+      tap(({username})=> {
+        this.username = username
+        this.signedIn$.next(true)
+      })
+    )
+  }
+
+  signIn(crediential: LoginCredential): Observable<any> {
+    console.log(crediential);
+    return this.http.post(`${this.url}/signin`, crediential).pipe(
+      tap(({username}) => {
+        this.username = username
+        this.signedIn$.next(true)
+      })
+    )
+  }
+
+  checkDuplication(username: string) {
+    return this.http.post(`${this.url}/username`, { username })
+  }
+}
+
+interface SignedInResponse {
+  authenticated: boolean,
+  username: string
+}
+
+interface SignUpResponse {
+  username: string
+} 5-4 결과화면 - 로그인 실패화면이다. 비밀번호가 안맞다고 나온다. 성공하면 sign up과 결과화면이 동일하다.

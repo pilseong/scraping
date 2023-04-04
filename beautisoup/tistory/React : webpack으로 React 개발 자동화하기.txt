@@ -1,0 +1,268 @@
+1. 지금까지는 index.html파일에 script 테그로 CDN 링크를 사용하여 React를 사용하였다. 2. 보통 React 프로그램은 React를 내장으로 사용하므로 npm으로 React, React-dom 설치한다. 3. webpack은 npm으로 설치한 외장 라이브러리와 사용자가 작성한 코드를 하나의 파일로 만들어 준다. 3-1 webpack을 아래와 같이 설치한다. 3-2 srcipts 속성에 build라는 이름으로 webpack 명령어를 추가하면 다음과 같다. {
+  "name": "react-basic",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "build": "webpack --watch",
+    "serve": "live-server public/",
+    "build-babel": "babel src/app.js --out-file public/scripts/app.js --presets=@babel/preset-env,@babel/preset-react --watch",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@babel/cli": "^7.12.1",
+    "@babel/core": "^7.12.3",
+    "@babel/preset-env": "^7.12.1",
+    "@babel/preset-react": "^7.12.1",
+    "live-server": "^1.2.1",
+    "react": "^17.0.1",
+    "react-dom": "^17.0.1",
+    "webpack": "^5.3.0"
+  },
+  "devDependencies": {
+    "webpack-cli": "^4.1.0"
+  }
+} 3-2-1 webpack-cli는 npm run build 명령어를 실행하면 설치하라고 화면이 뜨는데 설치하면 된다. 3-3 webpack은 사용하여 하나의 bundle js파일을 만들려면 설정파일이 필요하다. 3-3-1 즉, 어떤 파일이 시작코드인지 그리고 어떤 폴더에 저장할지, 그리고 어떤 변환이 필요한지 등이다. 3-3-2 webpack은 하나의 자동화 도구로 볼 수 있기 때문에 스크립트를 필요로 한다. 3-3-3 프로젝트 루트에 webpack.config.js 파일을 생성하고 다음과 같이 기록한다. 3-3-3-1 이렇게 기록하면 src/app.js가 첫 시작 파일, 결과물은 절대경로의 프로젝트 폴더/public에 저장된다. 3-3-3-2 이름은 bundle.js가 된다. const path = require('path')
+
+module.exports = {
+  entry: './src/app.js',
+  output: {
+    path: path.join(__dirname, 'public'),
+    filename: 'bundle.js'
+  },
+} 3-4 npm run build를 실행하면 일반적인 자바스크립트는 문제없이 실행되고 결과물 bundle.js가 생성된다. 3-5 하지만, 우리는 React를 사용하고 있기 때문에 jsx를 파싱할 babel이 여전히 필요해서 에러가 발생한다. 3-5-1 webpack은 외부의 변환 프로그램을 loader라는 형식으로 지원하고 있는데 지금은 babel-loader가 필요하다. 3-5-2 아래처럼 설치한다. webpack은 babel-loader를 통해서 babel을 사용한다. 3-5-3 이제 babel-loader를 설치했으니 webpack.config.js에 loader를 연결해야 한다. 3-5-4 loader를 연결하는 부분은 module이라는 속성으로 추가하고 rules라는 세부속성에 지정한다. 3-5-4-1 rules은 배열로 된 여러개의 설정정보를 가질 수 있다. 아래는 하나의 로더를 추가하는 경우이다. 3-5-4-2 test는 어떤 파일을 변환할지를 체크하기 위한 Regular Expression을 지정해야 한다. 3-5-4-2-1 여기에서는 .js로 끝나는 모든 파일을 변환하도록 되어 있다. 3-5-4-3 exclude는 어떤 패턴을 만났을 때 변환을 제외해야 하는지를 설정한다. 3-5-4-3-1 외부 라이브러리가 들어있는 node_modules 폴더는 제외되어야 한다. 3-5-4-4 use는 변환을 위한 로더에 대한 설정으로 여러 설정을 가지는 객체를 받는다. 3-5-4-4-1 loader는 어떤 로더가 실행되어야 할지, options은 이 로더가 가지는 옵션을 지정하는데 사용한다. 3-5-4-4-2 즉, babel을 command line에서 실행할 때 적었던 긴 내용들이 여기에서 설정할 수 있다. 3-5-4-4-3 여기는 지난 포스트에서 사용했던 react 변환을 위한 env, react가 presets에 추가되었다. const path = require('path')
+
+module.exports = {
+  entry: './src/app.js',
+  output: {
+    path: path.join(__dirname, 'public'),
+    filename: 'bundle.js'
+  },
+  module: {
+    rules: [
+      {
+        test: /\.js$/, 
+        exclude: /node_modules/,
+        use: {
+          loader: 'babel-loader', 
+          options: {
+            presets: [
+              '@babel/preset-env',
+              '@babel/preset-react'
+            ]
+          }
+        }
+      }
+    ]
+  }
+} 3-6. 참조 페이지들 3-6-1 로더 사용에 대한 가이드 Loaders | webpack webpack is a module bundler. Its main purpose is to bundle JavaScript files for usage in a browser, yet it is also capable of transforming, bundling, or packaging just about any resource or asset. webpack.js.org 3-6-2 지원하는 로더 리스트 Loaders | webpack webpack is a module bundler. Its main purpose is to bundle JavaScript files for usage in a browser, yet it is also capable of transforming, bundling, or packaging just about any resource or asset. webpack.js.org 4. webpack 설정이 끝났으니 이제 index.html을 수정해야 한다. 4-1 아래는 처음에 작성했던 코드이다. 여기서 react cdn은 더 이상 필요없고, bundle.js를 추가해야 한다. <!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Basic React</title>
+</head>
+
+<body>
+  <div id="app"></div>
+  <script crossorigin src="https://unpkg.com/react@16/umd/react.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@16/umd/react-dom.production.min.js"></script>
+  <script src="scripts/app.js"></script>
+</body>
+
+</html> 4-2 수정 후 <!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Basic React</title>
+</head>
+
+<body>
+  <div id="app"></div>
+  <script src="bundle.js"></script>
+</body>
+
+</html> 5. 이젠 마지막으로 app.js를 수정해야 한다. 왜냐면 이젠 라이브러리가 로컬에 저장되어 있어 import를 해야 한다. 5-1 아래 소스에서 처음 2개 줄만 추가하면 된다. 두개의 라이브러리 모두 default로 export되어 있다. import React from 'react'
+import ReactDOM from 'react-dom'
+
+class TodoApp extends React.Component {
+
+  constructor(props) {
+    super(props)
+
+    this.onRemoveAllClicked = this.onRemoveAllClicked.bind(this)
+    this.onNextTodoClicked = this.onNextTodoClicked.bind(this)
+    this.handleAddTodo = this.handleAddTodo.bind(this)
+
+    this.state = {
+      todos: [
+        "Take your mask",
+        "Wash your hands",
+        "Drink more water"
+      ]
+    }
+  }
+
+  componentDidMount() {
+    try {
+      const todos = localStorage.getItem("todos")
+      if (todos) {
+        console.log(todos)
+        this.setState(() => ({ todos: JSON.parse(todos) }))
+      }
+    } catch (e) {
+    }
+  }
+
+  componentDidUpdate(prevProps, prevState) {
+    if (prevState.todos.length !== this.state.todos.length) {
+      localStorage.setItem("todos", JSON.stringify(this.state.todos))
+    }
+  }
+
+  onRemoveAllClicked() {
+    this.setState(() => {
+      return {
+        todos: []
+      }
+    })
+  }
+
+  onNextTodoClicked() {
+    const index = Math.floor(Math.random() * this.state.todos.length)
+    alert(this.state.todos[index])
+  }
+
+  handleAddTodo(todo) {
+    if (!todo) {
+      return 'Please type vaild item'
+    } else if (this.state.todos.indexOf(todo) > -1) {
+      return 'Duplicated item typed'
+    }
+
+    this.setState((prevState) => {
+      return {
+        todos: prevState.todos.concat(todo)
+      }
+    })
+  }
+
+  render() {
+    // const title = "TO DO List"
+
+    return (
+      <div>
+        {/* <Header title={title} /> */}
+        <Header />
+        <Action 
+          hasTodos={this.state.todos.length > 0} 
+          onNextTodoClicked={this.onNextTodoClicked}
+        />
+        <TodoList 
+          hasTodos={this.state.todos.length > 0}
+          todos={this.state.todos}
+          onRemoveAllClicked={this.onRemoveAllClicked}
+        />
+        <AddTodo handleAddTodo={this.handleAddTodo} />
+      </div>
+    )
+  }
+}
+
+
+const Header = (props) => {
+  return (
+    <div>
+      <h1>{props.title}</h1>
+    </div>
+  )
+}
+
+Header.defaultProps = {
+  title: 'Your Todo List'
+}
+
+const Action = (props) => {
+  return (
+    <div>
+      <button 
+        onClick={props.onNextTodoClicked}
+        disabled={!props.hasTodos}
+      >Next Todo?</button>
+    </div>
+  )
+}
+
+const TodoList = (props) => {
+  return (
+    <div>
+    <button 
+      onClick={props.onRemoveAllClicked}
+      disabled={!props.hasTodos}
+    >Remove All</button>
+    { props.todos.length === 0 && <p>No Item exists</p> }
+    { props.todos.map(todo => <Todo key={todo} todoText={todo} />) }
+    </div>
+  )
+}
+
+const Todo = (props) => {
+  return (
+    <div>
+      <p>
+        {props.todoText}
+      </p>
+    </div>
+  )
+}
+
+class AddTodo extends React.Component {
+
+  constructor(props) {
+    super(props)
+
+    this.onFormSubmit = this.onFormSubmit.bind(this)
+
+    this.state = {
+      error: undefined
+    }
+  }
+
+  onFormSubmit(e) {
+    e.preventDefault()
+    const typedTodo = e.target.elements.newTodo.value
+
+    const error = this.props.handleAddTodo(typedTodo)
+
+    this.setState(() => {
+      return {
+        error
+      }
+    })
+
+    if (!error) {
+      e.target.elements.newTodo.value = ''
+    }
+  }
+
+  render() {
+    return (
+      <div>
+        {this.state.error && <p>{this.state.error}</p>}
+        <form onSubmit={this.onFormSubmit}>
+          <input type="text" name="newTodo" />
+          <button>Add</button>
+        </form>
+      </div>
+    )
+  }
+}
+
+ReactDOM.render(<TodoApp />, document.getElementById('app')) 6. 결과 화면 6-1 의미는 없지만 지난 번 마지막 결과와 동일하게 정상 동작한다. 7. 추가 7-1 .babelrc 라는 바벨 설정파일을 사용하여 preset 등을 설정할 수 있다. 7-2 webpack.config.js의 babel-loader의 options에 있는 presets를 부분을 삭제하고 7-2-1 .babelrc을 만들어 아래의 내용을 붙여 넣으면 동일한 결과를 얻을 수 있다. 7-2-2 babel 7.0부터는 .babelrc.json 이라는 이름을 사용하는데, 호환성을 위해서 .babelrc와 alias되어 있다. {
+  "presets": ["@babel/preset-env", "@babel/preset-react"]
+} 7-3 옵션에 관해서는 아래를 참고 한다. Babel · The compiler for next generation JavaScript The compiler for next generation JavaScript babeljs.io

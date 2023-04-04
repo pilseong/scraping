@@ -1,0 +1,107 @@
+지금 일하고 있는 회사의 서버 프로그램은 노드기반으로 개발되어 있다. 10년이 넘게 서비스 해온 시스템으로는 상당히 드문 경우이다. 우리나라에서 노드가 제대로 알려지기 시작한 게 2014~2015년 정도라고 생각하고 그 당시 노드의 대한 평가는 상용서비스로는 적합하지 않다는 것이 우세한 의견이였고, 분위기가 바뀌어 국내 스타트업에서 많이 사용하기 시작한 게 2018년 정도부터라고 기억한다. 아무튼 현재 legacy 시스템을 유지보수하면서 Amazon Linux 2버전으로 OS업데이트, AWS NAT Gateway를 이용한 백엔드 구조 개선, 라이브러리 최신화와 12버전의 사용 중인 현재 시스템을 노드 16 LTS로 업데이트하는 것들 현재 하고 있다. 이 시스템이 C++ addon을 사용하여 otp를 발급하고 있기 때문에 node 버전에 따라 변경된 V8엔진의 헤더를 맞추어 주는 부분이 있어 노드의 판올림이 지연되어 있고 지금으로는 AWS에서 deprectaed된 상태로 서비스를 하고 있다. 기본적인 업데이트가 끝나면 AWS에서 deprecated나 retired 아닌 OK 변경될 것으로 기대한다. 아래의 마이그레이션은 버전에 따른 변화를 기록한 로그를 참조하여 작업하였다. 아래 링크 참조 https://knexjs.org/changelog.html knex 0.14 기반의 소스에서 2.3.0 1. transaction 객체가 예전과는 달리 공백이나 비정상적인 객체를 허용하지 않음에 따른 transaction 객체 검증 부분 추가 - transaction을 인자로 호출하는 경우 그 인자를 받는 함수에서는 transaction 객체가 넘어온지를 확인할 수가 없는데 guard 부분을 추가하지 않으면 오류가 발생한다. // 수정 전
+async function somefunction(data, trx='') {
+  const query = knex(sometable)
+    .insert(data)
+    .transacting(trx);
+  return query
+    .catch((err) => ModelLib.throwDBError('somefunction', err));
+}
+
+// 수정 후 - trx에 '' 값을 넣어주는 의미가 없다.
+async function somefunction(data, trx) {
+  const query = knex(sometable)
+    .insert(data);
+  if (trx) query.transacting(trx);
+  return query
+    .catch((err) => ModelLib.throwDBError('somefunction', err));
+} 2. whereIn내의 조건이 하나 일 경우 배열이 아닌 값이 허용되는 부분이 삭제됨 - 조건이 배열인지 여부에 따른 데이터 매핑 수정 // 수정 전
+async function somefunction(whereIn, trx) {
+  const query = knex(sometable)
+    .delete()
+    .whereIn(whereIn.value)
+    .transacting(trx);
+    
+  return query
+    .catch((err) =>
+      ModelLib.throwDBError('somefunction', err)
+    );
+}
+
+// 수정 후
+async function somefunction(whereIn, trx) {
+  const query = knex(sometable)
+    .delete()
+    .whereIn(whereIn.key, Array.isArray(whereIn.value) ? 
+      [...whereIn.value] : [whereIn.value]);
+  if (trx) query.transacting(trx);
+  
+  return query
+    .catch((err) =>
+      ModelLib.throwDBError('somefunction', err)
+    );
+} 3. 트랜잭션 검증이 엄격해짐에 따라 정상적이지 않은 트랜잭션 코드 수정 - 기본적으로 트랜잭션 단위에서 insert, update, delete는 기본적으로 포함되어야 한다. select는 트랜잭션 중에 반영된 내용들을 다시 사용하기를 원할 경우에 트랜잭션에 참여 시키면 유용하다. 마이그레이션 파일 수정 시에 유의할 부분들 1. up, down 함수에 Promise함수가 내장 지원됨 - Promise 객체 파라메터 제거 -> 에러 대신 warning이 발생함. // 수정 전
+exports.up = function(knex, Promise) {
+
+exports.down = function(knex, Promise) {
+
+
+// 수정 후
+exports.up = function(knex) {
+
+exports.down = function(knex) { 2. insert 시에 입력 값이 empty 배열인 경우 에러가 발생하도록 변경 (0.95.1) - insert 전에 guard를 두어 데이터가 있는 경우만 입력하도록 수정 // 수정 전
+    try {
+      await insertSomething(values); // 내부적으로 knex('table').insert(배열)을 사용하는 함수
+    } catch (e) {
+      throw ApiError.INTERNAL_SERVER_ERROR('internal server error', 'migrateScript.insertSomething');
+    }
+    
+    
+ // 수정 후
+    try {
+      if (values.length === 0) return;
+      await insertSomething(values);
+    } catch (e) {
+      throw ApiError.INTERNAL_SERVER_ERROR('internal server error', 'migrateScript.insertSomething');
+    } 3. BlueBird라이브러리 삭제로 knex .map 함수 사용 불가 (0.20.0) - BlueBird의 의존성이 제거되어 Native JS Promise를 사용해야 한다. - await으로 결과를 받아온 후 결과를 map로 처리하도록 수정 // 수정 전
+
+exports.up = function (knex, Promise) {
+  return Promise.all([
+    knex.schema
+      .table('sometable', function (table) {
+        table.string('somecolumn', 8).defaultTo('');
+      })
+      .then(() => {
+        return knex('sometable')
+          .select()
+          .map(something => {
+            return knex('sometable')
+              .update({somecolumn: something.id.substr(0, 8)})
+              .where({id: something.id});
+          });
+      })
+  ]);
+};
+
+// 수정 후
+exports.up = function (knex) {
+  return Promise.all([
+    knex.schema
+      .table('sometable', function (table) {
+        table.string('somecolumn', 8).defaultTo('');
+      })
+      .then(async () => {
+        const manythings = await (knex('something')
+          .select());
+
+        return manythings.map(hotel => {
+          return knex('sometable')
+            .update({ somecolumn: something.id.substr(0, 8) })
+            .where({ id: something.id });
+        });
+      })
+  ]);
+}; 4. createTableIfNotExist 함수가 제거로 인한 createTable 함수대체(0.14.4) - createTable로 변경하는 것으로 충분 // 수정 전
+  knex.schema.createTableIfNotExists('credential', function(table) {
+    
+  // 수정 후 - 앞에서 테이블에 존재를 확인하는 guard가 필요할 수도 있다.
+  knex.schema.createTable('credential', function(table) {

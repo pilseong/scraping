@@ -1,0 +1,1 @@
+Visual Studio Code에서는 Favorite Static Members라는 설정 항목이 있다. 이것의 목적은 static으로 설정된 변수나 타입을 개발 시에 import하기 좋도록 목록에 제공한다. 설정에서 Favorite으로 검색하면 다음 항목이 나온다. Edit in settings.json으로 해당항목을 보면 아래처럼 열리는데 Code 기본적으로 org.junit.Assert.* 패키지를 기본으로 보여주기 때문에 assertJ 패키지를 import하기가 상당히 까다롭다. 아래처럼 해당항목을 assertj를 추가하고 junit을 주석처리하면 이제 ass라고 타이핑하면 assertj 패키지 부터 검색하게 된다.

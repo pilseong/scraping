@@ -1,0 +1,36 @@
+1. REST에서 xml를 서버스하는 것은 간단하지만 xml서비스를 위한 스키마 작성은 조금 해야 할 것이 있다. 2. 우선 xsd를 작성해야 하는데 그냥 하기에는 조금 부담스럽기 때문에 generator로 작성하면 좀 편하다 Free Online XSD/XML Schema Generator - FreeFormatter.com XSD/XML Schema Generator Generates a XSD (XML Schema) from a XML file. Simply copy-paste OR upload your XML document and let the generator figure out the rest. The generator will try to use a 'smart' approach to figure out the data type (you can always ref www.freeformatter.com 2-1 위의 링크에 가서 우선 jackson-xml를 결과를 가지고 생성한 결과를 사용한다. 2-2 아래와 비슷한 내용의 파일이 생성되면 열어서 적절하게 수정하면 된다. 2-2-1 CustomerListDTO 아래 Customers 아래 Customer 리스트가 들어가게 하려고 했는데 잘되지 않는다. <xs:schema attributeFormDefault="unqualified" elementFormDefault="qualified" xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:element name="CustomerListDTO" type="CustomerListDTO"/>
+  <xs:complexType name="CustomerDTO">
+    <xs:sequence>
+      <xs:element type="xs:string" name="firstname" minOccurs="0"/>
+      <xs:element type="xs:string" name="lastname" minOccurs="0"/>
+      <xs:element type="xs:string" name="customerUrl" minOccurs="0"/>
+    </xs:sequence>
+  </xs:complexType>
+  <xs:complexType name="CustomerListDTO">
+    <xs:sequence>
+      <xs:element type="CustomerDTO" name="customers" maxOccurs="unbounded" minOccurs="0"/>
+    </xs:sequence>
+  </xs:complexType>
+</xs:schema> 3 위의 소스를 customers.xsd로 이름을 바꾸어 src/main/resources/xsd/ 아래에 저장한다. 4. codehaus 사이트에 가면 jaxb2-maven-plugin에 대한 pom 코드를 받을 수 있다. JAXB-2 Maven Plugin – Basic Examples - Java Generation Basic Examples - Java Generation Note: These examples are valid for the 2.x version of the plugin, and do not necessarily work for the jaxb2-maven-plugin version 1.x These basic examples show how to generate Java code from JAXB using the jaxb2-maven-plugin www.mojohaus.org 4-1 위의 사이트에 있는 코드를 참고하여 XML용 model 생성용 플러인을 pom에 작성한다. 4-1-1 packageName는 생성된 클래스의 package 이름이 될 정보이다. 4-1-2 sources에는 현재 xsd가 어디에 저장되어 있는지를 지정한다. <build>
+    <plugins>
+      <plugin>
+        <groupId>org.codehaus.mojo</groupId>
+        <artifactId>jaxb2-maven-plugin</artifactId>
+        <version>2.5.0</version>
+        <executions>
+          <execution>
+            <id>xjc</id>
+            <goals>
+              <goal>xjc</goal>
+            </goals>
+          </execution>
+        </executions>
+        <configuration>
+          <!-- The package of your generated sources -->
+          <packageName>pe.pilseong.restdemo.model</packageName>
+          <sources>src/main/resources/xsd</sources>
+        </configuration>
+      </plugin>
+    </plugins>
+  </build> 4-2 위 처럼 설정하고 컴파일을 하거나 xsd를 저장하면 아래처럼 자동으로 xsd에 따른 클래스 소스가 생성된다. 5. 실행 결과 5-1 customers 아래 customer가 들어가야 하는데 xsd에 대해서 대강 눈으로 배워 생각처럼 되지 않는다. 5-1-1 다음에 해결책을 찾으면 붙여 줄 예정

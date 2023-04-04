@@ -1,0 +1,29 @@
+0. Java Config 클래스를 사용하는 설정은 아래 링크를 참조한다. Spring : Web MVC with Java Config 설정 - Static 파일 사용하기 1. 이 아래 링크와 관련된 내용이다. Spring : Web MVC with XML Configuration - Static 파일 사용하기 1. web.xml의 dispatcherServlet 세팅에 사용된 Spring MVC config 파일에 설정을 추가한다. 1-0 xml은 기.. kogle.tistory.com 1. web.xml의 dispatcherServlet 세팅에 사용된 Spring MVC config 파일에 설정을 추가한다. 1-0 xml은 기본적으로 디버깅이 짜증나므로 웬만하면 아래 소스의 beans 테그까지는 복사하는 게 좋다. 1-1 기본적으로 static파일을 web루트 /resources 폴더 아래에 저장하는 것을 가정한다. 1-2 아래처럼 mvc:resources 테그를 이용하여 경로를 지정할 수 있다. 1-3 중요한 부분은 '/' 부분인데 location의 경로인 resources 뒤에 / 가 반드시 있어야 한다. <?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" 
+  xmlns:context="http://www.springframework.org/schema/context"
+  xmlns:mvc="http://www.springframework.org/schema/mvc"
+  xsi:schemaLocation="
+    http://www.springframework.org/schema/beans
+      http://www.springframework.org/schema/beans/spring-beans.xsd
+      http://www.springframework.org/schema/context
+      http://www.springframework.org/schema/context/spring-context.xsd
+      http://www.springframework.org/schema/mvc
+        http://www.springframework.org/schema/mvc/spring-mvc.xsd">
+  
+  <mvc:resources location="/resources/" mapping="/resources/**"></mvc:resources>
+
+  <!-- Step 3: Add support for component scanning -->
+  <context:component-scan base-package="pe.pilseong.springmvc" />
+
+  <!-- Step 4: Add support for conversion, formatting and validation support -->
+  <mvc:annotation-driven/>
+
+  <!-- Step 5: Define Spring MVC view resolver -->
+  <bean
+    class="org.springframework.web.servlet.view.InternalResourceViewResolver">
+    <property name="prefix" value="/WEB-INF/view/" />
+    <property name="suffix" value=".jsp" />
+  </bean>
+
+</beans> 1-4 추가한 리소스를 jsp에서 사용하는 방법은 ${pageContext.request.contextPath}를 사용하여 접근할 수 있다. 1-5 pageContext.request.contextPath 는 어디서든 root 디렉토리로 접근할 수 있는 값을 제공한다. <img src="${pageContext.request.contextPath}/resources/images/spring-logo.png">

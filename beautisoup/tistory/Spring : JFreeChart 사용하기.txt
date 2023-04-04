@@ -1,0 +1,74 @@
+0. 순서는 다음과 같다. 0.1. Maven에 JFreeChart 모듈을 import 한다. 최신 버전은 17년 기준 1.5.0이다. 0.2. 데이터를 DB에서 가져온다. 0.3. 가지고 온 데이터로 차트를 만든다. 0.4. 프로그램에서 차트를 사용한다. 1. JFreeChart import한다. 사이트는 www.jfree.org 1-1. import 할 내용을 pom.xml에 추가한다. <!-- https://mvnrepository.com/artifact/org.jfree/jfreechart -->
+   <dependency>
+     <groupId>org.jfree</groupId>
+     <artifactId>jfreechart</artifactId>
+     <version>1.5.0</version>
+   </dependency> 2. 사용할 데이터를 가지고 오기 위해서 repository에 필요한 메소드를 추가한다. 2-1. Spring Data에서는 JpaRepository를 보통 상속해서 Repository를 구현한다. 2-2. @Query annotation을 사용하여 받아올 데이터를 SQL로 지정하였다. 이렇게 하면 굉장히 편하다. 2-2-1. 쿼리구문의 명사들은 당연하게도 이건 데이터베이스 필드가 아닌 E ntity 클래스 속성이름이다. 2-2-2. 즉 from절에 Table이름이 아닌 Entity 이름이 들어가야 한다. 2-2-3. 아래는 type 컬럼이름과 각 type의 합계를 배열 묶음으로 List로 가지고 오는 부분이다. import java.util.List;
+
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+
+import pe.pilseong.location.entities.Location;
+
+public interface LocationRepository extends JpaRepository<Location, Long> {
+  
+  @Query("select type, count(type) from Location group by type")
+  List<Object[]> findTypeAndTypeCount();
+
+} 3. 이제 데이터를 받아왔으니 이 데이터를 가지고 차트를 만드는 서비스 클래스를 정의한다. 3-1. 이메일 전송 서비스와 동일한 방식으로 컴포넌트를 만들고 필요한 때 사용할 수 있다. 3-2. 동일하게 프로그램에서 사용할 수 있게 인터페이스를 정의하고 그 기능을 구현한다. import java.util.List;
+
+public interface ReportUtil {
+  void generatePieChart(String path, List<Object[]> data);
+}
+
+
+import org.jfree.chart.ChartFactory;
+import org.jfree.chart.ChartUtils;
+import org.jfree.chart.JFreeChart;
+import org.jfree.data.general.DefaultPieDataset;
+import org.springframework.stereotype.Component;
+
+@Component
+public class ReportUtilImpl implements ReportUtil {
+
+  @Override
+  public void generatePieChart(String path, List<Object[]> data) {
+    // dataset은 해당 차트에서 사용하는 데이터의 집합을 정의한다.
+    // 따라서 DB에서 받아온 값을 적당히 변경하여 입력해야 한다.
+    DefaultPieDataset dataset = new DefaultPieDataset();
+    
+    // DB에서 받아온 데이터를 차트에서 사용할 수 있도록 넣어준다.
+    data.stream().forEach(type -> {
+      dataset.setValue(type[0].toString(), Double.parseDouble(type[1].toString()));
+    });
+    
+    // 각 차트에 맞게 입력한 dataset를 가지고 ChartFactory를 통해 실제 차트를 생성한다.
+    JFreeChart chart = ChartFactory.createPieChart3D("Location Type Report", dataset);
+    
+    try {
+      // 차트 객체를 가지고 이미지 파일을 생성한 후 path에 저장한다.
+      ChartUtils.saveChartAsJPEG(new File(path), chart, 300, 300);
+    } catch (IOException e) {
+      e.printStackTrace();
+    }
+  }
+
+} 4. 프로그램에서 사용한다. 4-1. 이 예제의 경우 사용처에서 repository 객체와 위의 코드에서 구현한 ReportUtil l객체를 모두 받아와야 한다. 4-2. 필요한 객체는 주입하여 가지고 온다. 4-3. 아래의 경우는 차트의 저장 위치를 web root아래로 지정하고 있다. 4-3-1. 일반적으로 src/main/webapp이 web root 이므로 여기에 저장된다. @Autowired
+  private LocationRepository locationRepository;
+  
+  @Autowired
+  private ReportUtil reportUtil;
+  
+  @Autowired
+  private ServletContext servletContext;
+  
+  
+  @GetMapping("/generateReport")
+  public String generateReport() {
+    List<Object[]> types = this.locationRepository.findTypeAndTypeCount();
+    
+    this.reportUtil.generatePieChart(this.servletContext.getRealPath("/")+"pieChart.jpeg", types);
+      
+    return "report";
+    
+  }

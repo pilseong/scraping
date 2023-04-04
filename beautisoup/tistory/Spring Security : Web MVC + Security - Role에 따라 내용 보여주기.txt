@@ -1,0 +1,58 @@
+1. ADMIN이나 MANAGER만 볼 수 있는 링크를 EMPLOYEE권한만 가지고 있는 사용자에게 보여줄 필요가 없다. 2. 이렇게 선별적인 content의 표출은 Security jsp taglibs로 가능하다 2-1 security:authorize element를 통해 권한에 따른 content 표출이 가능하다. 2-2 access 속성에 SecurityConfig에서 설정한 것 처럼 hasRole로 해당 권한에 따른 표출을 다르게 할 수 있다. <security:authorize access="hasRole('MANAGER')">
+      <hr>
+      <p>
+        <a href="${ pageContext.request.contextPath }/leaders">Leadership Meeting(Only for Managers)</a>
+      </p>
+      <hr>
+    </security:authorize>
+    <security:authorize access="hasRole('ADMIN')">
+      <hr>
+      <p>
+        <a href="${ pageContext.request.contextPath }/systems">System Meeting(Only for Admins)</a>
+      </p>
+      <hr>
+    </security:authorize> 2-3 전체 페이지 소스는 아래와 같다. <%@ taglib prefix="security" uri="http://www.springframework.org/security/tags" %>
+<%@ taglib prefix="form" uri="http://www.springframework.org/tags/form"%>
+<%@ page language="java" contentType="text/html; charset=UTF-8"
+  pageEncoding="UTF-8"%>
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<link rel="stylesheet"
+  href="https://stackpath.bootstrapcdn.com/bootstrap/4.4.1/css/bootstrap.min.css"
+  integrity="sha384-Vkoo8x4CGsO3+Hhxv8T/Q5PaXtkKtu6ug5TOeNV6gBiFeWPGFN9MuhOf23Q9Ifjh"
+  crossorigin="anonymous">
+<title>Spring Security Custom Login Form</title>
+</head>
+<body>
+  <div class="container">
+    <h2>Company Website</h2>
+    <hr>
+    <p>You are now logged in</p>
+    <p>
+      User :: <security:authentication property="principal.username"/>
+    </p>
+    <p>
+      Roles(s) :: <security:authentication property="principal.authorities"/>
+    </p>
+    <security:authorize access="hasRole('MANAGER')">
+      <hr>
+      <p>
+        <a href="${ pageContext.request.contextPath }/leaders">Leadership Meeting(Only for Managers)</a>
+      </p>
+      <hr>
+    </security:authorize>
+    <security:authorize access="hasRole('ADMIN')">
+      <hr>
+      <p>
+        <a href="${ pageContext.request.contextPath }/systems">System Meeting(Only for Admins)</a>
+      </p>
+      <hr>
+    </security:authorize>
+    <form:form action="${ pageContext.request.contextPath }/logout" method="POST">
+      <input type="submit" class="btn btn-primary" value="Logout"/>
+    </form:form>
+  </div>
+</body>
+</html> 3. 각 권한에 따른 화면이다. 3-1 EMPLOYEE 권한이 있는 유저 3-2 MANAGER 권한이 있는 유저 3-3 ADMIN 권한이 있는 유저

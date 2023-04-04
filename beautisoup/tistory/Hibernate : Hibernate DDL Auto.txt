@@ -1,0 +1,6 @@
+1. spring.jpa.hibernate.ddl-auto에서 설정하는 자동 데이터베이스 생성 정책에 대한 내용이다. 2. 선택 가능 옵션들 2-1 none 2-2 validate - 기동 시 스키마를 검증하여 필요한 테이블과 컬럼이 없을 경우 에러가 발생한다. 2-3 update - Entity에 적합하게 기존의 스키마를 변경한다. 데이터는 그대로이다. 2-4 create - 기동 시 데이터베이스 스키마가 생성된다. 종료 시 데이터만 삭제된다. 2-5 create-drop - 기동 시 데이터베이스 스키마가 생성되지만, 종료시 데이터베이스 스키마가 삭제 된다. 3. 내장 데이터베이스(h2, hsql, derby)에는 스프링 부트는 create-drop을 기본으로 사용한다. 4. Hibernate의 기본 데이터 로딩 파일은 import.sql이다. 4-1 하이버네이트를 사용할 경우에만 실행된다. 4-2 파일이 classpath root에 위치해야 실행된다. 4-3 ddl-auto 속성이 create이나 create-drop으로 지정되어 있을 때만 실행된다. 5. 스프링의 기본 데이터 로딩 파일을 schema.sql 과 data.sql이다. 5-1 플렛폼에 따라서도 로딩이 가능한데, schema-${platform}.sql, data-${platform}.sql 로 지정할 수 있다. 5-2 플렛폼에 따른 로딩을 할 때는 spring.datasource.platform이라는 속성을 설정해야 한다. 5-2-1 속성값은 hsqldb, h2, oracle, mysql, postgresql 등이다. 6. ddl-auto를 사용할 때는 schema.sql은 사용할 수 없다. 둘 중 하나만 사용할 수 있다. 6-1 DDL과 상관이 없는 none과 validate의 경우에는 사용할 수 있다. 7 MySQL 같은 외장 데이터베이스를 사용할 경우 data.sql 가 실행되지 않는다. 7-1 data.sql을 사용하고 싶은 경우는 아래처럼 initialization-mode를 always로 변경해 주어야 한다. spring:
+  datasource:
+    url: jdbc:mysql://localhost:3306/dev_recipe?serverTimezone=Asia/Seoul
+    username: dev_recipe
+    password: dev_recipe
+    initialization-mode: always

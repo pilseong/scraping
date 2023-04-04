@@ -1,0 +1,69 @@
+1. 기본 모듈단위 라우팅 설정은 아래 포스트를 참고한다. Angular : 모듈단위 라우팅 설정하기 0. Angular의 라우팅 설정은 모듈이름-routing.module.ts파일에서 지정할 수 있다. 1. 설정방법 1-1 모듈을 생성한다. 1-2 routing.module.ts에 매핑할 경로와 컴포넌트를 설정한다. 1-3 app.module.ts에 생성한.. kogle.tistory.com 2. Lazy Loading으로 모듈의 라우팅을 설정하는 이유는 2-1 첫화면에서 모든 클라이언트 자료를 받으면 로딩이 지연되기 때문이다. 2-2 그래서 화면에 보이는 부분만 받고 사용자가 다른 페이지로 이동할 때 추가로 필요한 모듈을 다운로드 받는다. 3. 설정 순서 3-0 app.module.ts에 lazy loading할 모듈이 import되지 않아야 한다. 일반적인 라우팅과 다르다. 3-1 동적으로 로딩할 모듈을 최상위 라우팅(app-routing.module.ts)에서 지정한다. 3-2 동적 로딩 대상모듈의 내부 routing.module.ts에 라우팅 매핑을 지정한다. 경로는 3-1에서 지정한 path의 누적이다. 4. 최상위 app.module.ts에 동적라우팅 대상이 import되지 않게 한다. import { BrowserModule } from '@angular/platform-browser';
+import { NgModule } from '@angular/core';
+
+import { AppRoutingModule } from './app-routing.module';
+import { AppComponent } from './app.component';
+import { NotFuondComponent } from './not-fuond/not-fuond.component';
+import { HomeComponent } from './home/home.component';
+
+@NgModule({
+  declarations: [
+    AppComponent,
+    NotFuondComponent,
+    HomeComponent,
+  ],
+  imports: [
+    BrowserModule,
+    AppRoutingModule
+  ],
+  providers: [],
+  bootstrap: [AppComponent]
+})
+export class AppModule { } 5. 최상위 라우팅에 동적라우팅을 설정한다. 5-1 routes 변수의 첫번째, 두번째 항목이 동적 로딩 대상이 되는 모듈이다. 5-2 경로에 따라 로딩될 모듈을 import하고 내부의 모듈 클래스를 import 한다. 5-3 아래 '' 와 '**'은 각 기본 페이지와 매핑되지 않은 url에 대한 처리를 위한 경로이다. import { NgModule } from '@angular/core';
+import { Routes, RouterModule } from '@angular/router';
+import { HomeComponent } from './home/home.component';
+import { NotFuondComponent } from './not-fuond/not-fuond.component';
+
+
+const routes: Routes = [
+  { path: 'elements', loadChildren: () => import('./elements/elements.module')
+      .then(m=> m.ElementsModule) 
+  },
+  { path: 'collections', loadChildren: ()=> import('./collections/collections.module')
+      .then(m=> m.CollectionsModule)
+  },
+  { path: '', component: HomeComponent },
+  { path: '**', component: NotFuondComponent }
+];
+
+@NgModule({
+  imports: [RouterModule.forRoot(routes)],
+  exports: [RouterModule]
+})
+export class AppRoutingModule { } 6. 각 모듈의 routing-module.ts에 라우팅테이블을 작성한다. 6-1 collection-routing.module.ts 6-1-1 지난 포스트와 다른 부분은 경로인데, 최상위 routing 경로와 누적이기 때문에 공백경로 되어 있다. import { NgModule } from '@angular/core';
+import { Routes, RouterModule } from '@angular/router';
+import { CollectionsHomeComponent } from './collections-home/collections-home.component';
+
+
+const routes: Routes = [
+  { path: '', component: CollectionsHomeComponent }
+];
+
+@NgModule({
+  imports: [RouterModule.forChild(routes)],
+  exports: [RouterModule]
+})
+export class CollectionsRoutingModule { } 6-2 elements-routing.module.ts import { NgModule } from '@angular/core';
+import { Routes, RouterModule } from '@angular/router';
+import { ElementsHomeComponent } from './elements-home/elements-home.component';
+
+
+const routes: Routes = [
+  { path: '', component: ElementsHomeComponent }
+];
+
+@NgModule({
+  imports: [RouterModule.forChild(routes)],
+  exports: [RouterModule]
+})
+export class ElementsRoutingModule { }

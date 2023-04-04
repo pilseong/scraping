@@ -1,0 +1,24 @@
+0. Hibernate를 잘 사용하려면 데이터베이스에 대한 기본이 잘 잡혀 있어야 한다. 0-1 데이터베이스 기초가 없으면 솔직히 Hibernate 학습은 시간낭비라 생각한다. 1. 데이테베이스 설계처럼 Hibernate에도 3가지 Mapping 방식이 있다. 1-1 One-To-One 1-2 One-To-Many / Many-To-One 둘 다 같다. 관계를 뒤집으면 동일하다. 1-3 Many-To-Many 1-3-1 데이터베이스 설계처럼 별도의 관계 테이블을 추가하여 3개의 Table을 사용한다. 1-3-2 두 개의 테이블과 한개의 관계테이블이 2개의 One-To-Many 관계를 이룬다. 2. Cascade 2-1 Cascade는 데이터베이스에서 실행된 query문을 관련된 테이블까지 적용하는 것을 의미한다. 2-2 한 테이블에 적용된 DML이 foreign key 관계를 맺고 있는 다른 테이블의 해당 데이터에도 적용된다는 의미다. 2-2-1 일반적으로 삭제에 많이 적용된다. 2-3 Hibernate에서는 6가지의 Cascade type을 지정할 수 있다. 2-3-0 기본은 아무 것도 적용되지 않고, 선택적 적용을 원하면 cascade={... , ...} ','로 구분하여 여러개를 선택한다. 2-3-1 Persist - 관련된 entity까지 같이 저장한다. 2-3-1-1 cascade=CascadeType.PERSIST 2-3-2 remove - 관련된 entity까지 같이 삭제한다. 2-3-2-1 cascade=CascadeType.DELETE 2-3-3 refresh - 관련된 entity까지 같이 데이터베이스에서 값을 다시 가져온다. 2-3-3-1 cascade=CascadeType.REFRESH 2-3-4 detach - 관련된 entity까지 session에서 detached상태로 들어간다. (5번 항목 참조) 2-3-4-1 cascade=CascadeType.DETACH 2-3-5 merge - 관련된 entity까지 session에 다시 붙인다. merge는 detached -> persistent상태로 변경(5번 참조) 2-3-5-1 cascade=CascadeType.MERGE 2-3-6 all - 위의 5가지 몽땅 다 적용한다. 2-3-6-1 Mapping annotation에 cascade=CascadeType.ALL을 추가 @Entity
+@Table(name = "instructor")
+@Data
+public class Instructor {
+  
+  @Id
+  @GeneratedValue(strategy = GenerationType.IDENTITY)
+  @Column
+  private Long id;
+  
+  @Column(name = "first_name")
+  private String firstName;
+  
+  @Column(name = "last_name")
+  private String lastName;
+  
+  @Column
+  private String email;
+  
+  @OneToOne(cascade = CascadeType.ALL)
+  @JoinColumn(name = "instructor_detail_id")
+  private InstructorDetail instructorDetail;
+   
+} 3. Direction (단방향, 양방향) 3-1 ORM은 객체를 관리하기 때문에 객체의 has 관계를 명확하게 기술해야 한다. 3-2 강사와 과정이라는 두개의 테이블이 있고 foreign key로 연결되었다고 가정한다. 3-2-1 두 테이블은 One-To-Many의 관계를 일반적으로 가진다. 한 강사가 여러개의 과정을 가지는 것이다. 3-2-2 데이터베이스에는 foreign key설정과 cascade 설정은 과정쪽에만 정의 되어 있다. 3-2-3 프로그램 구현에서는 필요에 따라 강사가 가진 모든 과정을 List타입으로 가질 수 있고 3-2-4 각 과정은 강사 Entity를 가질 수 있다. 3-3 Direction은 프로그램 구현의 편의성과 관련된 부분으로 데이터베이스와 연결시킬 필요가 전혀 없다. 3-3-1 이 부분은 OOP와 관계형데이터 베이스의 불일치 부분 중 하나이다. 4. Fetch Types 4-1 하이버네이트의 Fetch Type은 Direction과 관련이 있다. 4-2 ORM은 테이블과 자바 Entity를 매핑해 준다. 4-3 하나의 테이블 정보를 읽어 올 때 그 테이블과 관련된 다른 테이블 정보를 ORM이 언제 가지고 와서 4-3-1 Entity에 저장오는가의 문제이다. 4-4 Eager는 즉시 저장하는 것이고 Lazy는 필요시 가지고 온다. 아래 내용은 알면 좋고 몰라도 그냥 숙련되면 당연한 것으로 인식되니 대강 넘어가라. ------------------------------------------------------------------------------------------------ 5. Entity Lifecycle 5-0 hibernate 내부에는 persistent manager와 transaction manager가 있다. 기능은 이름 그대로이다. 5-1 persistent mananger는 Entity와 데이터베이스를 매핑하기 위하여 Entity의 상태를 관리한다. 5-1-1 Transient - Entity 객체가 처음 생성되어 hibernate에서 관리되고 있지 않은 상태다. 5-1-1-1 DB에 영향을 주지 않는다. 다시 말하면 transation에 전혀 참여하고 있지 않다. 5-1-1-2 Persistent로 전환하기 위해서는 5-1-1-2-1 save되거나 5-1-1-2-2 이미 Persistent 상태에 있는 객체를 참조해야 한다. 5-1-2 Persistent - Entity가 persistent manager에 의해 관리되고 있는 상태다. 5-1-2-1 데이터베이스의 row와 매핑이 되어 transaction에 참여하고 있는 상태이다. 5-1-2-2 따라서 commit, rollback에 의해 Entity 객체의 수정사항이 내용이 바로 DB에 반영된다. 5-1-2-2-1 transaction이 반영되는 것을 synchronizaion이라고 한다. 우리말로 동기화 5-1-2-3 transaction이 시작되면 transaction manager에서 상태를 관리하고 commit, rollback에 의해 동기화 된다. 5-1-2-3-1 이 동기화 처리를 dirty check라고 하고 지연이 있는 부분이라 튜닝이 가능하다. (더 이상 알 필요 없다.) 5-1-2-4 persistent manager가 delete을 호출하는 경우 5-1-2-4-1 DB 정보가 삭제되고 Entity객체는 Transient상태로 돌아간다. 5-1-3 Detached - Entity 객체가 persistent manager와 연결이 끊긴 상태다. 데이터는 가지고 있다. 5-1-3-1 Transaction이 commit/rollback된 이후에도 Entity 객체의 상태는 Persistent이다. 5-1-3-2 더 이상 persistent manager에 관리되기를 원치 않은 경우 아래 절차를 통해 detached된다. 5-1-3-2-1 Session의 close 명령어로 세션을 종결하거나 5-1-3-2-2 Session의 evict 명령어를 통해 해당 Entity 객체를 session cache에서 삭제할 수 있다. 5-1-3-3 연결 종결 이후에도 Entity 객체는 데이터를 가지고 있지만 어떤 변경도 DB에는 영향을 미치지 않는다. 5-2 아래의 도면은 http://learnertobeginner.blogspot.com/ 에서 가지고 왔다. 구글에서 검색에서 찾았다. 5-2-1 아래 도면은 어떤 책이든 쉽게 찾아 볼 수 있어 오리지널을 아니지만 사이트는 명기하는 게 좋을 것 같았다.

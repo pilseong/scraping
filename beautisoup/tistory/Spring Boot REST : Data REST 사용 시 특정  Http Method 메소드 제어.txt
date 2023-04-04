@@ -1,0 +1,28 @@
+1. Data Rest는  Rest Controller를 자동으로 생성해 주는 편리한 모듈이다. 2. 하지만 종종 자동 생성 기능 중에 읽기, 삭제가 안 되는 것을 원할 때도 있는데, 3가지 방법으로 구현할 수 있다. 2-1 Data Rest의 자동 생성을 사용하지 않고 그냥 수동으로 개발하는 방법 2-2 RestConfig에서 설정하는 방법 2-3 스프링 Security를 적용하는 방법 3. 여기서는 두 번째 방법을 보여준다. 3-1 Repository에 대한 REST 설정을 RestConfig 파일에서 작성한다. 3-2 원하지 않는 기능을 묶어서 그 기능을 사용하지 않게 하는 함수를 콜백으로 제공하면 된다. 3-3. 보안이나 웹설정처럼 Rest 설정 클래스를 만들고, 동일한 방식으로 RepositoryRestConfigurer를 구현한다. 3-3-1 아래처럼 configureRepostioryRestConfiguration을 오버라이딩하면서 설정자를 받아와 처리한다. 3-3-2 노출설정 메소드에 어떤 entity를 다룰지를 지정하고, 3-3-3 하나의 객체에 대해 설정할지 묶음에 대해서 할지 정할 수 있다. 3-3-4 노출설정 메소드에는 filter를 받는다. 즉 어떤 메소드를 사용할지 거르는 내용 필요하다. package pe.pilseong.shoppingweb.conifg;
+
+import org.springframework.context.annotation.Configuration;
+import org.springframework.data.rest.core.config.RepositoryRestConfiguration;
+import org.springframework.data.rest.webmvc.config.RepositoryRestConfigurer;
+import org.springframework.http.HttpMethod;
+
+import pe.pilseong.shoppingweb.entity.Product;
+import pe.pilseong.shoppingweb.entity.ProductCategory;
+
+@Configuration
+public class RestConfig implements RepositoryRestConfigurer {
+
+  @Override
+  public void configureRepositoryRestConfiguration(RepositoryRestConfiguration config) {
+    HttpMethod[] unsupportedActions = {HttpMethod.PUT, HttpMethod.POST, HttpMethod.DELETE};
+
+    config.getExposureConfiguration()
+      .forDomainType(Product.class)
+      .withItemExposure((metadata, HttpMethods) -> HttpMethods.disable(unsupportedActions))
+      .withCollectionExposure((metadata, httpMethods) -> httpMethods.disable(unsupportedActions));
+
+    config.getExposureConfiguration()
+      .forDomainType(ProductCategory.class)
+      .withItemExposure((metadata, HttpMethods) -> HttpMethods.disable(unsupportedActions))
+      .withCollectionExposure((metadata, httpMethods) -> httpMethods.disable(unsupportedActions));
+  }
+} 4. 위의 설정대로 하면 읽기만 가능한 REST endpoint가 만들어진다.

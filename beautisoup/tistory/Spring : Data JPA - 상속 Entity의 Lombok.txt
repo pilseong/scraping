@@ -1,0 +1,34 @@
+1. lombok은 귀찮은 setter, getter, contructor, toString, equals 등의 많은 메소드들을 자동으로 구현해 준다. 2. Entity 클래스를 생성할 때 모든 Entity가 id를 사용하는데 같은 속성이름(보통 id)일 때는 반복하는 것이 번거롭다. 2-1 이를 해결하기 위해서 중복이 부분을 별도의 클래스에 지정하고 그 클래스를 상속한다. 2-2 중요한 것은 상속을 받는 부모 클래스에도 @Data annotation을 지정하여 setter, getter를 생성해야 한다. 2-3 당연한 말이지만, 빼먹고 원인을 못찾을 경우가 많다. 2-4 @MappedSuperclass가 핵심인데 컴파일되면 자식클래스가 부모를 그대로 복사하는 것처럼 된다. import javax.persistence.GeneratedValue;
+import javax.persistence.GenerationType;
+import javax.persistence.Id;
+import javax.persistence.MappedSuperclass;
+
+import lombok.Data;
+
+@MappedSuperclass
+@Data
+public class AbstractEntity {
+  @Id
+  @GeneratedValue(strategy = GenerationType.IDENTITY)
+  private Long id;
+}
+
+
+import lombok.Data;
+
+@Entity
+@Data
+public class Flight extends AbstractEntity {
+  
+  private String flightNumber;
+  
+  private String operatingAirlines;
+  
+  private String departureCity;
+  
+  private String arrivalCity;
+  
+  private Date dateOfDeparture;
+  
+  private Timestamp estimatedDepartureTime;
+}

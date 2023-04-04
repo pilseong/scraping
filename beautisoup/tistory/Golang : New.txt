@@ -1,0 +1,45 @@
+1. Go 언어 대한 다양한 참고자료가 있지만 Effective Go라는 go 언어 홈페이지에 걸린 문서가 아주 유용하다. 중요한 부분의 핵심만 정리하려고 한다. 2. 문서의 Data 파트에 New와 Make 부분이 있다. 둘 다 자원 할당을 위한 함수들이다. 여기서는 New만 정리한다. 3. New - 메모리를 할당해 주고 해당 메모리 내용을 모두 0으로 설정한다. 그런 후 할당한 메모리의 포인터를 반환한다. 3-1 0으로 설정한다는 것의 의미는 new로 할당받은 메모리 블록에 C언어처럼 쓰레기 값이 들어있지 않기 때문에 별도의 쓰레기 값을 제거하기 위한 초기화 작업이 필요없다는 뜻이다. 3-2 다시 말하면 bytes.Buffer 같이 내부적으로 데이터를 읽는 byte slice의 경우 0으로 초기화없이 사용가능하다. 문서에는 sync.Mutex의 이야기도 나오는데 0으로 초기화할 경우 이 값이 unlocked 상태를 나타내기 때문에 편리하는다는 의미다. type Buffer struct {
+	buf      []byte // contents are the bytes buf[off : len(buf)]
+	off      int    // read at &buf[off], write at &buf[len(buf)]
+	lastRead readOp // last read operation, so that Unread* can work correctly.
+} 3-3 문서는 아래의 예시를 사용한다. new로 생성하든 선언으로 구조체를 생성하든 언어가 기본적으로 0로 초기화 해주기 때문에 별도의 초기화가 필요없다는 의미다. 3-4 혹시 혼동될 수 있어서 적어 놓는데, 아래의 선언 구문인 var v SuncedBuffer은 실행 시 구조체가 메모리에 할당이 된다. new나 make을 써야지 할당된다고 생각하기 쉬운데 그냥 선언만 해도 메모리 블록이 잡힌다. C언어를 생각하면 이해하기 쉽다. 선언시 내부적으로 new를 사용하기 때문에 0으로 모두 초기화 된다. type SyncedBuffer struct {
+    lock    sync.Mutex
+    buffer  bytes.Buffer
+}
+
+p := new(SyncedBuffer)  // type *SyncedBuffer
+var v SyncedBuffer      // type  SyncedBuffer 4. composite literal - 내부적으로 new를 사용하여 새로운 인스턴스를 생성해주는 구문이다. 포인터를 반환한다. 타입 뒤에 {} 붙어 있는 부분이다. 아래의 두 함수는 동일한 내용이다. 아래는 File 타입 뒤에 { fd, name, nil, 0 }를 넣어주어 해당 구조체를 초기화하고 있다. 속성의 순서대로 할당되기 때문에 순서가 중요하다. new(File) 와 &File{} 구문은 완전 동일한 기능을 한다. func NewFile(fd int, name string) *File {
+    if fd < 0 {
+        return nil
+    }
+    f := new(File)
+    f.fd = fd
+    f.name = name
+    f.dirinfo = nil
+    f.nepipe = 0
+    return f
+}
+
+// 아래도 동일한 내용
+
+func NewFile(fd int, name string) *File {
+    if fd < 0 {
+        return nil
+    }
+    f := File{fd, name, nil, 0}
+    return &f
+} 4-1 위의 두번째 함수의 마지막 두 줄은 아래 한 줄고 동일하다. 내부적으로 new를 사용하기 때문에 구조체를 생성하고 포인터를 반환하는데 그 포인터의 주소를 return하게 된다. *File이 반환 타입이 된다. return &File{fd, name, nil, 0} 4-2 &{} 구문은 굉장히 많이 사용된다. 직관적인고 간단하기 때문이다. 이 구문을 사용할 때는 보통 값만 쓰지만, 이것보다는 아래처럼 구조체의 속성을 같이 써주는 것을 권장한다.  순서도 신경 쓸 필요없고, 필요한 속성만 초기화 하기 때문에 훨씬 더 낫다. return &File{fd: fd, name: name} 4-3 마지막으로 문서에 나오는 배열, 슬라이스, 맵에서 composite literal을 사용하는 예시다. a := [...]string   {Enone: "no error", Eio: "Eio", Einval: "invalid argument"}
+s := []string      {Enone: "no error", Eio: "Eio", Einval: "invalid argument"}
+m := map[int]string{Enone: "no error", Eio: "Eio", Einval: "invalid argument"} 4-4 위의 예시를 실제로 사용하려면 Enon, Eio, Einval 를 미리 설정해야 한다. 물론 index나 key이므로 const 즉 상수로 선언되어야 한다. const Enone int = 1
+	const Eio int = 2
+	const Einval int = 3
+
+	a := [...]string{Enone: "no error", Eio: "Eio", Einval: "invalid argument"}
+	s := []string{Enone: "no error", Eio: "Eio", Einval: "invalid argument"}
+	m := map[int]string{Enone: "no error", Eio: "Eio", Einval: "invalid argument"}
+
+	fmt.Printf("a: %v\n", a[1])
+	fmt.Printf("s: %v\n", s)
+	fmt.Printf("m: %v\n", m) 4-5 위의 구문을 실행하면 아래처럼 나온다. 배열이나 슬라이스도 index가 지정하면 위치가 그대로 유지되는 것에 주의해야 한다. a: no error
+s: [ no error Eio invalid argument]
+m: map[1:no error 2:Eio 3:invalid argument]

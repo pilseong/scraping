@@ -1,0 +1,105 @@
+0. 이 포스트는 Spring : AOP with Java Config 의 연속이다. 1. Aspect 클래스 내의 Advice의 실행순서는 정의된 것이 없다. 그냥 랜덤이다. 2. Advice의 순서를 관리하고 싶은 경우에는 advice마다 별도의 Aspect 클래스를 만들어 순서를 정할 수 있다. 2-1 @Order annotation을 사용하여 순서를 정할 수 있다. 2-2 @Order(숫자) 형식으로 순서를 정할 수 있는데 숫자가 낮을 수록 우선순위가 높다. 2-2-1 숫자는 -1, -100같은 음수도 가능하다. 2-2-2 순차적으로 사용할 필요가 없다. 1, 3, 100 이런 식으로 마음 대로 설정할 수 있다. 2-3 같은 숫자가 할당 되는 경우는 그 Aspect 클래스들만 랜덤으로 실행된다. 3. Aspect 단위로 point cut 사용하기 3-1 pointcut 설정 클래스를 별도로 만든다. package pe.pilseong.spring_aop_review.aspect;
+
+import org.aspectj.lang.annotation.Aspect;
+import org.aspectj.lang.annotation.Pointcut;
+import org.springframework.stereotype.Component;
+
+@Aspect
+@Component
+public class AopExpressions {
+  @Pointcut(value = "execution(* pe.pilseong.spring_aop_review.dao.*.*(..))")
+  public void forDAOPackage() {}
+  
+  @Pointcut(value = "execution(* pe.pilseong.spring_aop_review.dao.*.get*(..))")
+  public void getter() {}
+  
+  @Pointcut(value = "execution(* pe.pilseong.spring_aop_review.dao.*.set*(..))")
+  public void setter() {}
+  
+  @Pointcut(value = "forDAOPackage() && !(getter() || setter())")
+  public void forDAOPackageNoGetterSetter() {}
+} 3-2 이 pointcut을 사용하는 여러 클래스를 생성한다. 3-2-1 중요한 부분은 외부의 pontcut을 사용하는 방법이다. 3-2-1-1 @Before나 advice annotation의  value에 fully qualifed name을 사용하면 된다. 3-2-1-2 pe.pilseong.spring_aop_review.aspect.AopExpressions.forDAOPackageNoGetterSetter() // Aspect 1
+package pe.pilseong.spring_aop_review.aspect;
+
+import org.aspectj.lang.annotation.Aspect;
+import org.aspectj.lang.annotation.Before;
+import org.springframework.core.annotation.Order;
+import org.springframework.stereotype.Component;
+
+@Aspect
+@Component
+@Order(value = 1)
+public class CloudLogAspect {
+  
+  @Before("pe.pilseong.spring_aop_review.aspect.AopExpressions.forDAOPackageNoGetterSetter()")
+  public void cloudLogAdvice() {
+    System.out.println("Executing in cloudLogAdvice @Before advice on forDAOPackage() && !(getter() || setter())");
+  }
+}
+
+// Aspect 2
+package pe.pilseong.spring_aop_review.aspect;
+
+import org.aspectj.lang.annotation.Aspect;
+import org.aspectj.lang.annotation.Before;
+import org.springframework.core.annotation.Order;
+import org.springframework.stereotype.Component;
+
+@Aspect
+@Component
+@Order(value = 2)
+public class LoggingDemoAspect {
+  
+  @Before("pe.pilseong.spring_aop_review.aspect.AopExpressions.forDAOPackageNoGetterSetter()")
+  public void loggingDemoAdvice() {
+    System.out.println("Executing in loggingDemoAdvice @Before advice on forDAOPackage() && !(getter() || setter())");
+  }
+}
+
+// Aspect 3
+package pe.pilseong.spring_aop_review.aspect;
+
+import org.aspectj.lang.annotation.Aspect;
+import org.aspectj.lang.annotation.Before;
+import org.springframework.core.annotation.Order;
+import org.springframework.stereotype.Component;
+
+@Aspect
+@Component
+@Order(value = 3)
+public class ApiAnalyticsAspect {
+
+  @Before("pe.pilseong.spring_aop_review.aspect.AopExpressions.forDAOPackageNoGetterSetter()")
+  public void apiAnalyticsAdvice() {
+    System.out.println("Executing in apiAnalyticsAdvice @Before advice on forDAOPackage() && !(getter() || setter())");
+  }
+} 3-2-2 실행결과는 다음과 같다. 3-2-2-1 결과가 @Order에서 설정한 대로 작은 숫자의 Aspect가 먼저 실행되었음을 알 수 있다. public class App {
+  public static void main(String[] args) {
+    AnnotationConfigApplicationContext context = 
+        new AnnotationConfigApplicationContext(JavaConfig.class);
+    
+    AccountDAO accountDAO = context.getBean("accountDAO", AccountDAO.class);
+    accountDAO.getAccount();
+    
+    Account account = new Account();
+    accountDAO.addAccount(account, true);
+    
+    MembershipDAO membershipDAO = context.getBean("membershipDAO", MembershipDAO.class);
+    membershipDAO.membership();
+    
+    context.close();
+  }
+}
+
+// 실행 결과
+class pe.pilseong.spring_aop_review.dao.AccountDAO: getAccount() with No Parameter. Doing my DB work: getting an account
+
+Executing in cloudLogAdvice @Before advice on forDAOPackage() && !(getter() || setter())
+Executing in loggingDemoAdvice @Before advice on forDAOPackage() && !(getter() || setter())
+Executing in apiAnalyticsAdvice @Before advice on forDAOPackage() && !(getter() || setter())
+class pe.pilseong.spring_aop_review.dao.AccountDAO: addAccount() with Account, boolean Parameter. Doing my DB work: Adding an account
+
+Executing in cloudLogAdvice @Before advice on forDAOPackage() && !(getter() || setter())
+Executing in loggingDemoAdvice @Before advice on forDAOPackage() && !(getter() || setter())
+Executing in apiAnalyticsAdvice @Before advice on forDAOPackage() && !(getter() || setter())
+class pe.pilseong.spring_aop_review.dao.MembershipDAO: membership() with No parameter. Doing my DB work: membership method is doing something

@@ -1,0 +1,302 @@
+0. 이 포스트에는 주문 페이지를 작성한다. 1. 주문 페이지를 위한 컴포넌트를 생성하고 라우팅테이블을 업데이트 한다. $ ng generate component components/checkout const routes: Routes = [
+  { path: 'checkout', component: CheckoutComponent },
+  { path: 'cart-details', component: CartDetailsComponent },
+  { path: 'search/:keyword', component: ProductListComponent },
+  { path: 'category/:id/:name', component: ProductListComponent },
+  { path: 'category', component: ProductListComponent },
+  { path: 'products/:id', component: ProductDetailsComponent },
+  { path: 'products', component: ProductListComponent },
+  { path: '', component: ProductListComponent },
+  { path: '**', component: ProductListComponent }
+] 2. form control을 사용하기 위한 모듈을 import한다. 2-1 이 포스트에서는 FormGroup을 사용하기 때문에 ReactiveFormsModule을 app.module.ts에 추가한다. 2-2 FormsModule도 같이 import해야 일반 form 테그에 에러가 생기지 않는다. 2-2-1 기본적으로 ReactiveFormsModule을 import하면 모든 form에 FormGroup이 지정되어야 하기 때문이다. 2-2-2 따라서 FormsModule도 같이 import하여 그런 경우가 허용되도록 해야 한다. import { BrowserModule } from '@angular/platform-browser';
+import { NgModule, Component } from '@angular/core';
+
+import { AppComponent } from './app.component';
+import { ProductListComponent } from './components/product-list/product-list.component';
+import { NgbModule } from '@ng-bootstrap/ng-bootstrap';
+import { HttpClientModule } from '@angular/common/http';
+import { ProductCategoryMenuComponent } from './components/product-category-menu/product-category-menu.component';
+import { ProductSearchComponent } from './components/product-search/product-search.component'
+
+import { RouterModule, Routes } from '@angular/router';
+import { ProductDetailsComponent } from './components/product-details/product-details.component';
+import { CartInfoComponent } from './components/cart-info/cart-info.component';
+import { CartDetailsComponent } from './components/cart-details/cart-details.component';
+import { CheckoutComponent } from './components/checkout/checkout.component'
+import { ReactiveFormsModule, FormsModule } from '@angular/forms';
+ 
+
+const routes: Routes = [
+  { path: 'checkout', component: CheckoutComponent },
+  { path: 'cart-details', component: CartDetailsComponent },
+  { path: 'search/:keyword', component: ProductListComponent },
+  { path: 'category/:id/:name', component: ProductListComponent },
+  { path: 'category', component: ProductListComponent },
+  { path: 'products/:id', component: ProductDetailsComponent },
+  { path: 'products', component: ProductListComponent },
+  { path: '', component: ProductListComponent },
+  { path: '**', component: ProductListComponent }
+]
+
+@NgModule({
+  declarations: [
+    AppComponent,
+    ProductListComponent,
+    ProductCategoryMenuComponent,
+    ProductSearchComponent,
+    ProductDetailsComponent,
+    CartInfoComponent,
+    CartDetailsComponent,
+    CheckoutComponent
+  ],
+  imports: [
+    BrowserModule,
+    HttpClientModule,
+    ReactiveFormsModule,
+    FormsModule,
+    RouterModule.forRoot(routes),
+    NgbModule
+  ],
+  providers: [],
+  bootstrap: [AppComponent]
+})
+export class AppModule { } 3. 화면구성하기 위해 다음과 같이 checkout.component.html을 작성한다. 3-1 길긴한데 내용이 별로 없다. FormGroup과 form테그를 매핑하는 부분이 대부분이다. 3-2 구조는 하나의 checkoutFormcontrol 내에 customer, creditCard, shippingAddress, billingAddress이 정의되었다. 3-3 각 요소들도 모두 FormGroup이기 때문에 중첩구조를 이룬다. 3-4 form테그에는 최상위 FormGroup을 지정하고 3-4-1 각 formGroup마다 별도의 formGroupName, formControlName이 지정된다. 3-5 중간에 shippingAddress와 billingAddress가 동일할 경우 복사하는 이벤트를 위해 onChangeCheckBox가 있다. 3-6 제일 아래를 보면 총가격과 총수량을 표출하므로 이 컴포넌트도 CartService가 필요하다는 것을 알수 있다. 3-7 카드 만료기간을 1~12개월을 표시하기 위해 단순한 반복을 구현하기 위해 range라는 메소드를 작성하였다. <div class="section-content section-content-p30">
+  <div class="container">
+
+    <form [formGroup]="checkoutFormGroup" (ngSubmit)="onSubmit()">
+      <div class="form-area" formGroupName="customer">
+        <h3>Customer</h3>
+        <div class="row">
+          <div class="col">
+            <div class="input-space">
+              <input type="text" placeholder="First Name" formControlName="firstName">
+            </div>
+          </div>
+          <div class="col">
+            <div class="input-space">
+              <input type="text" placeholder="Last Name" formControlName="lastName">
+            </div>
+          </div>
+        </div>
+        <div class="row">
+          <div class="clearfix"></div>
+          <div class="col">
+            <div class="input-space">
+              <input type="text" placeholder="Email Address" formControlName="email">
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!--Form 2-->
+      <div class="form-area" formGroupName="shippingAddress">
+        <h3>Shipping Address</h3>
+        <div class="row">
+          <div class="col-md-12">
+            <div class="input-space">
+              <input type="text" placeholder="Street" formControlName="street">
+            </div>
+          </div>
+          <div class="col-md-12">
+            <div class="input-space">
+              <input type="text" placeholder="City" formControlName="city">
+            </div>
+          </div>
+
+          <div class="col-md-12">
+            <div class="input-space">
+              <select formControlName="state">
+                <option>State / Province</option>
+                <option>Gyeunggi-do</option>
+                <option>Seoul</option>
+                <option>Busan</option>
+                <option>Daegu</option>
+              </select>
+            </div>
+          </div>
+          <div class="col-md-12">
+            <div class="input-space">
+              <input type="text" placeholder="Zip Code / Postal Code" formControlName="zip">
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="input-space">
+        <label class="au-checkbox">
+          <input type="checkbox" (change)="onChangeCheckbox($event.target.checked)">
+          <span class="au-checkmark"></span> Bill Address same as Shipping Adress
+        </label>
+      </div>
+
+      <div class="form-area" formGroupName="billingAddress">
+        <h3>Billing Address</h3>
+        <div class="row">
+          <div class="col-md-12">
+            <div class="input-space">
+              <input type="text" placeholder="Street" formControlName="street">
+            </div>
+          </div>
+          <div class="col-md-12">
+            <div class="input-space">
+              <input type="text" placeholder="City" formControlName="city">
+            </div>
+          </div>
+
+          <div class="col-md-12">
+            <div class="input-space">
+              <select formControlName="state">
+                <option>State / Province</option>
+                <option>Gyeunggi-do</option>
+                <option>Seoul</option>
+                <option>Busan</option>
+                <option>Daegu</option>
+              </select>
+            </div>
+          </div>
+          <div class="col-md-12">
+            <div class="input-space">
+              <input type="text" placeholder="Zip Code / Postal Code" formControlName="zip">
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="form-area" formGroupName="creditCard">
+        <h3>Credit Card</h3>
+        <div class="row">
+          <div class="col-md-12">
+            <div class="input-space">
+              <select>
+                <option>Visa</option>
+                <option>Master</option>
+                <option>Union Pay</option>
+                <option>Paypal</option>
+              </select>
+            </div>
+          </div>
+          <div class="col-md-12">
+            <div class="input-space">
+              <input type="text" placeholder="Name on card" formControlName="nameOnCard">
+            </div>
+          </div>
+          <div class="clearfix"></div>
+          <div class="col-md-8">
+            <div class="input-space">
+              <input type="text" placeholder="Card number" formControlName="cardNumber">
+            </div>
+          </div>
+          <div class="col-md-4">
+            <div class="input-space">
+              <input type="text" placeholder="CVV2 number" formControlName="cvv">
+            </div>
+          </div>
+          <div class="clearfix"></div>
+
+          <div class="col-md-2"> <label class="date">Expiration Date</label></div>
+          <div class="col-md-5">
+            <div class="input-space">
+              <select placeholder="Month">
+                <option *ngFor="let item of range(12); let i = index">{{i+1}}</option>
+              </select>
+            </div>
+          </div>
+          <div class="col-md-5">
+            <div class="input-space">
+              <select>
+                <option>2020</option>
+                <option *ngFor="let item of range(5); let i = index">{{i+2020}}</option>
+              </select>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="form-area">
+        <h3>Review Your Order</h3>
+        <b>Total Quantity: {{totalQuantity}}</b>
+        <h4>Shipping: FREE</h4>
+        <B>Total Price: {{totalPrice | currency: 'USD'}}</B>
+      </div>
+      <div class="text-center">
+        <button class="btn btn-info">Purchase</button>
+      </div>
+    </form>
+  </div>
+</div> 4. 마지막으로 checkout.component.ts 클래스이다. 4-1 가장 중요한 부분은 역시 FormGroup 정의 부분이고 FormBuilder 객체를 주입받아서 사용하고 있다. 4-2 총가격과 총수량 정보를 받기 위해 CartService를 주입받고 있고 초기화 때 구독 후 값을 요청하고 있다. 4-3 range 메소드는 단순히 인자의 숫자 크기의 배열을 생성하여 반환한다. 즉 그 숫자만큼 반복하기 위한 함수이다. 4-4 onChangeCheckbox는 체크박스의 체크 여부 값을 받아서 checked되었을 때 복사하는 기능을 구현하였다. 4-5 자세한 메소드와 속성은 아래 링크를 참조한다. Angular angular.io import { Component, OnInit } from '@angular/core';
+import { FormGroup, FormBuilder } from '@angular/forms';
+import { CartService } from 'src/app/services/cart.service';
+
+@Component({
+  selector: 'app-checkout',
+  templateUrl: './checkout.component.html',
+  styleUrls: ['./checkout.component.css']
+})
+export class CheckoutComponent implements OnInit {
+
+  _range: number
+  checkoutFormGroup: FormGroup
+
+  totalPrice: number = 0.00
+  totalQuantity: number = 0
+
+  constructor(
+    private cartService: CartService,
+    private formBuilder: FormBuilder) { }
+
+  ngOnInit(): void {
+
+    this.cartService.totalPrice.subscribe(data=> this.totalPrice = data)
+    this.cartService.totalQuantity.subscribe(data=> this.totalQuantity = data)
+
+    this.cartService.computeTotals()
+
+    this.checkoutFormGroup  = this.formBuilder.group({
+      customer: this.formBuilder.group({
+        firstName: [''],
+        lastName: [''],
+        email: ['']
+      }),
+      shippingAddress: this.formBuilder.group({
+        street: [''],
+        city: [''],
+        state: [''],
+        zip: ['']
+      }),
+      billingAddress: this.formBuilder.group({
+        street: [''],
+        city: [''],
+        state: [''],
+        zip: ['']
+      }),      
+      creditCard: this.formBuilder.group({
+        cardType: [''],
+        nameOnCard: [''],
+        cardNumber: [''],
+        cvv: [''],
+        expirationMonth: [''],
+        expirationYear: ['']
+      })
+    })
+  }
+
+  range(i: number) {
+    return new Array(i)
+  }
+
+  onChangeCheckbox(checked: boolean) {
+
+    if (checked === true)  {
+      this.checkoutFormGroup.get('billingAddress').setValue(this.checkoutFormGroup.get('shippingAddress').value)
+    } else {
+      this.checkoutFormGroup.get('billingAddress').reset()
+    }
+  }
+
+  onSubmit() {
+    console.log(this.checkoutFormGroup.get("customer").value);
+    console.log(this.checkoutFormGroup.get("shippingAddress").value);
+    console.log(this.checkoutFormGroup.get("billingAddress").value);
+    console.log(this.checkoutFormGroup.get("creditCard").value);
+  }
+} 5. 결과화면

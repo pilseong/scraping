@@ -1,0 +1,162 @@
+1. 개발 절차 1-1 테이블을 생성한다. 1-2 hibernate와 mysql 세팅을 한다. 1-2 Entity 클래스를 만든다. 1-3 Entity 클래스에 Annotation을 작성하여 Mapping 처리한다. 1-4 프로그램에서 이 두 Entity를 사용한다. 2. 아래와 같이 간단히 두 개의 테이블을 생성한다. 2-1 두 개의 테이블 사이에는 foreign key관계가 설정되어 있다. 2-1-1 외래키의 목적은 2-1-1-1 두 테이블의 관계가 정해진 규칙에 의해 보호된다. 참조무결성이라고도 한다. 2-1-1-1-1 더 세부적으로 말하면 두 테이블의 관계가 깨어지는 query가 실행되지 못하도록 한다. 2-1-1-2 적절한 값이 외래키 column에 입력되는 것을 보장해 준다. 2-1-1-2-1 다시 말하면 참조하는 테이블의 primary key값만 외래키 column에 저장될 수 있다. create table instructor_detail (
+    id int not null auto_increment primary key,
+    youtube_channel varchar(128) default null,
+    hobby varchar(45) default null
+)
+
+create table instructor(
+    id int not null primary key auto_increment,
+    first_name varchar(45) default null,
+    last_name varchar(45) default null,
+    email varchar(45) default null,
+    instructor_detail_id int default null,
+    constraint fk_detail foreign key(instructor_detail_id) references instructor_detail(id)
+) 3. 간단한 데모를 작성하기 위한 최소의 세팅 (MySql, Hibernate 세팅) 3-0 여기에서는 스프링 세팅은 필요없다. 3-1 org.apache.maven의 quickstart archetype 1.4를 사용한다. 3-2 pom.xml에 가장 기본적인 3가지 의존성을 넣는다. <!-- 하이버네이트 기능 추가 -->
+<dependency>
+  <groupId>org.hibernate</groupId>
+  <artifactId>hibernate-core</artifactId>
+  <version>5.4.15.Final</version>
+</dependency>
+
+<!-- MySql 데이터베이스 jdbc모듈 추가 -->
+<dependency>
+  <groupId>mysql</groupId>
+  <artifactId>mysql-connector-java</artifactId>
+  <version>8.0.20</version>
+</dependency>
+
+<!-- 선택적으로 Bean 구현 편의를 위한 추가 -->
+<dependency>
+  <groupId>org.projectlombok</groupId>
+  <artifactId>lombok</artifactId>
+  <version>1.18.12</version>
+  <scope>provided</scope>
+</dependency> 4. Entity 클래스를 만들고 Annotation으로 매핑한다. 4-1 테이블 당 하나의 Entity를 만든다. 4-2 One to One의 관계에서는 외래키를 가지고 있는 쪽에서 관계설정을 한다. 4-2-1 @OneToOne 세팅을 추가하고 어떤 column이 참조키를 가지고 있는지 @JoinColumn을 설정한다. 4-3 아래의 두개의 Entity 클래스는 둘 다 생성자를 통해 값을 지정하고 있다. 4-3-1 그렇기 때문에 lombok에서 @NoArgsConstructor를 사용해야 한다. 4-3-2 빈의 규정상 생성자가 하나라도 존재하면 반드시 parameter를 받지 않는 생성자가 필수적이기 때문이다. 4-3-3 foreign key가 강사쪽에 있으므로 강사 쪽에서 @JoinColumn을 세팅한다. 4-3-4 단향향 mapping이므로 세부정보 쪽에는 강사데이터가 필요없고 mapping 세팅도 필요없다. import javax.persistence.CascadeType;
+import javax.persistence.Column;
+import javax.persistence.Entity;
+import javax.persistence.GeneratedValue;
+import javax.persistence.GenerationType;
+import javax.persistence.Id;
+import javax.persistence.JoinColumn;
+import javax.persistence.OneToOne;
+import javax.persistence.Table;
+
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+@Entity
+@Table(name = "instructor")
+@Data
+@NoArgsConstructor
+public class Instructor {
+  
+  @Id
+  @GeneratedValue(strategy = GenerationType.IDENTITY)
+  @Column
+  private Long id;
+  
+  @Column(name = "first_name")
+  private String firstName;
+  
+  @Column(name = "last_name")
+  private String lastName;
+  
+  @Column
+  private String email;
+  
+  @OneToOne(cascade = CascadeType.ALL)
+  @JoinColumn(name = "instructor_detail_id")
+  private InstructorDetail instructorDetail;
+
+  public Instructor(String firstName, String lastName, String email) {
+    super();
+    this.firstName = firstName;
+    this.lastName = lastName;
+    this.email = email;
+  }
+} import javax.persistence.Column;
+import javax.persistence.Entity;
+import javax.persistence.GeneratedValue;
+import javax.persistence.GenerationType;
+import javax.persistence.Id;
+import javax.persistence.Table;
+
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+@Entity
+@Table(name = "instructor_detail")
+@Data
+@NoArgsConstructor
+public class InstructorDetail {
+
+  @Id
+  @GeneratedValue(strategy = GenerationType.IDENTITY)
+  @Column
+  private Long id;
+  
+  @Column(name = "youtube_channel")
+  private String youtubeChannel;
+  
+  @Column
+  private String hobby;
+
+  public InstructorDetail(String youtubeChannel, String hobby) {
+    super();
+    this.youtubeChannel = youtubeChannel;
+    this.hobby = hobby;
+  }  
+} 5. 프로그램에서 위의 정보를 사용하여 데이터베이스 처리를 한다. 5-0 이전 '기초적인 CRUD'의 소스코드처럼 간단한 동작 소스를 작성한다. 5-1 아래는 간단히 하나의 Instructor객체와 InstructorDetail 객체를 작성하고 저장한다. 5-1-1 테이블 관계가 Entity에 명시되어 있고 Cascade 역시 정의되어 있다. 5-2-2 따라서 save 호출 시 두 Entity가 각 테이블에 차례로 저장된다. 5-2-2-1 Mapping정보를 가지는 쪽을 저장하면 관계테이블 정보도 같이 저장된다. 5-1-3 아래 소스에서 Instructor와 InstructorDetail의 생성은 beginTransaction와 상관없다. 5-1-3-1 어디서든 생성되면 된다. 객체를 생성하고 transaction을 시작해도 된다. import org.hibernate.Session;
+import org.hibernate.SessionFactory;
+import org.hibernate.cfg.Configuration;
+
+import pe.pilseong.hibernate_mapping.entities.Instructor;
+import pe.pilseong.hibernate_mapping.entities.InstructorDetail;
+
+public class SaveEntity {
+  public static void main(String[] args) {
+    SessionFactory factory = new Configuration().configure()
+        .addAnnotatedClass(Instructor.class)
+        .addAnnotatedClass(InstructorDetail.class)
+        .buildSessionFactory();
+    
+    Session session = factory.getCurrentSession();
+    session.beginTransaction();
+    
+    Instructor instructor = new Instructor("Pilseong", "Heo", "heops79@gmail.com");
+    InstructorDetail detail = new InstructorDetail("http://www.pilseong.pe.kr/youtube", "study");
+    instructor.setInstructorDetail(detail);
+    
+    session.save(instructor);
+    
+    session.getTransaction().commit();
+    factory.close();    
+  }
+} 5-2 아래의 소스는 위에서 저장한 Instructor와 InstructorDetail을 삭제한다. 5-2-1 CascadeType이 ALL이기 때문에 삭제도 같이 일어난다. import org.hibernate.Session;
+import org.hibernate.SessionFactory;
+import org.hibernate.cfg.Configuration;
+
+import pe.pilseong.hibernate_mapping.entities.Instructor;
+import pe.pilseong.hibernate_mapping.entities.InstructorDetail;
+
+public class DeleteEntity {
+  public static void main(String[] args) {
+    
+    SessionFactory factory = new Configuration().configure()
+        .addAnnotatedClass(Instructor.class)
+        .addAnnotatedClass(InstructorDetail.class)
+        .buildSessionFactory();
+    
+    Session session = factory.getCurrentSession();
+    session.beginTransaction();
+    
+    Instructor instructor = session.get(Instructor.class, 1L);
+    System.out.println("Fetched instrcutor :: " + instructor.toString());
+
+    session.delete(instructor);
+    
+    session.getTransaction().commit();
+    
+    factory.close();
+  }
+}

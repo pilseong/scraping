@@ -1,0 +1,8 @@
+1. 내장 mongodb를 사용하여 통합테스트 할 때 1-1 java.net.ConnectException: Connection refused (Connection refused)가 많이 발생할 경우가 있다. 1-2 mongodb의 기본 접속 포트는 27017인데 이것을 그냥 두는 경우에 발생하는 것 같다. 1-3 스프링에서 알아서 정해주도록 아래처럼 port를 0으로 지정하면 이런 문제가 사라진다. 1-3-1 왜 그런지는 알 수가 없다. CircleCI에서도 마찬가지로 동작한다. 1-3-2 정말 짜증나는 것은 이렇게 하면 Robo3T로 DB에 접속 후 데이터 보려고 하면 포트를 매번 지정해야 한다. logging.level.pe.pilseong.recipe=debug
+spring.data.mongodb.host=localhost
+spring.data.mongodb.port=0
+
+# spring.thymeleaf.cache=false
+# spring.thymeleaf.mode=HTML
+
+server.port=8080

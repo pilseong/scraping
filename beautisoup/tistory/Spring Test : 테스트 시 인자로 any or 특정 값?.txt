@@ -1,0 +1,291 @@
+1. 테스트를 하다 보면 언제 any, anyLong 같은 값을 사용할지 아니면 진짜 값을 넣어주어야 할지 혼란스럽다. 2. 아래 같은 유닛테스트의 경우는 모두 any, anyLong을 사용하고 있다. 2-1 예제는 Service 구현한 클래스를 테스트하는 것으로 2-2 Mockito fixture로는 repository나 conveter를 사용하고 있다. 2-3 fixture가 반환해야 할 값들을 세팅할 때 when을 사용하는데 여기의 인자들은 모두 any 계열을 사용한다. package pe.pilseong.recipe.service;
+
+import org.junit.Test;
+import org.mockito.Mock;
+import org.mockito.MockitoAnnotations;
+
+import pe.pilseong.recipe.command.RecipeCommand;
+import pe.pilseong.recipe.coverter.RecipeCommandToRecipe;
+import pe.pilseong.recipe.coverter.RecipeToRecipeCommand;
+import pe.pilseong.recipe.domain.Difficulty;
+import pe.pilseong.recipe.domain.Recipe;
+import pe.pilseong.recipe.repository.RecipeRepository;
+
+import static org.junit.Assert.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+
+import java.util.HashSet;
+import java.util.Optional;
+import java.util.Set;
+
+import org.junit.Before;
+
+public class RecipeServiceImplTest {
+
+  RecipeServiceImpl recipeService;
+
+  @Mock
+  RecipeRepository recipeRepository;
+
+  @Mock
+  RecipeCommandToRecipe recipeConverter;
+
+  @Mock
+  RecipeToRecipeCommand commandConverter;
+
+  public static final Long RECIPE_ID = 1L;
+  public static final Integer COOK_TIME = Integer.valueOf("5");
+  public static final Integer PREP_TIME = Integer.valueOf("7");
+  public static final String DESCRIPTION = "my recipe";
+  public static final String DIRECTIONS = "Directions";
+  public static final Difficulty DIFFICULTY = Difficulty.EASY;
+  public static final String SOURCE = "source";
+  public static final String URL = "url";
+  public static final Long CAT_ID1 = 1L;
+  public static final Long CAT_ID2 = 2L;
+  public static final Long CAT_ID3 = 3L;
+  public static final Long INGRED_ID1 = 1L;
+  public static final Long INGRED_ID2 = 2L;
+  public static final Long INGRED_ID3 = 3L;
+  public static final Long NOTE_ID = 9L;
+
+  @Before
+  public void setup() {
+    MockitoAnnotations.initMocks(this);
+
+    recipeService = new RecipeServiceImpl(recipeRepository, recipeConverter, commandConverter);
+  }
+
+  @Test
+  public void getRecipes() {
+
+    Recipe recipe = new Recipe();
+    HashSet<Recipe> recipeData = new HashSet<>();
+    recipeData.add(recipe);
+
+    when(recipeRepository.findAll()).thenReturn(recipeData);
+
+    Set<Recipe> recipes = recipeService.getRecipes();
+    assertEquals(recipes.size(), 1);
+
+    // check to see how many times findAll method invoked
+    verify(recipeRepository, times(1)).findAll();
+  }
+
+  @Test
+  public void findById() {
+    Recipe returnRecipe = Recipe.builder().id(1L).build();
+    when(recipeRepository.findById(anyLong())).thenReturn(Optional.of(returnRecipe));
+
+    Recipe recipe = recipeService.findById(1L);
+
+    assertEquals(1L, recipe.getId());
+    verify(recipeRepository).findById(anyLong());
+    verify(recipeRepository, never()).findAll();
+  }
+
+  @Test
+  public void findCommandById() {
+    Recipe returnRecipe = Recipe.builder().id(1L).build();
+
+    RecipeCommand command = new RecipeCommand();
+    command.setId(1L);
+
+    when(recipeRepository.findById(anyLong())).thenReturn(Optional.of(returnRecipe));
+
+    when(commandConverter.convert(any())).thenReturn(command);
+
+    RecipeCommand retrieveCommand = recipeService.findCommandById(RECIPE_ID);
+
+    assertEquals(1L, retrieveCommand.getId());
+    verify(recipeRepository).findById(anyLong());
+    verify(commandConverter).convert(any());
+    verify(recipeRepository, never()).findAll();
+  }
+
+  @Test
+  public void findByIdWithError() {
+    // Recipe returnRecipe = Recipe.builder().id(1L).build();
+    when(recipeRepository.findById(anyLong())).thenReturn(null);
+
+    assertThrows(RuntimeException.class, () -> recipeService.findById(anyLong()));
+  }
+
+  @Test
+  public void save() {
+    Recipe returnRecipe = Recipe.builder().id(1L).build();
+    when(recipeRepository.save(any())).thenReturn(returnRecipe);
+
+    Recipe saveRecipe = recipeService.save(any());
+    assertNotNull(saveRecipe);
+    assertEquals(1L, saveRecipe.getId());
+  }
+
+  @Test
+  public void saveCommand() {
+    Recipe returnRecipe = Recipe.builder().id(1L).build();
+    
+    RecipeCommand command = new RecipeCommand();
+    command.setId(1L);
+
+    when(recipeRepository.save(any())).thenReturn(returnRecipe);
+    when(commandConverter.convert(any())).thenReturn(command);
+
+    RecipeCommand recipeCommand = recipeService.saveRecipeCommand(any());
+    assertNotNull(recipeCommand);
+    assertEquals(1L, recipeCommand.getId());
+  }
+
+  @Test
+  public void testDeleteById() {
+
+    //given
+    Long targetId = 1L;
+    
+    //when
+    recipeService.deleteById(targetId);
+
+    // no ''when', since method has void return type
+
+    //then
+    verify(recipeRepository, times(1)).deleteById(anyLong());
+  }
+} 3. 아래의 코드도 Service 구현체에 대한 테스트인데, 이 경우는 1L, 3L 같은 값을 사용하고 있다. 3-1 여기에서는 특정 값을 사용하는 이유는 테스트에 필요하기 때문이다. 3-2 즉 fixture에서 값을 받아오는 것은 어떠한 경우에도 동일한 객체가 반환되기 때문에 특정한 값이 필요없지만, 3-3 아래처럼 service의 특정함수 내에서 fixture에서 받환받은 객체를 가지고 작업을 할 때는 3-3-1 그것을 위한 조건은 모두 충족되어야 하기 때문이다. package pe.pilseong.recipe.service;
+
+import org.junit.Test;
+import org.mockito.Mock;
+import org.mockito.MockitoAnnotations;
+
+import pe.pilseong.recipe.command.IngredientCommand;
+import pe.pilseong.recipe.coverter.IngredientToIngredientCommand;
+import pe.pilseong.recipe.coverter.UnitOfMesureToUnitOfMeasureCommand;
+import pe.pilseong.recipe.domain.Ingredient;
+import pe.pilseong.recipe.domain.Recipe;
+import pe.pilseong.recipe.repository.RecipeRepository;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+
+import java.util.Optional;
+
+import org.junit.Before;    
+    
+public class IngredientServiceImplTest {
+
+    IngredientServiceImpl ingredientService;
+
+    @Mock
+    RecipeRepository recipeRepository;
+    
+    IngredientToIngredientCommand ingredientCommandConverter;
+
+    @Before
+    public void setup(){
+      MockitoAnnotations.initMocks(this);
+
+      ingredientCommandConverter = new IngredientToIngredientCommand(new UnitOfMesureToUnitOfMeasureCommand());
+      ingredientService = new IngredientServiceImpl(recipeRepository, ingredientCommandConverter);
+    }
+        
+    @Test
+    public void testFindByRecipeIdAndIngredientId() {
+      // given
+      Recipe recipe = Recipe.builder().id(1L).build();
+      Ingredient ingredient1 = new Ingredient();
+      ingredient1.setId(1L);
+
+      Ingredient ingredient2 = new Ingredient();
+      ingredient1.setId(2L);
+
+      Ingredient ingredient3 = new Ingredient();
+      ingredient1.setId(3L);
+
+      recipe.addIngredient(ingredient1);
+      recipe.addIngredient(ingredient2);
+      recipe.addIngredient(ingredient3);
+
+      Optional<Recipe> optionalRecipe = Optional.of(recipe);
+
+      // when
+      when(recipeRepository.findById(anyLong())).thenReturn(optionalRecipe);
+
+      IngredientCommand ingredientCommand = 
+        ingredientService.findByRecipeIdAndIngredientId(anyLong(), 3L);
+
+
+      // then
+      assertNotNull(ingredientCommand);
+      assertEquals(3L, ingredientCommand.getId());
+      assertEquals(1L, ingredientCommand.getRecipeId());
+
+      verify(recipeRepository, times(1)).findById(anyLong());
+    }
+} 3-4 아래의 코드가 테스트 대상 코드인데 받아온 recipe 내의 category를 찾는 로직이 있는데, 3-4-1 ingredientId가 정확하게 명시되어 있지 않으면 수행자체가 될 수 없다. 3-4-2 반면에 recipeId의 경우는 fixture에서 사용되기 때문에 anyLong도 가능하다. 3-4-2-1 즉 위의 서비스 테스트 메소드 호출 부분을 아래처럼 수정할 수도 있다. // 원래 코드
+ingredientService.findByRecipeIdAndIngredientId(1L, 3L);
+
+// 가능한 코드
+ingredientService.findByRecipeIdAndIngredientId(anyLong(), 3L);
+
+// 불가능한 코드
+ingredientService.findByRecipeIdAndIngredientId(anyLong(), anyLong()); package pe.pilseong.recipe.service;
+
+import java.util.Optional;
+
+import javax.transaction.Transactional;
+
+import org.springframework.stereotype.Service;
+
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import pe.pilseong.recipe.command.IngredientCommand;
+import pe.pilseong.recipe.coverter.IngredientToIngredientCommand;
+import pe.pilseong.recipe.domain.Ingredient;
+import pe.pilseong.recipe.repository.RecipeRepository;
+
+@Slf4j
+@Service
+@RequiredArgsConstructor
+public class IngredientServiceImpl implements IngredientService {
+
+  private final RecipeRepository recipeRepository;
+  private final IngredientToIngredientCommand ingredientCommandConverter;
+
+  @Override
+  @Transactional
+  public IngredientCommand findByRecipeIdAndIngredientId(final long recipeId, final long ingredientId) {
+
+    log.debug("\nfindByRecipeIdAndIngredientId in IngredientServiceImpl");
+
+    Optional<Ingredient> optioanlIngredient = 
+      recipeRepository.findById(recipeId).map(recipe-> {
+      Optional<Ingredient> ingredientOptioanl = recipe.getIngredients().stream()
+        .filter(ingredient-> ingredient.getId().equals(ingredientId))
+        .findFirst();
+      if (ingredientOptioanl.isPresent()) {
+        return ingredientOptioanl.get();
+      } else {
+        return null;
+      }
+    });
+
+    if (!optioanlIngredient.isPresent()) {
+      log.error("ingredient id not found " + ingredientId);
+    }
+
+    Ingredient ingredient = (Ingredient)optioanlIngredient.get();
+    log.debug("ingredient fetched :: " + ingredient.toString());
+
+    return ingredientCommandConverter.convert(ingredient);
+  }
+}

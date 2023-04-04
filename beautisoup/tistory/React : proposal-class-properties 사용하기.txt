@@ -1,0 +1,182 @@
+1. 예전에는 이 내용이 @babel/preset-stage-2에 있던 것들인데 모두 deprecated되어 별도로 지정해서 사용해야 한다. 1-1 아래의 링크가 바벨 홈페이지 proposal-class-properties에 관련된 내용이다. Babel · The compiler for next generation JavaScript The compiler for next generation JavaScript babeljs.io 2 이 syntax는 2가지의 편리한 기능을 제공한다. 2-1 첫 번째는 class 내에서 instance 변수를 선언할 수 있게 해준다. 2-1-1 아래의 소스를 보면 생성자 위에 state = {} 형식으로 변수를 선언하고 있다. 2-1-2 이 구문은 객체 지향 언어에서는 아주 당연히 허용되지만 자바스크립트의 class는 단순히 객체이므로 2-1-3 이런 식의 선언은 허용되지 않는다. 속성으로 key: value가 와야 하기 때문이다. 2-1-4 즉 위의 구문은 신규 플러그인 사용시 아래의 생성자 내의 this.state = {} 구문을 완벽하게 대체한다. import React from 'react'
+
+export default class AddTodo extends React.Component {
+
+  state = {
+    error: undefined
+  }
+
+  constructor(props) {
+    super(props)
+
+    this.onFormSubmit = this.onFormSubmit.bind(this)
+
+    // this.state = {
+    //   error: undefined
+    // }
+  } 2-1-5 위의 구문으로 컴파일하면 다음의 에러가 나온다. 즉 플러그인 설치하라고 말이다. 2-2 두번째는 class 내에 arrow function을 맴버 메소드로 사용할 수 있도록 해준다. 2-2-1 이것의 의미는 es6에서 지정한 형식으로 key: value 형식이 아닌 일반 함수형식의 메소드 선언의 기능에 2-2-2 arrow 함수가 가지는 소속 객체의 context를 유지한다는 기능을 추가한 것이다. 2-2-2-1 다시 말하면 별도로 함수가 주소로 전달되어 사용될 경우 context를 잃는 현상을 대비하여 2-2-2-2 생성자에서 .bind(this) 로 일일히 바인딩하여 미리 메소드 인자에 바이딩된 주소를 할당하는데, 2-2-2-3 이것을 하지 않고도 arrow함수 특성 상 본인이 속한 객체의 context를 참조하는 기능을 부여한 것이다. 2-2-3 단순히 생각하면 일반 자바스크립트의 객체선언에서 속성으로 사용할 때 2-2-3-1 arrow함수는 global을 this로 대입되는 현상과 혼동할 수 있으니 완전 별개의 syntax라고 생각하면 좋겠다. 2-2-3-2 아래 소스의 함수 선언에서 첫번째는 this가 global, 2-2-3-3 두번째는 정상적으로 something 객체를 지정하지만 할당시 context를 상실, 2-2-3-4 세번째는 something객체를 this가 가르키면서도 할당시 context를 잃지 않는다. class something {
+  // onFormSubmit: (e) => {
+  // onFormSubmit(e) {
+  onFormSubmit = (e) => {
+    e.preventDefault()
+    const typedTodo = e.target.elements.newTodo.value
+
+    const error = this.props.handleAddTodo(typedTodo)
+
+    this.setState(() => {
+      return {
+        error
+      }
+    })
+
+    if (!error) {
+      e.target.elements.newTodo.value = ''
+    }
+  }
+} 3. 이제 제일 위의 메뉴얼 페이지에서 설명한대로 설정해본다. 3-1 플러그인 라이브러리 설치 npm install --save-dev @babel/plugin-proposal-class-properties 3-2 이제 webpack에 babel이 설치한 플러그인을 사용하도록 지정해야 한다. 역시 메뉴얼을 참고하였다. 3-2-1 webpack.config.js 파일 수정 const path = require('path')
+
+module.exports = {
+  mode: 'development',
+  entry: './src/app.js',
+  output: {
+    path: path.join(__dirname, 'public'),
+    filename: 'bundle.js'
+  },
+  module: {
+    rules: [{
+      test: /\.js$/,
+      exclude: /node_modules/,
+      use: {
+        loader: 'babel-loader',
+        options: {
+          presets: [
+            '@babel/preset-env',
+            '@babel/preset-react'
+          ],
+          "plugins": [
+            ["@babel/plugin-proposal-class-properties", { "loose": true }]
+          ]
+        }
+      }
+    }]
+  },
+  devServer: {
+    contentBase: path.join(__dirname, 'public'),
+    port: 8081
+  },
+  devtool: 'eval-cheap-module-source-map',
+} 4. 이제 소스를 수정한다. 프로그램에서 state를 관리하는 곳은 단 두곳이므로 그 두 곳만 수정하였다. 4-1 AddTodo.js import React from 'react'
+
+export default class AddTodo extends React.Component {
+
+  state = {
+    error: undefined
+  }
+
+  onFormSubmit = (e) => {
+    e.preventDefault()
+    const typedTodo = e.target.elements.newTodo.value
+
+    const error = this.props.handleAddTodo(typedTodo)
+
+    this.setState(() => {
+      return {
+        error
+      }
+    })
+
+    if (!error) {
+      e.target.elements.newTodo.value = ''
+    }
+  }
+
+  render() {
+    return (
+      <div>
+        {this.state.error && <p>{this.state.error}</p>}
+        <form onSubmit={this.onFormSubmit}>
+          <input type="text" name="newTodo" />
+          <button>Add</button>
+        </form>
+      </div>
+    )
+  }
+} 4-2 TodoApp.js import React from 'react'
+
+import Header from './Header'
+import Action from './Action'
+import TodoList from './TodoList'
+import AddTodo from './AddTodo'
+
+export default class TodoApp extends React.Component {
+
+  state = {
+    todos: [
+      "Take your mask",
+      "Wash your hands",
+      "Drink more water"
+    ]
+  }
+
+  componentDidMount() {
+    try {
+      const todos = localStorage.getItem("todos")
+      if (todos) {
+        console.log(todos)
+        this.setState(() => ({ todos: JSON.parse(todos) }))
+      }
+    } catch (e) {
+    }
+  }
+
+  componentDidUpdate(prevProps, prevState) {
+    if (prevState.todos.length !== this.state.todos.length) {
+      localStorage.setItem("todos", JSON.stringify(this.state.todos))
+    }
+  }
+
+  onRemoveAllClicked = () => {
+    this.setState(() => {
+      return {
+        todos: []
+      }
+    })
+  }
+
+  onNextTodoClicked = () => {
+    const index = Math.floor(Math.random() * this.state.todos.length)
+    alert(this.state.todos[index])
+  }
+
+  handleAddTodo = (todo) => {
+    if (!todo) {
+      return 'Please type vaild item'
+    } else if (this.state.todos.indexOf(todo) > -1) {
+      return 'Duplicated item typed'
+    }
+
+    this.setState((prevState) => {
+      return {
+        todos: prevState.todos.concat(todo)
+      }
+    })
+  }
+
+  render() {
+    return (
+      <div>
+        <Header />
+        <Action 
+          hasTodos={this.state.todos.length > 0} 
+          onNextTodoClicked={this.onNextTodoClicked}
+        />
+        <TodoList 
+          hasTodos={this.state.todos.length > 0}
+          todos={this.state.todos}
+          onRemoveAllClicked={this.onRemoveAllClicked}
+        />
+        <AddTodo handleAddTodo={this.handleAddTodo} />
+      </div>
+    )
+  }
+} 5. 결과 화면 - 기능상 차이는 전혀없다.

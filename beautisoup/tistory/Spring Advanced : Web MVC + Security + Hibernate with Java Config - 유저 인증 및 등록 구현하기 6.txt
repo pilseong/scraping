@@ -1,0 +1,230 @@
+1. 이 포스트는 Spring : Web MVC + Security + JDBC 시리즈에 연장이다. xml파일 설정은 사용하지 않는다. 1-1 하려는 것은 우선 in-memory로 인증을 구현한다. 1-2 Database를 생성하고 hibernate로 유저 등록을 구현한다. 1-3 가입정보에 대한 Validation처리를 작성한다. Customer Validatior로 구현한다. 1-4 In-memory가 아닌 DaoAuthenticationProvider로 hibernate를 사용한 Spring security 인증처리로 변경 1-5 위에 것을 한번에 다 할려면 난이도가 헬이라서 이렇게 분리해서 한다. 2. 이 포스트는 하이버네이트를 이용한 custom schema를 사용하여 Spring security 로그인에 연결하는 내용이다. 2-1 현재 상황은 로그인은 in-memory로 되어 있고 2-2 가입 유저들은 가입정보를 데이터베이스에 저장하고 있다. 2-3 이 포스트는 가입한 데이터베이스 정보를 가지고 실제 로그인에 사용하도록 하는 내용이다. 3. 우선 최종 인증설정변경에 앞서 중복 username 체크하는 부분에 메시지를 표출하는 것부터 하겠다. 3-1 현재는 그냥 중복 유저이름일 경우 그냥 registration-form을 돌아가도록 되어 있다. 3-2 여기서는 이미 username이 사용된 경우에 model에 중복이름이라는 내용을 넣어 등록페이지로 다시 보낸다. 3-3 마지막 포스트라 그냥 Login Controller 다 붙였다. 지금 이야기하는 것은 제일 아래 registerUser 메소드이다. package pe.pilseong.custom_registration.controller;
+
+import javax.validation.Valid;
+
+...
+
+@Controller
+public class LoginController {
+  @Autowired
+  private UserService userService;
+  
+  @GetMapping("/showLoginPage")
+  public String showLoginPage() {
+    return "plain-login";
+  }
+  
+  @GetMapping("/access-denied")
+  public String accessDenied() {
+    return "access-denied";
+  }
+  
+  @GetMapping("/registrationPage")
+  public String registrationPage(Model model) {
+    model.addAttribute("user", new UserDTO());
+    
+    return "registration-form";
+  }
+  
+  @InitBinder
+  public void initBinder(WebDataBinder dataBinder) {
+    StringTrimmerEditor stringTrimmerEditor = new StringTrimmerEditor(true);
+    dataBinder.registerCustomEditor(String.class, stringTrimmerEditor);
+  }
+  
+  @PostMapping("/registerUser")
+  public String registerUser(Model model, @Valid @ModelAttribute("user") UserDTO userDTO, BindingResult result) {
+    System.out.println(userDTO.toString());
+
+    if (result.hasErrors()) {
+      return "registration-form";
+    }
+    
+    if (this.userService.findByUserName(userDTO.getUserName()) != null) {
+      model.addAttribute("registrationError", "User name is already taken");
+      return "registration-form";
+    }
+    
+    this.userService.save(userDTO);
+    return "redirect:/showLoginPage";
+  }
+} 3-4 이제 jsp에서 표출하는 부분을 넣는다. 3-4-1 위치는 form:form 바로 뒤에 공백을 사이에 둔 로직이 있다 . registrationError라는 게 있으면 내용을 보여준다. <%@ taglib prefix="c" uri="http://java.sun.com/jsp/jstl/core" %>
+<%@ taglib prefix="form" uri="http://www.springframework.org/tags/form"%>
+<%@ page language="java" contentType="text/html; charset=UTF-8"
+  pageEncoding="UTF-8"%>
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<link rel="stylesheet"
+  href="https://stackpath.bootstrapcdn.com/bootstrap/4.4.1/css/bootstrap.min.css"
+  integrity="sha384-Vkoo8x4CGsO3+Hhxv8T/Q5PaXtkKtu6ug5TOeNV6gBiFeWPGFN9MuhOf23Q9Ifjh"
+  crossorigin="anonymous">
+<title>Registration Form</title>
+</head>
+<body>
+
+  <div class="container">
+    <div class="card" style="width: 350px; margin-left: auto; margin-right: auto; border: none;">
+      <h1 class="display-4">Registration</h1>
+      <form:form action="${pageContext.request.contextPath}/registerUser" method="POST" modelAttribute="user">
+      
+        <div class="form-group">
+          <c:if test="${ registrationError != null }">
+            <div class='alert alert-danger'>
+              ${ registrationError }
+            </div>
+          </c:if>
+        </div>
+      
+        <div class="form-group">
+          <label for="username">Username</label> 
+          <form:input type="text" id="username" name="userName" class="form-control" path="userName"/>
+          <form:errors path="userName" cssClass="text-danger"></form:errors>
+        </div>
+        <div class="form-group">
+          <label for="password">Password</label>
+          <form:input type="password" id="password" name="password" class="form-control" path="password" />
+          <form:errors path="password" cssClass="text-danger"></form:errors>
+        </div>  
+        <div class="form-group">
+          <label for="matchingPassword">Confirm Password</label>
+          <form:input type="password" id="matchingPassword" name="matchingPassword" class="form-control" path="matchingPassword"/>
+          <form:errors path="matchingPassword" cssClass="text-danger"></form:errors>
+        </div>  
+        <div class="form-group">
+          <label for="firstName">First Name</label>
+          <form:input type="text" id="firstName" name="firstName" class="form-control" path="firstName"/>
+          <form:errors path="firstName" cssClass="text-danger"></form:errors>
+        </div>  
+        <div class="form-group">
+          <label for="lastName">Last Name</label>
+          <form:input type="text" id="lastName" name="lastName" class="form-control" path="lastName"/>
+          <form:errors path="lastName" cssClass="text-danger"></form:errors>
+        </div>  
+        <div class="form-group">
+          <label for="email">Email</label>
+          <form:input type="email" id="email" name="email" class="form-control" path="email" />
+          <form:errors path="email" cssClass="text-danger"></form:errors>
+        </div>  
+        <input type="submit" value="Register" class="btn btn-primary">
+      </form:form>
+    </div>
+  </div>
+
+
+  <script src="https://code.jquery.com/jquery-3.4.1.slim.min.js"
+    integrity="sha384-J6qa4849blE2+poT4WnyKhv5vZF5SrPo0iEjwBvKU7imGFAV0wwj1yYfoRSJoZ+n"
+    crossorigin="anonymous"></script>
+  <script
+    src="https://cdn.jsdelivr.net/npm/popper.js@1.16.0/dist/umd/popper.min.js"
+    integrity="sha384-Q6E9RHvbIyZFJoft+2mJbHaEWldlvI9IOYy5n3zV9zzTtmI3UksdQRVvoxMfooAo"
+    crossorigin="anonymous"></script>
+  <script
+    src="https://stackpath.bootstrapcdn.com/bootstrap/4.4.1/js/bootstrap.min.js"
+    integrity="sha384-wfSDF2E50Y2D1uUdj0O3uMBJnjuUD4Ih7YwaYd1iqfktj0Uod8GCExl3Og8ifwB6"
+    crossorigin="anonymous"></script>
+</body>
+</html> 3-4-2 결과 화면이다. 4. 이제 본론인 인증을 변경하는 부분이다. 4-1 스프링 Security에서 customized된 데이터베이스 스키마를 사용하려면 AuthenticationProvider를 설정해야 한다. 4-1-1 이것은 스프링 Security가 로그인을 위해서 데이터를 어떻게 받아오는지 알려주어야 하는 부분이다. 4-2 스프링 Security는 편의성을 높이기 위해 DaoAuthenticationProvider라는 것을 제공하고 있다. 4-2-1 이 AuthenticationProvider는 UserDetailsService라는 인터페이스를 통하여 유저정보를 받아온다. 4-2-2 따라서 UserDetailsService 인터페이스를 구현하여 어떻게 유저정보를 얻어오는지 알려주어야 한다. 4-2-2-1 UserDetailsService 인터페이스는 loadUserByUsername(String username)이라는 하나의 메소드만 가지고, 4-2-2-2 org.springframework.security.core.userdetails.User를 반환한다. 4-2-2-3 이 메소드를 UserService에서 상속하여 구현하고 스프링 Security에서 필요한 User를 만들어야 한다. 4-2-2-4 이 구현클래스를 UserDetailsService인터페이스로 DaoAuthenticationProvider에 제공하면 된다. 4-3 UserDetailsService인터페이스를 상속한 UserService 인터페이스이다. package pe.pilseong.custom_registration.service;
+
+import org.springframework.security.core.userdetails.UserDetailsService;
+
+import pe.pilseong.custom_registration.entity.User;
+import pe.pilseong.custom_registration.user.UserDTO;
+
+public interface UserService extends UserDetailsService {
+  
+  User findByUserName(String userName);
+  
+  void save(UserDTO user);
+} 4-4 이제 이 메소드를 UserServiceImpl에서 추가로 구현해야 한다. 4-4-1 아래 부분에 Override된 loadByUsername이 있다. 4-4-2 로직은 username으로 DB에서 User객체를 가져와 스프링이 원하는 원하는 다른 User객체를 반환하는 것이다. 4-4-3 이름과 비밀번호를 설정하는 것은 문자열이라 단순한데 4-4-4 Role의 경우는 GrantedAuthority타입으로 된 객체의 List로 반환해서 입력해야 한다. 4-4-5 GrantedAuthority는 인터페이스인데 그냥 Role이라고 보면 된다. 4-4-5-1 이걸 구현한 SimpleGrantedAuthority는 속성으로 String role하나 만 꼴랑가지고 있다. 4-4-6 mapRolesToAuthorities는 그냥 List<Role>을 받아서 List<GrantedAuthority>로 바꾼 거라고 생각하면 된다. 4-4-7 Role Entity를 GrantedAuthority를 상속받게 하면 더 간단히 처리할 수 있다. 다른 시리즈에서 다룬다. package pe.pilseong.custom_registration.service;
+
+...
+
+@Service
+public class UserServiceImpl implements UserService {
+
+  @Autowired
+  private UserDAO userDAO;
+  
+  @Autowired
+  private RoleDAO roleDAO;
+  
+  @Autowired
+  private BCryptPasswordEncoder  passwordEncoder;
+
+  @Override
+  @Transactional
+  public User findByUserName(String userName) {
+    return this.userDAO.findByUserName(userName);
+  }
+
+  @Override
+  @Transactional
+  public void save(UserDTO userDTO) {
+    User user = new User();
+    
+    user.setUsername(userDTO.getUserName());
+    user.setPassword(this.passwordEncoder.encode(userDTO.getPassword()));
+    user.setFirstName(userDTO.getFirstName());
+    user.setLastName(userDTO.getLastName());
+    user.setEmail(userDTO.getEmail());
+    
+    user.setRoles(Arrays.asList(this.roleDAO.findRoleByName("ROLE_EMPLOYEE")));
+    
+    this.userDAO.save(user);
+  }
+
+  @Override
+  @Transactional
+  public UserDetails loadUserByUsername(String userName) throws UsernameNotFoundException {
+    User user = this.userDAO.findByUserName(userName);
+    
+    if (user == null) {
+      throw new UsernameNotFoundException("Invalid username and password");
+    }
+    
+    return new org.springframework.security.core.userdetails.User(
+        user.getUsername(), user.getPassword(), this.mapRolesToAuthorities(user.getRoles()));
+  }
+  
+  private Collection<? extends GrantedAuthority> mapRolesToAuthorities(Collection<Role> roles) {
+    return roles.stream().map(role -> new SimpleGrantedAuthority(role.getName()))
+        .collect(Collectors.toList());
+    
+  }
+} 4-4-7 stream을 사용하여 변경하는데 그냥 메소드 안만들고 한줄로 해도 된다. public UserDetails loadUserByUsername(String userName) throws UsernameNotFoundException {
+    User user = this.userDAO.findByUserName(userName);
+    
+    if (user == null) {
+      throw new UsernameNotFoundException("Invalid username and password");
+    }
+    
+    return new org.springframework.security.core.userdetails.User(
+    	user.getUsername(), user.getPassword(), 
+        user.getRoles().stream().map(role-> new SimpleGrantedAuthority(role.getName()))
+        	.collect(Collectors.toList()));
+  } 4-5 이제 마지막으로 SecurityConfig 에서 인증을 DaoAuthenticationProvider로 설정하여 연결한다. 4-5-1 DaoAuthenticationProvider를 생성하는 @Bean이다. 4-5-2 데이터베이스에서 로그인 정보를 가져오는 UserDetailsService와 비밀번호 암호화 정책을 설정한다. @Autowired
+  private UserDetailsService userDetailsService;
+  
+  ... 
+  
+  @Bean
+  public DaoAuthenticationProvider authenticationProvider() {
+    DaoAuthenticationProvider auth = new DaoAuthenticationProvider();
+    auth.setUserDetailsService(userDetailsService);
+    auth.setPasswordEncoder(passwordEncoder());
+    
+    return auth;
+  } 4-5-3 인증 관리자에 인증방식을 in-Memory에서 DaoAuthenticationProvider로 설정한다. @Override
+  protected void configure(AuthenticationManagerBuilder auth) throws Exception {
+    
+    auth.authenticationProvider(authenticationProvider());
+    
+//    UserBuilder builder = User.builder();
+//    
+//    auth.inMemoryAuthentication().passwordEncoder(passwordEncoder())
+//      .withUser(builder.username("pilseong").password("$2a$10$UwsYjhu/iNCKbRDEsYpoi.AvuQlxX1yv/9TbtEmnmbgFQkh4z0TWa").roles("EMPLOYEE"))
+//      .withUser(builder.username("suel").password("$2a$10$F1kAcy7iAw0790oaf4ATxeerP779yfrK.hncxhfU1jDoSLS.drNem").roles("EMPLOYEE", "MANAGER"))
+//      .withUser(builder.username("noel").password("$2a$10$G59j5AkWAujaRfp2AhJtPeoirdMiPlfYkEoVczYpwTiWXeWyHadPS").roles("EMPLOYEE", "ADMIN"));
+  } 5. 로그인 성공 6. 이 포스트에서 한 내용은 6-1 중복 유저가 있으면 그 내용을 화면에 표출해 주는 부분과 6-2 DaoAuthenticationProvider를 이용한 스프링 Security 로그인 설정이다. 6-3 사용자가 임의로 설계한 데이터베이스을 사용하여 Spring Security 로그인을 이용하는 방법이다.

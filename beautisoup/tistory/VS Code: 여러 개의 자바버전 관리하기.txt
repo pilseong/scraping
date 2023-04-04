@@ -1,0 +1,38 @@
+1. 프로젝트마다 사용하는 JDK 버전이 다른 경우가 많다. VS Code에도 각 프로젝트마다 자바버전을 다르게 할 수 있다. 1-1 이 점이 왜 필요한지 대해 예를 들어 보면 전자정부 프레임워크는 몇 년전까지 Java 7을 요구하였다. 1-2 그런데 VS code에서 자바 언어 지원을 위한 Java Language Server는 최소 Java 8을 요구한다. 1-3 이런 경우 두 개 이상의 JDK를 지정할 수 없다면 프로젝트를 개발할 수가 없다. 1-3-1 Java 7로는 자바 언어 서버가 동작하지 않아서 VS Code로 자바 개발이 불가능하다. 1-3-2 Java 8로 지정할 경우 Java 7이 지원하는 아주 오래된 라이브러리가 동작하지 않아 문제가 생길 수 있다. 2. 이것을 해결하기 위해서는 두 가지를 생각해야 한다. 2-1 자바 언어처리를 위해서 VS Code는 자바 언어 서버라는 것을 사용한다. 이 서버를 위한 JDK 설정이 필요하다. 2-1-1 VS Code가 업그레이드 되면서 기본 서버의 요구 JDK가 8에서 현재 11로 올라가고 있다. 2-2 두 번째는 프로젝트 마다 요구하는 JDK 버전이다. 3. VS Code의 세팅에서 jdk로 검색하면 여러 개의 항목이 나온다. 3-1 첫 번째는 여러 개의 JDK 실행환경을 설정하는 부분이다. 배열로 되어 있어 여러개를 지정할 수 있다. 3-2 두 번째 Java: Home은 11 버전 이상을 요구하는데 Java Language Server가 사용하는 JDK를 설정하는 부분이다. 3-3 세 번째는 XML Language 서버 용으로 지정될 자바 버전이다. 4. 자바 버전 설정 하기 - 런타임용으로 11, 15버전을 등록하였고, 언어서버로 15버전을 기본으로 사용하도록 설정 4-0 아래를 보면 java.configuration.runtimes라는 속성이 여러 개의 자바 실행환경을 등록하는 부분이다. 4-1 java.home은 Java language server 용 jdk 버전을 설정하는 부분이다. 4-2 xml.java.home Xml Language 서버용 설정이다. {
+    "editor.suggestSelection": "first",
+    "vsintellicode.modify.editor.suggestSelection": "automaticallyOverrodeDefaultValue",
+    "java.configuration.checkProjectSettingsExclusions": false,
+    "editor.tabSize": 2,
+    "python.languageServer": "Pylance",
+    "[html]": {
+        "editor.defaultFormatter": "vscode.html-language-features"
+    },
+    "editor.minimap.enabled": false,
+    "workbench.colorTheme": "Default Light+",
+    "liveServer.settings.donotShowInfoMsg": true,
+    "editor.wordWrap": "on",
+    "liveServer.settings.CustomBrowser": "chrome",
+    "redhat.telemetry.enabled": false,
+    "terminal.integrated.shell.windows": "C:\\Program Files\\Git\\bin\\bash.exe",
+    "terminal.integrated.fontFamily": "monospace",
+    "editor.fontFamily": "D2Coding ligature, Consolas, 'Courier New', monospace",
+    "[javascript]": {
+        "editor.defaultFormatter": "vscode.typescript-language-features"
+    },
+    "gitlens.hovers.currentLine.over": "line",
+    "editor.fontSize": 12,
+    "java.project.importOnFirstTimeStartup": "automatic",
+    "java.configuration.runtimes": [
+        {
+            "name": "JavaSE-11",
+            "path": "C:\\Program Files\\Amazon Corretto\\jdk11.0.11_9",
+            "default":  true
+        },
+        {
+            "name": "JavaSE-15",
+            "path": "C:\\Program Files\\java\\jdk-15.0.1",
+        }
+    ],
+    "java.home": "C:\\Program Files\\java\\jdk-15.0.1",
+    "xml.java.home": "C:\\Program Files\\java\\jdk-15.0.1"
+}

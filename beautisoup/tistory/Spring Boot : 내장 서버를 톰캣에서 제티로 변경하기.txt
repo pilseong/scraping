@@ -1,0 +1,14 @@
+1. 한번 씩 The valid characters are defined in RFC 7230 and RFC 3986 이런 거 뜨면서 예외가 뜨는 경우가 있다. 1-1 개발을 하다가 중간에 생기면 링크를 걸 때 자바스크립트로 encodeURI 함수로 감싸 주면 되는데, 1-2 스프링 REST data를 쓰는 경우, 자동생성코드가 이런 오류가 나는 경우가 있다. 1-3 이런 경우는 아래 처럼 그냥 tomcat 대신에 jetty를 쓰는 게 편하다. 2. 변경하는 방법은 starter-tomcat을 쓰는 starter찾아서 아래 처럼 tomcat을 빼주고 jetty를 더하면 된다. 2-1 data-rest가 포함할 수도 있고, web이 포함할 수도 있으니 상황에 찾아서 잘 판단하면 된다. <dependency>
+    <groupId>org.springframework.boot</groupId>
+    <artifactId>spring-boot-starter-data-rest</artifactId>
+    <exclusions>
+      <exclusion>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-starter-tomcat</artifactId>
+      </exclusion>
+    </exclusions>
+  </dependency>
+  <dependency>
+    <groupId>org.springframework.boot</groupId>
+    <artifactId>spring-boot-starter-jetty</artifactId>
+  </dependency>

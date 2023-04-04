@@ -1,0 +1,124 @@
+1. 스프링 formatter는 특정 타입의 객체를 문자열로 반대로 문자열을 특정타입의 객체로 변환할 때 사용한다. 1-1 즉 String과 Object 사이의 변환을 해준다. 2. Converter는 Object, Object 간의 변환을 해준다. 2-1 converter 인터페이스는 source, target 두 개의 generic을 제공해야 하고 2-2 formetter는 하나의 target만 제공하면 된다. 3. 스프링 부트의 경우는 @Component로 지정하면 자동으로 로딩되어 사용된다. 4. 간단한 예제 4-1 아래는 타임리프 템플릿이다. 4-1-1 아래는 애완동물을 생성하기 위한 form인데 여기에 petType이라는 것을 설정해야 한다. 4-1-1-1 Set에 여러 개의 PetType이 포함된 collection으로 제공한다. 4-1-2 중앙에 보면 select로 fragmemt를 사용하고 있는데 PetType의 클래스에 name이라는 속성을 가지고 있다. <html xmlns:th="http://www.thymeleaf.org" 
+      th:replace="~{fragments/layout :: layout (~{::body},'owners')}">
+<body>
+  <h2>
+    <th:block th:if="${pet['new']}">New </th:block>
+    Pet
+  </h2>
+  <form th:object="${pet}" class="form-horizontal" method="post">
+    <input type="hidden" name="id" th:value="*{id}" />
+    <div class="form-group has-feedback">
+      <div class="form-group">
+        <label class="col-sm-2 control-label">Owner</label>
+        <div class="col-sm-10">
+          <span th:text="${owner?.firstName + ' ' + owner?.lastName}" />
+        </div>
+      </div>
+      <input th:replace="~{fragments/inputField :: input ('Name', 'name', 'text')}" />
+      <input th:replace="~{fragments/inputField :: input ('Birth Date', 'birthDate', 'date')}" />
+      <input th:replace="~{fragments/selectField :: select ('Type', 'petType', ${types})}" />
+    </div>
+    <div class="form-group">
+      <div class="col-sm-offset-2 col-sm-10">
+        <button th:with="text=${pet['new']} ? 'Add Pet' : 'Update Pet'" class="btn btn-default" type="submit"
+          th:text="${text}">Add
+          Pet</button>
+      </div>
+    </div>
+  </form>
+
+</body>
+
+</html> 4-1-3 위의 template이 사용하는 select fragmemt이다. <html>
+<body>
+  <form>
+    <th:block th:fragment="select (label, name, items)">
+      <div th:with="valid=${!#fields.hasErrors(name)}"
+        th:class="${'form-group' + (valid ? '' : ' has-error')}"
+        class="form-group">
+        <label class="col-sm-2 control-label" th:text="${label}">Label</label>
+
+        <div class="col-sm-10">
+          <select th:field="*{__${name}__}">
+            <option th:each="item : ${items}" th:value="${item}"
+              th:text="${item}">dog</option>
+          </select>
+          <span th:if="${valid}"
+            class="glyphicon glyphicon-ok form-control-feedback"
+            aria-hidden="true"></span>
+          <th:block th:if="${!valid}">
+            <span
+              class="glyphicon glyphicon-remove form-control-feedback"
+              aria-hidden="true"></span>
+            <span class="help-inline" th:errors="*{__${name}__}">Error</span>
+          </th:block>
+        </div>
+      </div>
+    </th:block>
+  </form>
+</body>
+</html> 4-1-3-1 코드에 types라는 것을 받아 items에 할당하고 아래 코드에서 th:each로 items를 사용하고 있다. 4-1-3-2 item으로 collection에서 개별 객체를 가져와 보여주는데 toString()을 통해 표출된다. package pe.pilseong.petclinic.domain;
+
+import javax.persistence.Column;
+import javax.persistence.Entity;
+import javax.persistence.Table;
+
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
+
+@Setter
+@Getter
+@NoArgsConstructor
+@AllArgsConstructor
+@Entity
+@Table(name = "types")
+public class PetType extends BaseEntity {
+  private static final long serialVersionUID = 1L;
+
+  @Builder
+  public PetType(Long id, String name) {
+    super(id);
+    this.name = name;
+  }
+  
+  @Column(name = "name")
+  private String name;
+
+  @Override
+  public String toString() {
+    return name;
+  }
+} 4-2 중요한 부분은 submit버튼을 눌렀을 때 스프링 controller에서 처리를 해야 한다. 4-2-1 아래처럼 String값을 PetType으로 변환하여 매핑을 해야 한다는 의미이다. 4-2-2 이 부분에서 formatter가 필요하다. 4-2-3 간단한 포멧터로 Formatter 인터페이스를 구현하고 있고 String이 변환할 Type을 지정해야 한다. 4-2-3-1 print 메소드는 type을 문자열로, parse는 문자열을 객체로 변환한다. 4-2-3-2 아래의 parse는 lambda를 사용하여 간단히 변환하여 Type을 제공하고 없으면 예외를 발생시키고 있다. package pe.pilseong.petclinic.formatter;
+
+import java.text.ParseException;
+import java.util.Locale;
+
+import org.springframework.format.Formatter;
+import org.springframework.stereotype.Component;
+
+import lombok.RequiredArgsConstructor;
+import pe.pilseong.petclinic.domain.PetType;
+import pe.pilseong.petclinic.service.PetTypeService;
+
+@Component
+@RequiredArgsConstructor
+public class PetTypeForamtter implements Formatter<PetType> {
+
+  private final PetTypeService petTypeService;
+
+  @Override
+  public String print(PetType petType, Locale locale) {
+    return petType.getName();
+  }
+
+  @Override
+  public PetType parse(String text, Locale locale) throws ParseException {
+    return petTypeService.findAll().stream()
+      .filter(petType-> petType.getName().equals(text))
+      .findFirst()
+      .orElseThrow(()-> new ParseException("Type not Found :: " + text, 0));
+  }
+}

@@ -1,0 +1,93 @@
+1. Enum은 특정스트링을 상수값에 대입하여 편리하게 사용하는 방법이다. 2. 예를 들면 public enum Level {
+	SEVERE, DEBUG, WARNING, INFO
+}
+
+public enum School {
+	ELEMENTARY, MIDDLE, HIGH, TERINARY
+} 3. Annotation 설명 3-1 @Enumerated - Enum Type에 사용한다. 3-2 속성 EnumType은 어떤 형식으로 데이터베이스에 저장할지를 지정한다. Integer와 String이 가능하다. 4. 예제 작성 4-1 바로 이전 포스트의 세팅을 그대로 사용한다. 4-2 Level enum package pe.pilseong.hibernate_embedded.entity;
+
+public enum Level {
+  ELEMENTARY, MIDDLE, HIGH, TERIARY
+} 4-3 Student Entity 4-3-1 중간에 level이라는 속성 3줄을 추가하였다. 4-3-2 EnumType이 String으로 지정되어 있으므로 데이터베이스에는 Enum String이 저장된다. 4-3-3 컬럼이름을 school_level로 지정하였다. package pe.pilseong.hibernate_embedded.entity;
+
+import javax.persistence.Column;
+import javax.persistence.Embedded;
+import javax.persistence.Entity;
+import javax.persistence.Enumerated;
+import javax.persistence.GeneratedValue;
+import javax.persistence.GenerationType;
+import javax.persistence.Id;
+import javax.persistence.Table;
+
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+@Entity
+@Table(name = "student")
+@Data
+@NoArgsConstructor
+public class Student {
+  
+  @Id
+  @GeneratedValue(strategy = GenerationType.IDENTITY)
+  private Long id;
+  
+  @Column(name = "first_name")
+  private String firstName;
+  
+  @Column(name = "last_name")
+  private String lastName;
+  
+  @Column(name = "email")
+  private String email;
+  
+  @Embedded
+  private Address address;
+  
+  @Column(name = "school_level")
+  @Enumerated(EnumType.STRING)
+  private Level level;  
+
+  public Student(String firstName, String lastName, String email) {
+    this.firstName = firstName;
+    this.lastName = lastName;
+    this.email = email;
+  }
+} 4-4 실행코드 package pe.pilseong.hibernate_embedded;
+
+import org.hibernate.Session;
+import org.hibernate.SessionFactory;
+import org.hibernate.cfg.Configuration;
+
+import pe.pilseong.hibernate_embedded.entity.Address;
+import pe.pilseong.hibernate_embedded.entity.Level;
+import pe.pilseong.hibernate_embedded.entity.Shipping;
+import pe.pilseong.hibernate_embedded.entity.Student;
+
+/**
+ * Hello world!
+ *
+ */
+public class App {
+  public static void main(String[] args) {
+    SessionFactory factory = new Configuration().configure()
+        .addAnnotatedClass(Student.class)
+        .addAnnotatedClass(Shipping.class)
+        .buildSessionFactory();
+    
+    Session session = factory.getCurrentSession();
+    
+    session.beginTransaction();
+    
+    Address address = new Address("siminro gold", "Seongnam", "Gyeunggi", "South Korea");
+    Student student = new Student("Pilseong", "Heo", "heops79@gmail.com", address, Level.ELEMENTARY);
+    Shipping shipping = new Shipping(address, "computer", 5);
+    
+    session.save(student);
+    
+    session.save(shipping);
+    
+    session.getTransaction().commit();
+    factory.close();
+  }
+} 4-5 실행결과 4-5-1 varchar 형식의 school_level이 생성되었다. 4-6 테이블 구조

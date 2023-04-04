@@ -1,0 +1,404 @@
+1.  최근 수도 동파관련 데이터조회 하는 로직을 작성하였는데, 로직이 상당히 까다롭다. 5개의 쿼리의 길이가 600라인 정도가 된다. 1-0 동파 기간은 11월에서 3월이다. 이번 동파시즌은 시작한 지 알마되지도 않았지만 1-1 이번 시즌 새로운 기준으로 작성한 쿼리 5개의 쿼리를 MyBatis를 적용한 실행 시간은 10초 정도가 걸렸다. 1-2 작년 풀시즌을 조회하면 MyBatis로 조회를 하니 20초 정도가 소모되었다. 1-3 수정한 방식에서는 올 시즌은 1.2초 작년 풀시즌은 2.5초 정도가 소요되도록 개선되었다. 1-4 아래에 비교 성능비교한 동영상이다. 첫 번째 부분은 20일 정도 쌓인 데이터이고 바로 앞자료는 1년 치 자료를 조회하는 부분이다. 차이가 명확하다. https://www.youtube.com/watch?v=H9H2PxaFJFM * 코드는 보안을 위해서 알 수 없게 수정을 하였다. 개선 제안을 하고 개발자에게 참고하라고 프로토타입을 작성한 코드라서 실제 반영된 코드는 아니다. 2. 처음에는 이것이 MyBatis 레이어가 있어서 발생하는 부하라고 생각했다. 그래서 Mapping Layer만 걷어 내면 될 것이라고 판단하여 MyBatis를 사용하지 않는 JDBC코드를 작성하였다. 물론 스프링에서 제공하는 JdbcTemplate이 있지만 사용하지 않았다. 만들어 쓰는 게 더 단순하고 수정하기도 편하다. package ------------service.impl;
+
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.SQLException;
+
+public interface StatementStrategy {
+  PreparedStatement makePreparedStatement(Connection c) throws SQLException;
+}
+
+
+package ------------service.impl;
+
+import java.sql.ResultSet;
+import java.sql.SQLException;
+
+import org.springframework.dao.DataAccessException;
+
+public interface ResultStrategy<T> {
+  T extractData(ResultSet rs) throws SQLException, DataAccessException;
+}
+
+
+package ------------service.impl;
+
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.ResultSetMetaData;
+import java.sql.SQLException;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+import javax.sql.DataSource;
+
+import org.slf4j.LoggerFactory;
+import org.springframework.dao.DataAccessException;
+import org.springframework.stereotype.Service;
+
+import org.slf4j.Logger;
+
+// pilseong, Generic JDBC Mapper
+@Service
+public class JdbcContext {
+
+  /**
+   * LOGGER
+   */
+  private static final Logger LOGGER = LoggerFactory.getLogger(JdbcContext.class);
+  private DataSource dataSource;
+
+  public void setDataSource(DataSource dataSource) {
+    this.dataSource = dataSource;
+  }
+
+  public DataSource getDataSource() {
+    return this.dataSource;
+  }
+
+  public List<Map<String, Object>> query(final String sql, final String... values) throws SQLException {
+    return this.jdbcContextWithStatementStrategyAndResultStrategy(
+        new StatementStrategy() {
+          @Override
+          public PreparedStatement makePreparedStatement(Connection c) throws SQLException {
+            PreparedStatement ps = c.prepareStatement(sql);
+            if (values.length > 0) {
+              for (int i=0; i < values.length; i++) {                
+                ps.setString(i+1, values[i]);
+              }
+            }
+            return ps;
+          }
+        }, 
+        new ResultStrategy<List<Map<String,Object>>>() {
+          @Override
+          public List<Map<String,Object>> extractData(ResultSet rs) throws SQLException, DataAccessException {
+            List<Map<String, Object>> results = new ArrayList<Map<String, Object>>();
+            ResultSetMetaData rsmd = rs.getMetaData();
+            Map<String, Object> row = null;
+            while (rs.next()) {
+              row = new HashMap<String, Object>();
+              for (int i=0; i<rsmd.getColumnCount();i++) {
+                row.put(rsmd.getColumnName(i+1), rs.getString(i+1));
+              }
+              results.add(row);
+            }
+            return results;
+          }
+        });
+  }
+  
+  private <T> T jdbcContextWithStatementStrategyAndResultStrategy(
+    StatementStrategy stmt, ResultStrategy<T> rsst)
+      throws SQLException {
+    Connection c = null;
+    PreparedStatement ps = null;
+    ResultSet rs = null;
+
+    try {
+      c = dataSource.getConnection();
+      ps = stmt.makePreparedStatement(c);
+      rs = ps.executeQuery();
+      return rsst.extractData(rs);
+    } catch (SQLException e) {
+      e.printStackTrace();
+      throw e;
+    } finally {
+      if (ps != null) {
+        try {
+          ps.close();
+        } catch (SQLException e) {
+        }
+      }
+      if (c != null) {
+        try {
+          c.close();
+        } catch (SQLException e) {
+        }
+      }
+    }
+  }
+} 3. 처음에 예상한 것이 맞은 것 처럼 JUnit으로 JDBC를 붙여서 바로 실행하니 거의 데이터베이스에서 조회하는 수준의 응답시간이 나왔다. 그래서 자연스럽게 MyBatis문제로 결론 짓고 위에 간단한 프로그램을 만든 취지대로 실제 데이터 바인딩 방식으로 작성하였다. 4. 그런데, 통으로 붙인 코드와는 달리 바인딩을 한 코드의 응답속도는 MyBatis에서 실행하는 것보다 20~30% 정도 밖에 개선되지 않았다. 같은 로직을 수행했는데, 어떻게 한쪽은 응답속도가 10배 정도가 차이나는지 이해가 되지 않았다. 5. 이 문제의 원인은 바인딩이이었다. PrepareStatement에 적용된 sql문의 ? 와 전달된 파라메터를 매핑하는 부분에서 발생한 문제였다. 왜 이렇게 시간 차이가 많이 나는지 이해할 수 없지만 파라메터가 미리 치환된 문자열로 수행하니 다시 속도가 빨라진 것이다. 이전 JUnit 테스트의 결과는 테스트 용이었기 때문에 이미 데이터베이스에서 조회하는 것처럼 치환이 필요없는 구문으로 수행되었다. * 사실 파라메터 매핑을 피하는 경우에 중대한 보안 문제가 발생한다. SQL Injection attacks에 취약해 진다. 그래서 본인이 무엇을 하는지 알고 사용해야 한다. where 아래에 들어가는 파라메터에 haha' or 'a' = 'a  이런 걸 넣어버리면 모든 정보를 다 돌려 주게 된다. 내부 시스템이나 DAO에 도달하기 전에 파라미터를 미리 검증하는 로직으로 걸러내는 부분이 필수적이다. 6. 아래의 코드는 문제가 된 5개의 쿼리 중 하나이다. 주석 처리 한 부분은 query에 가변인자를 넣어주는 형식의 일반적인 파라메터 매핑 패턴이다. 하지만, 속도가 너무 느려 주석을 하지 않은 sql 문자열을 작성하여 처리한 것이 주석이 없는 부분이다. 6-1 JdbcContext는 위에 작성한 클래스이다. 6-2 문자열에 테이블 이름이나 변수이름은 보안 문제로 수정하였다. 6-3 가변인자 방식을 사용하면 Sql을 별도의 property 파일에 저장하여 코드를 깔끔하게 만들 수 있지만, 성능문제로 파라미터 바인딩을 사용할지 않는 경우는 깔끔한 코드로 구현하기가 힘들어진다. public List<Map<String, Object>> ______RealTime(____REALTimeVO ____REALTimeVO, UserVO userVO) throws Exception {
+		StringBuffer sb = new StringBuffer();
+		sb.append(""
+		    + "SELECT LOG_TIME AS CODE_NM ,"
+		    + "NVL(SUM(DECODE(MINWON_SEC,'1',APPLY_CNT,0)),0) AS APPLY_CNT1 ,"
+		    + "NVL(SUM(DECODE(MINWON_SEC,'1',COMPT_CNT,0)),0) AS COMPT_CNT1 ,"
+		    + "NVL(SUM(DECODE(MINWON_SEC,'1',WRONG_CNT,0)),0) AS WRONG_CNT1 ,"
+		    + "NVL(SUM(DECODE(MINWON_SEC,'1',PROC_CNT,0)),0) AS PROC_CNT1 ,"
+		    + "NVL(SUM(DECODE(MINWON_SEC,'1',SPT_COMPT_CNT,0)),0) AS SPT_COMPT_CNT1 ,"
+		    + "NVL(SUM(DECODE(MINWON_SEC,'1',SPT_PROC_CNT,0)),0) AS SPT_PROC_CNT1 ,"
+		    + "NVL(SUM(DECODE(MINWON_SEC,'2',APPLY_CNT,0)),0) AS APPLY_CNT2 ,"
+		    + "NVL(SUM(DECODE(MINWON_SEC,'2',COMPT_CNT,0)),0) AS COMPT_CNT2 ,"
+		    + "NVL(SUM(DECODE(MINWON_SEC,'2',WRONG_CNT,0)),0) AS WRONG_CNT2 ,"
+		    + "NVL(SUM(DECODE(MINWON_SEC,'2',PROC_CNT,0)),0) AS PROC_CNT2 ,"
+		    + "NVL(SUM(DECODE(MINWON_SEC,'2',SPT_COMPT_CNT,0)),0) AS SPT_COMPT_CNT2 ,"
+		    + "NVL(SUM(DECODE(MINWON_SEC,'2',SPT_PROC_CNT,0)),0) AS SPT_PROC_CNT2 "
+		    + "FROM ( "
+		    + "  SELECT LOG_TIME ,MINWON_SEC ,APPLY_CNT ,COMPT_CNT ,WRONG_CNT ,PROC_CNT ,SPT_COMPT_CNT ,SPT_PROC_CNT "
+		    + "  FROM ________STAT_LOG "
+		    + "  WHERE LOG_TIME = '" + ____REALTimeVO.getSearchTime() + "'"
+		    + "    AND (SUBSTR(LOG_TIME, 5, 4) > '1114' OR SUBSTR(LOG_TIME, 5, 4) < '0317') ");
+		
+		if (____REALTimeVO.getCorpCd() != null && !____REALTimeVO.getCorpCd().equals(""))
+		  sb.append("    AND CORP_CD = '" + ____REALTimeVO.getCorpCd() + "'");
+		
+		sb.append(") "
+		    + "GROUP BY LOG_TIME "
+		    + "UNION ALL "
+		    + "SELECT '" + ____REALTimeVO.getSearchSeason() + "' AS CODE_NM ,"
+		    + "NVL(SUM(DECODE(M.CNT,11,COUNT,1,COUNT,2,COUNT,0)),0) AS APPLY_CNT1 ,"
+		    + "NVL(SUM(DECODE(M.CNT,1,COUNT,0)),0) AS COMPT_CNT1 ,"
+		    + "NVL(SUM(DECODE(M.CNT,2,COUNT,0)),0) AS WRONG_CNT1 ,"
+		    + "NVL(SUM(DECODE(M.CNT,11,COUNT,0)),0) AS PROC_CNT1 ,"
+		    + "NVL(SUM(DECODE(M.CNT,3,COUNT,0)),0) AS SPT_COMPT_CNT1 ,"
+		    + "NVL(SUM(DECODE(M.CNT,4,COUNT,0)),0) AS SPT_PROC_CNT1 ,"
+		    + "NVL(SUM(DECODE(M.CNT,22,COUNT,5,COUNT,6,COUNT,0)),0) AS APPLY_CNT2 ,"
+		    + "NVL(SUM(DECODE(M.CNT,5,COUNT,0)),0) AS COMPT_CNT2 ,"
+		    + "NVL(SUM(DECODE(M.CNT,6,COUNT,0)),0) AS WRONG_CNT2 ,"
+		    + "NVL(SUM(DECODE(M.CNT,22,COUNT,0)),0) AS PROC_CNT2 ,"
+		    + "NVL(SUM(DECODE(M.CNT,7,COUNT,0)),0) AS SPT_COMPT_CNT2 ,"
+		    + "NVL(SUM(DECODE(M.CNT,8,COUNT,0)),0) AS SPT_PROC_CNT2 "
+		    + "FROM ( "
+		    + "  SELECT DECODE(M.MINWON_CD,'A02',"
+		    + "    CASE WHEN M.___STATE LIKE 'F%' THEN "
+		    + "      DECODE(M.___STATE ,'F',DECODE(S.CHANGE_RSN_CD,'05',1,2),'F0',DECODE(S.CHANGE_RSN_CD,'05',1,2),2) "
+		    + "    ELSE 11 "
+		    + "    END ,"
+		    + "    CASE WHEN M.___STATE LIKE 'F%' THEN 2 ELSE 11 END)AS CNT ,"
+		    + "    COUNT(C.__CUSTOMNO) AS COUNT "
+		    + "  FROM ___WORK_RES C "
+		    + "    JOIN ____MAIN_TA M "
+		    + "      ON C.__CUSTOMNO = M.__CUSTOMNO ");
+    if (____REALTimeVO.getCorpCd() != null && !____REALTimeVO.getCorpCd().equals(""))
+      sb.append("    AND M.CORP_CD = '" + ____REALTimeVO.getCorpCd()  + "'");
+    
+    sb.append(""
+		    + "    LEFT OUTER JOIN _____FROZEN_BREAK S "
+		    + "      ON C.__CUSTOMNO = S.__CUSTOMNO AND S.__BCK_STEP IN ('D0400', 'D1100') "
+		    + "  WHERE C.REASON ='001' "
+		    + "    AND C.REG_DATE >= TO_DATE( '" + ____REALTimeVO.getSearchSeason()  + "' || '1115000000', 'YYYYMMDDHH24MISS') "
+		    + "    AND C.REG_DATE <= TO_DATE( '" + String.valueOf((Integer.valueOf(____REALTimeVO.getSearchSeason())+1)) + "' || '0315235959', 'YYYYMMDDHH24MISS') "
+		    + "  GROUP BY DECODE(M.MINWON_CD,'A02',CASE WHEN M.___STATE LIKE 'F%' "
+		    + "    THEN DECODE(M.___STATE ,'F',DECODE(S.CHANGE_RSN_CD,'05',1,2),'F0',"
+		    + "      DECODE(S.CHANGE_RSN_CD,'05',1,2),2) ELSE 11 "
+		    + "    END ,"
+		    + "    CASE WHEN M.___STATE LIKE 'F%' THEN 2 ELSE 11 END"
+		    + ") "
+		    + "UNION ALL "
+		    + "SELECT DECODE(M.___STATE,'F',3,'F0',3,"
+		    + "CASE WHEN M.___STATE NOT LIKE 'F%' THEN 4 END) ,"
+		    + "COUNT(C.__CUSTOMNO) AS COUNT "
+		    + "FROM ___WORK_RES C "
+		    + "  JOIN ____MAIN_TA M "
+		    + "    ON C.__CUSTOMNO = M.__CUSTOMNO AND M.MINWON_CD = 'A02' ");
+    if (____REALTimeVO.getCorpCd() != null && !____REALTimeVO.getCorpCd().equals(""))
+      sb.append("    AND M.CORP_CD = '" + ____REALTimeVO.getCorpCd()  + "'");
+    
+    sb.append(""		    
+		    + "  JOIN _____FROZEN_BREAK S "
+		    + "    ON C.__CUSTOMNO = S.__CUSTOMNO AND S.CHANGE_RSN_CD = '05' AND S.__BCK_STEP IN ('D0400', 'D1100') "
+		    + "WHERE C.REASON <> '001' "
+        + "  AND C.REG_DATE >= TO_DATE( '" + ____REALTimeVO.getSearchSeason()  + "' || '1115000000', 'YYYYMMDDHH24MISS') "
+        + "  AND C.REG_DATE <= TO_DATE( '" + String.valueOf((Integer.valueOf(____REALTimeVO.getSearchSeason())+1)) + "' || '0315235959', 'YYYYMMDDHH24MISS') "
+		    + "GROUP BY DECODE(M.___STATE,'F',3,'F0',3,CASE WHEN M.___STATE NOT LIKE 'F%' THEN 4 END) "
+		    + "UNION ALL "
+		    + "SELECT DECODE(M.MINWON_CD,'A04',CASE WHEN M.___STATE LIKE 'F%' THEN DECODE(M.___STATE ,'F',DECODE(S.REASON_CD,'060',5,6),6) ELSE 22 END ,"
+		    + "CASE WHEN M.___STATE LIKE 'F%' THEN 6 ELSE 22 END)AS CNT ,"
+		    + "COUNT(W.__CUSTOMNO) AS COUNT "
+		    + "FROM ____FROZEN W "
+		    + "  JOIN ____MAIN_TA M "
+		    + "    ON W.__CUSTOMNO = M.__CUSTOMNO ");
+    if (____REALTimeVO.getCorpCd() != null && !____REALTimeVO.getCorpCd().equals(""))
+      sb.append("    AND M.CORP_CD = '" + ____REALTimeVO.getCorpCd()  +"'");
+    
+    sb.append(""
+		    + "  LEFT OUTER JOIN ("
+		    + "       SELECT S.* ,ROW_NUMBER() OVER (PARTITION BY S.__CUSTOMNO ORDER BY S.REG_DATE DESC) AS RNUM "
+		    + "       FROM ____FROZEN_SPT S ) S "
+		    + "    ON W.__CUSTOMNO = S.__CUSTOMNO AND S.RNUM = 1 "
+		    + "WHERE W.REASON_TY = '060' "
+        + "  AND W.REG_DATE >= TO_DATE( '" + ____REALTimeVO.getSearchSeason()  + "' || '1115000000', 'YYYYMMDDHH24MISS') "
+        + "  AND W.REG_DATE <= TO_DATE( '" + String.valueOf((Integer.valueOf(____REALTimeVO.getSearchSeason())+1)) + "' || '0315235959', 'YYYYMMDDHH24MISS') "
+		    + "GROUP BY DECODE(M.MINWON_CD,'A04',CASE WHEN M.___STATE LIKE 'F%' THEN DECODE(M.___STATE ,'F',DECODE(S.REASON_CD,'060',5,6),6) ELSE 22 END ,"
+		    + "  CASE WHEN M.___STATE LIKE 'F%' THEN 6 ELSE 22 END) "
+		    + "UNION ALL "
+		    + "SELECT DECODE(M.___STATE,'F',7,CASE WHEN M.___STATE NOT LIKE 'F%' THEN 8 END) AS CNT ,"
+		    + "COUNT(W.__CUSTOMNO) AS COUNT "
+		    + "FROM ____FROZEN W "
+		    + "  JOIN ____MAIN_TA M "
+		    + "    ON W.__CUSTOMNO = M.__CUSTOMNO AND M.___STATE LIKE 'F%' "
+		    + "  JOIN ( "
+		    + "        SELECT S.* ,ROW_NUMBER() OVER (PARTITION BY S.__CUSTOMNO ORDER BY S.REG_DATE DESC) AS RNUM "
+		    + "        FROM ____FROZEN_SPT S ) S "
+		    + "    ON W.__CUSTOMNO = S.__CUSTOMNO AND S.RNUM = 1 AND S.REASON_CD = '060' ");
+    if (____REALTimeVO.getCorpCd() != null && !____REALTimeVO.getCorpCd().equals(""))
+      sb.append("    AND M.CORP_CD = '" + ____REALTimeVO.getCorpCd()  +"'");
+    
+    sb.append(""    
+		    + "  WHERE W.REASON_TY <> '060' "
+        + "    AND W.REG_DATE >= TO_DATE( '" + ____REALTimeVO.getSearchSeason()  + "' || '1115000000', 'YYYYMMDDHH24MISS') "
+        + "    AND W.REG_DATE <= TO_DATE( '" + String.valueOf((Integer.valueOf(____REALTimeVO.getSearchSeason())+1)) + "' || '0315235959', 'YYYYMMDDHH24MISS') "
+		    + "GROUP BY DECODE(M.___STATE,'F',7,CASE WHEN M.___STATE NOT LIKE 'F%' THEN 8 END) )M");
+    
+    System.out.println();
+    System.out.println(sb.toString());
+    System.out.println();
+    return jdbcContext.query(sb.toString());
+        
+//    sb.append(""
+//        + "SELECT LOG_TIME AS CODE_NM ,"
+//        + "NVL(SUM(DECODE(MINWON_SEC,'1',APPLY_CNT,0)),0) AS APPLY_CNT1 ,"
+//        + "NVL(SUM(DECODE(MINWON_SEC,'1',COMPT_CNT,0)),0) AS COMPT_CNT1 ,"
+//        + "NVL(SUM(DECODE(MINWON_SEC,'1',WRONG_CNT,0)),0) AS WRONG_CNT1 ,"
+//        + "NVL(SUM(DECODE(MINWON_SEC,'1',PROC_CNT,0)),0) AS PROC_CNT1 ,"
+//        + "NVL(SUM(DECODE(MINWON_SEC,'1',SPT_COMPT_CNT,0)),0) AS SPT_COMPT_CNT1 ,"
+//        + "NVL(SUM(DECODE(MINWON_SEC,'1',SPT_PROC_CNT,0)),0) AS SPT_PROC_CNT1 ,"
+//        + "NVL(SUM(DECODE(MINWON_SEC,'2',APPLY_CNT,0)),0) AS APPLY_CNT2 ,"
+//        + "NVL(SUM(DECODE(MINWON_SEC,'2',COMPT_CNT,0)),0) AS COMPT_CNT2 ,"
+//        + "NVL(SUM(DECODE(MINWON_SEC,'2',WRONG_CNT,0)),0) AS WRONG_CNT2 ,"
+//        + "NVL(SUM(DECODE(MINWON_SEC,'2',PROC_CNT,0)),0) AS PROC_CNT2 ,"
+//        + "NVL(SUM(DECODE(MINWON_SEC,'2',SPT_COMPT_CNT,0)),0) AS SPT_COMPT_CNT2 ,"
+//        + "NVL(SUM(DECODE(MINWON_SEC,'2',SPT_PROC_CNT,0)),0) AS SPT_PROC_CNT2 "
+//        + "FROM ( "
+//        + "  SELECT LOG_TIME ,MINWON_SEC ,APPLY_CNT ,COMPT_CNT ,WRONG_CNT ,PROC_CNT ,SPT_COMPT_CNT ,SPT_PROC_CNT "
+//        + "  FROM ________STAT_LOG "
+//        + "  WHERE LOG_TIME = ? "
+//        + "    AND (SUBSTR(LOG_TIME, 5, 4) > '1114' OR SUBSTR(LOG_TIME, 5, 4) < '0317') ");
+//    
+//    if (____REALTimeVO.getCorpCd() != null && !____REALTimeVO.getCorpCd().equals(""))
+//      sb.append("    AND CORP_CD = ? ");
+//    
+//    sb.append(") "
+//        + "GROUP BY LOG_TIME "
+//        + "UNION ALL "
+//        + "SELECT ? AS CODE_NM ,"
+//        + "NVL(SUM(DECODE(M.CNT,11,COUNT,1,COUNT,2,COUNT,0)),0) AS APPLY_CNT1 ,"
+//        + "NVL(SUM(DECODE(M.CNT,1,COUNT,0)),0) AS COMPT_CNT1 ,"
+//        + "NVL(SUM(DECODE(M.CNT,2,COUNT,0)),0) AS WRONG_CNT1 ,"
+//        + "NVL(SUM(DECODE(M.CNT,11,COUNT,0)),0) AS PROC_CNT1 ,"
+//        + "NVL(SUM(DECODE(M.CNT,3,COUNT,0)),0) AS SPT_COMPT_CNT1 ,"
+//        + "NVL(SUM(DECODE(M.CNT,4,COUNT,0)),0) AS SPT_PROC_CNT1 ,"
+//        + "NVL(SUM(DECODE(M.CNT,22,COUNT,5,COUNT,6,COUNT,0)),0) AS APPLY_CNT2 ,"
+//        + "NVL(SUM(DECODE(M.CNT,5,COUNT,0)),0) AS COMPT_CNT2 ,"
+//        + "NVL(SUM(DECODE(M.CNT,6,COUNT,0)),0) AS WRONG_CNT2 ,"
+//        + "NVL(SUM(DECODE(M.CNT,22,COUNT,0)),0) AS PROC_CNT2 ,"
+//        + "NVL(SUM(DECODE(M.CNT,7,COUNT,0)),0) AS SPT_COMPT_CNT2 ,"
+//        + "NVL(SUM(DECODE(M.CNT,8,COUNT,0)),0) AS SPT_PROC_CNT2 "
+//        + "FROM ( "
+//        + "  SELECT DECODE(M.MINWON_CD,'A02',"
+//        + "    CASE WHEN M.___STATE LIKE 'F%' THEN "
+//        + "      DECODE(M.___STATE ,'F',DECODE(S.CHANGE_RSN_CD,'05',1,2),'F0',DECODE(S.CHANGE_RSN_CD,'05',1,2),2) "
+//        + "    ELSE 11 "
+//        + "    END ,"
+//        + "    CASE WHEN M.___STATE LIKE 'F%' THEN 2 ELSE 11 END)AS CNT ,"
+//        + "    COUNT(C.__CUSTOMNO) AS COUNT "
+//        + "  FROM ___WORK_RES C "
+//        + "    JOIN ____MAIN_TA M "
+//        + "      ON C.__CUSTOMNO = M.__CUSTOMNO ");
+//    if (____REALTimeVO.getCorpCd() != null && !____REALTimeVO.getCorpCd().equals(""))
+//      sb.append("    AND M.CORP_CD = ? ");
+//    
+//    sb.append(""
+//        + "    LEFT OUTER JOIN _____FROZEN_BREAK S "
+//        + "      ON C.__CUSTOMNO = S.__CUSTOMNO AND S.__BCK_STEP IN ('D0400', 'D1100') "
+//        + "  WHERE C.REASON ='001' "
+//        + "    AND C.REG_DATE >= TO_DATE( ? || '1115000000', 'YYYYMMDDHH24MISS') "
+//        + "    AND C.REG_DATE <= TO_DATE( ? || '0315235959', 'YYYYMMDDHH24MISS') "
+//        + "  GROUP BY DECODE(M.MINWON_CD,'A02',CASE WHEN M.___STATE LIKE 'F%' "
+//        + "    THEN DECODE(M.___STATE ,'F',DECODE(S.CHANGE_RSN_CD,'05',1,2),'F0',"
+//        + "      DECODE(S.CHANGE_RSN_CD,'05',1,2),2) ELSE 11 "
+//        + "    END ,"
+//        + "    CASE WHEN M.___STATE LIKE 'F%' THEN 2 ELSE 11 END"
+//        + ") "
+//        + "UNION ALL "
+//        + "SELECT DECODE(M.___STATE,'F',3,'F0',3,"
+//        + "CASE WHEN M.___STATE NOT LIKE 'F%' THEN 4 END) ,"
+//        + "COUNT(C.__CUSTOMNO) AS COUNT "
+//        + "FROM ___WORK_RES C "
+//        + "  JOIN ____MAIN_TA M "
+//        + "    ON C.__CUSTOMNO = M.__CUSTOMNO AND M.MINWON_CD = 'A02' ");
+//    if (____REALTimeVO.getCorpCd() != null && !____REALTimeVO.getCorpCd().equals(""))
+//      sb.append("    AND M.CORP_CD = ? ");
+//    
+//    sb.append(""		    
+//        + "  JOIN _____FROZEN_BREAK S "
+//        + "    ON C.__CUSTOMNO = S.__CUSTOMNO AND S.CHANGE_RSN_CD = '05' AND S.__BCK_STEP IN ('D0400', 'D1100') "
+//        + "WHERE C.REASON <> '001' "
+//        + "  AND C.REG_DATE >= TO_DATE( ? || '1115000000', 'YYYYMMDDHH24MISS') "
+//        + "  AND C.REG_DATE <= TO_DATE( ? || '0315235959', 'YYYYMMDDHH24MISS') "
+//        + "GROUP BY DECODE(M.___STATE,'F',3,'F0',3,CASE WHEN M.___STATE NOT LIKE 'F%' THEN 4 END) "
+//        + "UNION ALL "
+//        + "SELECT DECODE(M.MINWON_CD,'A04',CASE WHEN M.___STATE LIKE 'F%' THEN DECODE(M.___STATE ,'F',DECODE(S.REASON_CD,'060',5,6),6) ELSE 22 END ,"
+//        + "CASE WHEN M.___STATE LIKE 'F%' THEN 6 ELSE 22 END)AS CNT ,"
+//        + "COUNT(W.__CUSTOMNO) AS COUNT "
+//        + "FROM ____FROZEN W "
+//        + "  JOIN ____MAIN_TA M "
+//        + "    ON W.__CUSTOMNO = M.__CUSTOMNO ");
+//    if (____REALTimeVO.getCorpCd() != null && !____REALTimeVO.getCorpCd().equals(""))
+//      sb.append("    AND M.CORP_CD = ? ");
+//    
+//    sb.append(""
+//        + "  LEFT OUTER JOIN ("
+//        + "       SELECT S.* ,ROW_NUMBER() OVER (PARTITION BY S.__CUSTOMNO ORDER BY S.REG_DATE DESC) AS RNUM "
+//        + "       FROM ____FROZEN_SPT S ) S "
+//        + "    ON W.__CUSTOMNO = S.__CUSTOMNO AND S.RNUM = 1 "
+//        + "WHERE W.REASON_TY = '060' "
+//        + "  AND W.REG_DATE >= TO_DATE( ? || '1115000000', 'YYYYMMDDHH24MISS') "
+//        + "  AND W.REG_DATE <= TO_DATE( ? || '0315235959', 'YYYYMMDDHH24MISS') "
+//        + "GROUP BY DECODE(M.MINWON_CD,'A04',CASE WHEN M.___STATE LIKE 'F%' THEN DECODE(M.___STATE ,'F',DECODE(S.REASON_CD,'060',5,6),6) ELSE 22 END ,"
+//        + "  CASE WHEN M.___STATE LIKE 'F%' THEN 6 ELSE 22 END) "
+//        + "UNION ALL "
+//        + "SELECT DECODE(M.___STATE,'F',7,CASE WHEN M.___STATE NOT LIKE 'F%' THEN 8 END) AS CNT ,"
+//        + "COUNT(W.__CUSTOMNO) AS COUNT "
+//        + "FROM ____FROZEN W "
+//        + "  JOIN ____MAIN_TA M "
+//        + "    ON W.__CUSTOMNO = M.__CUSTOMNO AND M.___STATE LIKE 'F%' "
+//        + "  JOIN ( "
+//        + "        SELECT S.* ,ROW_NUMBER() OVER (PARTITION BY S.__CUSTOMNO ORDER BY S.REG_DATE DESC) AS RNUM "
+//        + "        FROM ____FROZEN_SPT S ) S "
+//        + "    ON W.__CUSTOMNO = S.__CUSTOMNO AND S.RNUM = 1 AND S.REASON_CD = '060' ");
+//    if (____REALTimeVO.getCorpCd() != null && !____REALTimeVO.getCorpCd().equals(""))
+//      sb.append("    AND M.CORP_CD = ? ");
+//    
+//    sb.append(""    
+//        + "  WHERE W.REASON_TY <> '060' "
+//        + "    AND W.REG_DATE >= TO_DATE( ? || '1115000000', 'YYYYMMDDHH24MISS') "
+//        + "    AND W.REG_DATE <= TO_DATE( ? || '0315235959', 'YYYYMMDDHH24MISS') "
+//        + "GROUP BY DECODE(M.___STATE,'F',7,CASE WHEN M.___STATE NOT LIKE 'F%' THEN 8 END) )M");
+//    
+//    String re = sb.toString();
+//    System.out.println(re);
+//    if (____REALTimeVO.getCorpCd() != null && !____REALTimeVO.getCorpCd().equals(""))
+//      return jdbcContext.query(sb.toString(),
+//          ____REALTimeVO.getSearchTime(),
+//          ____REALTimeVO.getCorpCd(),
+//          ____REALTimeVO.getSearchSeason(),
+//          ____REALTimeVO.getCorpCd(),
+//          ____REALTimeVO.getSearchSeason(),
+//          String.valueOf((Integer.valueOf(____REALTimeVO.getSearchSeason())+1)),
+//          ____REALTimeVO.getCorpCd(),
+//          ____REALTimeVO.getSearchSeason(),
+//          String.valueOf((Integer.valueOf(____REALTimeVO.getSearchSeason())+1)),
+//          ____REALTimeVO.getCorpCd(),
+//          ____REALTimeVO.getSearchSeason(),
+//          String.valueOf((Integer.valueOf(____REALTimeVO.getSearchSeason())+1)),   
+//          ____REALTimeVO.getCorpCd(),
+//          ____REALTimeVO.getSearchSeason(),
+//          String.valueOf((Integer.valueOf(____REALTimeVO.getSearchSeason())+1)));
+//    else
+//      return jdbcContext.query(sb.toString(),
+//          ____REALTimeVO.getSearchTime(),
+//          ____REALTimeVO.getSearchSeason(),
+//          ____REALTimeVO.getSearchSeason(),
+//          String.valueOf((Integer.valueOf(____REALTimeVO.getSearchSeason())+1)),
+//          ____REALTimeVO.getSearchSeason(),
+//          String.valueOf((Integer.valueOf(____REALTimeVO.getSearchSeason())+1)),
+//          ____REALTimeVO.getSearchSeason(),
+//          String.valueOf((Integer.valueOf(____REALTimeVO.getSearchSeason())+1)),
+//          ____REALTimeVO.getSearchSeason(),
+//          String.valueOf((Integer.valueOf(____REALTimeVO.getSearchSeason())+1)));
+	} 7. 이해가 안되지만 작은 차이인데도 성능차이는 거의 10배가 나고 있다. MyBatis의 경우에는 XML에서 쿼리를 정의하는 시스템이기 때문에 위와 같은 미리 수행할 쿼리 문자열 생성은 어려울 수 있어 필요 시에는 위와 같은 방식의 접근도 하나의 옵션이 될 수 있을 것 같다.

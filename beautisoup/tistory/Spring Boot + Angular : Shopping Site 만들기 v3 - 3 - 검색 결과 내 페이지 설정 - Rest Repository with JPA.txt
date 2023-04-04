@@ -1,0 +1,146 @@
+0. 이 포스트는 지난 포스트에 이언 검색 결과에 대한 Pagenation을 작성한다. 1. ProductService를 페이지 정보를 사용할 수 있도록 변경한다. 1-1 지난 포스트와 마찬가지 방식으로 getProductsByName 메소드를 수정한다. 1-2 이 메소드가 사용하는 getProductList를 수정하여 getProductsByCategoryId에서도 사용할 수 있게 한다. import { Injectable } from '@angular/core';
+import { HttpClient } from '@angular/common/http';
+import { Product } from '../common/product';
+import { Observable } from 'rxjs';
+import { map } from 'rxjs/operators'
+import { ProductCategory } from '../common/product-category';
+
+@Injectable({
+  providedIn: 'root'
+})
+export class ProductService {
+
+  private baseUrl = "http://localhost:8080/api"
+
+  constructor(private httpClient: HttpClient) { }
+
+  getProuductsByName(keyword: string, page: number, size: number): Observable<GetResponseProduct> {
+    const targetUrl = `${this.baseUrl}/products/search/findByNameContaining?keyword=` + 
+      `${keyword}&page=${page}&size=${size}`
+    
+    return this.getProductList(targetUrl)
+  }
+
+  getProductsByCategoryId(id: string, page: number, size: number): Observable<GetResponseProduct> {
+    const targetUrl = `${this.baseUrl}/products/search/findByCategoryId?id=${id}` + 
+      `&page=${page}&size=${size}`
+    
+    return this.getProductList(targetUrl)
+  }
+
+  private getProductList(targetUrl: string) {
+    return this.httpClient.get<GetResponseProduct>(targetUrl);
+  }
+
+  getProductCategory(): Observable<ProductCategory[]> {
+    const targetUrl = `${this.baseUrl}/product-category`
+    return this.httpClient.get<GetResponseProductCategory>(targetUrl).pipe(
+      map(response=> response._embedded.productCategory)
+    )
+  }
+
+  getProduct(id: string): Observable<Product> {
+    const targetUrl = `${this.baseUrl}/products/${id}`
+
+    return this.httpClient.get<Product>(targetUrl)
+  }
+}
+
+interface GetResponseProduct {
+  _embedded: {
+    products: Product[],   
+  },
+  page: {
+    size: number,
+    totalElements: number,
+    totalPages: number,
+    number: number
+  }  
+}
+
+interface GetResponseProductCategory {
+  _embedded: {
+    productCategory: ProductCategory[]
+  }
+} 2. ProductList 컴포넌트에서 변경된 메소드를 사용하도록 변경한다. 2-1 이미 바로 전 포스트에서 다 구현해 놓아 할 게 별로 없다. 2-2 handleSearchProducts를 handleGetProducts와 동일한 방식으로 수정한다. import { Component, OnInit } from '@angular/core';
+import { Product } from 'src/app/common/product';
+import { ProductService } from 'src/app/services/product.service';
+import { ActivatedRoute } from '@angular/router';
+import { PageInfo } from 'src/app/common/page-info';
+
+@Component({
+  selector: 'app-product-list',
+  templateUrl: './product-list.component.html',
+  styleUrls: ['./product-list.component.css']
+})
+export class ProductListComponent implements OnInit {
+
+  products: Product[]
+
+  currentCategoryId: string = '1'
+  previousCategoryId: string = '1'
+
+  currentCategoryName: string;
+
+  pageInfo: PageInfo = new PageInfo()
+
+  constructor(private productService: ProductService, private route: ActivatedRoute) { }
+
+  ngOnInit(): void {
+    this.route.paramMap.subscribe(
+      ()=> this.getProducts()
+    )
+  }
+
+  getProducts(): void {
+    if (this.route.snapshot.paramMap.has("keyword")) {
+      this.handleSearchProducts()
+    } else {
+      this.handleGetProducts()
+    }
+  } 
+
+  private handleSearchProducts() {
+    const keyword = this.route.snapshot.paramMap.get("keyword")
+    this.currentCategoryName = 'Search: ' + keyword
+    this.productService.getProuductsByName(keyword,
+      this.pageInfo.number-1, this.pageInfo.size).subscribe(data=> {
+
+        console.log(data);
+        this.products = data._embedded.products
+
+        this.pageInfo.totalElements = data.page.totalElements
+        this.pageInfo.totalPages = data.page.totalPages
+      }
+    )
+  }
+
+  private handleGetProducts() {
+    if (this.route.snapshot.paramMap.has("id")) {
+      this.currentCategoryId = this.route.snapshot.paramMap.get("id")
+      this.currentCategoryName = this.route.snapshot.paramMap.get("name")
+    } else {
+      this.currentCategoryId = "1"
+      this.currentCategoryName = "Books"
+    }
+
+    if (this.previousCategoryId !== this.currentCategoryId) {
+      this.pageInfo.number = 1
+    } 
+    this.previousCategoryId = this.currentCategoryId
+
+    this.productService.getProductsByCategoryId(this.currentCategoryId, 
+      this.pageInfo.number-1, this.pageInfo.size).subscribe(data => {
+        console.log(data);
+        this.products = data._embedded.products
+
+        this.pageInfo.totalElements = data.page.totalElements
+        this.pageInfo.totalPages = data.page.totalPages
+      } 
+    )
+  }
+
+  onPagechange() {
+    this.getProducts()
+  }
+} 3. 결과화면

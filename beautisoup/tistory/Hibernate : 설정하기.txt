@@ -1,0 +1,120 @@
+0. Hibernate는 Java JPA를 구현한 ORM 라이브러리이다. 0-1 Object Relational Model은 0-1-1 데이터베이스의 Table과 Entity를 매핑해 주고 0-1-2 읽기, 쓰기, 업데이트, 삭제 등의 기능을 쉽게 제공한다. 0-1-3 이런 기능을 지원하기 위해 ORM라이브러리들은 내부적으로 JDBC 드라이버를 직접 사용한다. 1. dependency를 pom.xml에 추가한다. 1-1 hibernate core 모듈을 추가한다. 1-2 mysql connector를 추가한다. 1-3 lombok은 선택사항이지만 추가하면 편리하다. 재귀 호출 문제로 주의할 점들이 있다. 1-3-1 lombok의 재귀호출문제에 대해 잘 모르면 사용하지 않는 게 속편하다. 어딘가 포스팅 중에 설명이 있다. <!-- https://mvnrepository.com/artifact/org.hibernate/hibernate-core -->
+<dependency>
+	<groupId>org.hibernate</groupId>
+	<artifactId>hibernate-core</artifactId>
+	<version>5.4.14.Final</version>
+</dependency>
+
+<!-- https://mvnrepository.com/artifact/mysql/mysql-connector-java -->
+<dependency>
+	<groupId>mysql</groupId>
+	<artifactId>mysql-connector-java</artifactId>
+	<version>8.0.20</version>
+</dependency>
+
+<!-- https://mvnrepository.com/artifact/org.projectlombok/lombok -->
+<dependency>
+	<groupId>org.projectlombok</groupId>
+	<artifactId>lombok</artifactId>
+	<version>1.18.12</version>
+	<scope>provided</scope>
+</dependency> 2. Hibernate Configuration을 설정한다. 2-1 이 설정은 어떻게 Hibernate가 jdbc를 이용하여 데이터베이스에 접속하는지를 기술한다. 2-1-1 설정의 대부분이 jdbc 접속을 위한 정보들이다. 2-2. Hibernate 세팅을 위해서 xml파일을 지정한다. 2-2-1 hibernate.cfg.xml파일을 classpath root에 저장한다. 2-3. XML은 상당히 오류찾기가 어려우므로 그냥 붙여넣기 하는 게 속편하다. 2-3-1 아래의 설정은 hibernate 기본 connection pool의 크기가 1로 되어 있고 2-3-2 mysql dialect를 사용하여 hibernate 연동 DB가 MySql이라는 것을 알 수 있다. <!DOCTYPE hibernate-configuration PUBLIC
+        "-//Hibernate/Hibernate Configuration DTD 3.0//EN"
+        "http://www.hibernate.org/dtd/hibernate-configuration-3.0.dtd">
+
+<hibernate-configuration>
+
+  <session-factory>
+
+    <!-- JDBC Database connection settings -->
+      <property name="connection.driver_class">com.mysql.cj.jdbc.Driver</property>
+      <property name="connection.url">jdbc:mysql://localhost:3306/hb_student_tracker?useSSL=false&amp;serverTimezone=Asia/Seoul</property>
+      <property name="connection.username">hbstudent</property>
+      <property name="connection.password">hbstudent</property>
+
+    <!-- JDBC connection pool settings ... using built-in test pool -->
+      <property name="connection.pool_size">1</property>
+
+    <!-- Select our SQL dialect -->
+      <property name="dialect">org.hibernate.dialect.MySQLDialect</property>
+
+    <!-- Echo the SQL to stdout -->
+      <property name="show_sql">true</property>
+
+    <!-- Set the current session context -->
+      <property name="current_session_context_class">thread</property>
+
+  </session-factory>
+
+</hibernate-configuration> 3. 데이터베이스 테이블과 매핑될 Entity 클래스를 만들고 Annotation을 설정한다. 3-1 hibernate에서 테이블과 Entity클래스를 매핑하는 또 다른 방법은 xml을 이용하는 것이다. 정말 귀찮은 방식이다. 3-2 여기서는 Annotation방식을 사용한다. 3-3 아래 예제를 보면 hibernate 패키지가 아닌 javax.persistence 아래의 인터페이스를 사용한다. 규약이다. 3-4 일반적으로 id는 Long 타입을 사용한다. 3-5 명시적으로 테이블 이름과, 컬럼 이름을 사용해도 된다. 아래는 꼭 필요한 부분만 설정했다. import javax.persistence.Column;
+import javax.persistence.Entity;
+import javax.persistence.GeneratedValue;
+import javax.persistence.GenerationType;
+import javax.persistence.Id;
+import javax.persistence.Table;
+
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+@Entity
+@Table(name = "student")
+@Data
+@NoArgsConstructor
+public class Student {
+  @Id
+  @GeneratedValue(strategy = GenerationType.IDENTITY)
+  private Long id;
+  
+  @Column(name = "first_name")
+  private String firstName;
+  
+  @Column(name = "last_name")
+  private String lastName;
+  
+  @Column
+  private String email;
+
+  public Student(String firstName, String lastName, String email) {
+    super();
+    this.firstName = firstName;
+    this.lastName = lastName;
+    this.email = email;
+  }
+} 4. Entity 클래스를 가지고 실제 데이터베이스 처리를 한다. 4-1 SessionFactory는 4-1-1 configuration을 읽고 데이터베이스에 접속한다. 4-1-2 접속 후 Query를 실행할 수 있는 Session 객체를 생성할 수 있다. 4-1-3 프로그램에서 오직 한 번만 생성되고 종료할 때까지 계속 사용된다. 4-2 Session 객체는 4-2-1 JDBC Connection의 Wrapper이다. 4-2-2 데이터 읽기와 저장에 사용된다. 4-2-3 짧은 시간 사용되며 필요시마다 생성된다. 4-2-4 SessionFactory에서 만들어진다. public class TestJdbc {
+  public static void main(String[] args) {
+
+    SessionFactory factory = new Configuration()
+        .configure("hibernate.cfg.xml")
+        .addAnnotatedClass(Student.class)
+        .buildSessionFactory();
+
+    Session session = factory.getCurrentSession();
+
+    try {
+      Student tempStudent = new Student("Paul", "Wall", "paul@gmail.com");
+      
+      session.beginTransaction();
+      
+      session.save(tempStudent);
+      
+      session.getTransaction().commit();
+      
+    } finally {
+      factory.close();
+    } 
+    
+//    String jdbcUrl = "jdbc:mysql://localhost:3306/hb_student_tracker?useSSL=false&serverTimezone=Asia/Seoul";
+//    String user = "hbstudent";
+//    String password = "hbstudent";
+//    
+//    try {
+//      System.out.println("Connecting to Database: " + jdbcUrl);
+//      Connection connection = DriverManager.getConnection(jdbcUrl, user, password);
+//      
+//      System.out.println("connection successful!!!");          
+//      
+//    } catch (Exception e) {
+//      e.printStackTrace();
+//    }    
+  }
+}

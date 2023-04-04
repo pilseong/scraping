@@ -1,0 +1,69 @@
+1. 리액트가 동작하기 위해서 이벤트 처리는 필수적이다. 2. 여기서는 인터넷을 찾으면 가장 많은 예제로 사용되는 카운터로 이벤트 처리 작성한다. 2-1 counter.js 파일을 생성하고 아래처럼 작성한다. 2-1-1 babel 컴파일을 위해서 아래처럼 경로를 바꿔주어야 한다. let count = 0
+
+const increment = () => {
+  count++
+  render()
+}
+
+const decrement = () => {
+  count--
+  render()
+}
+
+const reset = () => {
+  count = 0
+  render()
+}
+
+const render = () => {
+
+  const template = (
+    <div>
+      <h1>Count : {count}</h1>
+      <button onClick={increment}>+1</button>
+      <button onClick={reset}>Reset</button>
+      <button onClick={decrement}>-1</button>
+    </div>
+  )
+
+  ReactDOM.render(template, document.getElementById("app"))
+}
+
+render() 2-2 위의 코드는 3개의 버튼을 가지고 있는데 3개의 click 이벤트를 사용하고 있다. 2-2-1 버튼의 속성으로 이벤트 속성을 넣어주고 어떤 메소드를 실행할지를 지정해 준다. 2-2-2 {} 안에 들어갈 expression은 해당 함수 자체가 된다. 절대 ()를 넣어 실행결과를 받으면 안된다. 2-3 중요한 부분은 ReactDOM.render 함수가 실해되어야 DOM 다시 그려지므로 함수로 Wrapping 하였다. 2-3-1 이렇게 wrapping한 후 변수의 상태가 변경되는 경우 다시 그려주는 함수를 호출해 준다. 2-3-2 자바의 AWT, Swing의 paint, repaint와 비슷하다 2-4 실행화면 3. 이번에는 배열을 다루는 예제를 위해 또 가장 많이 쓰이는 todo list 만들기 코드를 사용했다. 3-1 특별한 것은 없고, 우선 해야할 일을 저장할 todos라는 배열을 만든다. 3-2 template은 render wrapper 함수에 두고 원하는 화면을 구성한다. 3-3 해야할 일을 보여줄 html을 만들기 위해 배열의 map을 사용하여 변환된 배열을 반환해 준다. 3-4 onFormSubmit을 보면 form submit시에 해야할 이벤트처리를 하고 있는데 element의 name을 통해 접근한다. 3-5 이벤트 처리시에 화면의 리프레쉬가 일어나지 않도록 e.preventDefault() 사용하는 것을 잊어서는 안된다. let todos = []
+
+const onFormSubmit = (e) => {
+  e.preventDefault()
+  const value = e.target.elements.todoInput.value
+  if (value) {
+    todos.push(value)
+    e.target.elements.todoInput.value = ''
+    render()
+  }
+}
+
+const onRemoveAllClicked = () => {
+  todos = []
+  render()
+}
+
+const render = () => {
+
+  const template = (
+    <div>
+      <h1>Todo List</h1>
+      <button onClick={onRemoveAllClicked}>Remove All</button>
+      <p>{todos.length > 0 ? 'Your todos are here' : 'No Todos'}</p>
+      <ul>
+        {todos.map(todo => <li key={todo}>{todo}</li>)}
+      </ul>
+      <form onSubmit={onFormSubmit}>
+        <input type="text" name="todoInput" />
+        <button>Add</button>
+      </form>
+    </div>
+  )
+
+  ReactDOM.render(template, document.getElementById("app"))
+}
+
+render() 3-6 결과 화면이다.

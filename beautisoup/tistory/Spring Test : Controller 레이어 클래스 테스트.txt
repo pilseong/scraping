@@ -1,0 +1,280 @@
+1. JUnit 4 버전의 테스트 코드이다. 1-1 아래는 unit 테스트이므로 컨텐스트를 생성할 필요가 없다. 1-1-1 여기서는 MokitoAnnotations.intiMocks 메소드를 사용하였는데 1-1-2 @ RunWith ( MockitoJUnitRunner . class ) 를 사용해도 된다. 1-2 컨트롤러는 일반적으로 Service를 사용하고 Model을 사용한다. 둘 다 Mock으로 생성하였다. 1-3 service를 호출했을 때 반환할 값을 설정하였다. 1-4 controller의 메소드를 호출하여 정상적인 view이름을 반환하는 지 확인한다. 1-5 마지막으로 service의 메소드가 몇 번 호출되었는지 model의 메소드가 몇 번 호출되었는지 체크한다. package pe.pilseong.recipe.controller;
+
+import org.junit.Test;
+import org.mockito.Mock;
+import org.mockito.MockitoAnnotations;
+import org.springframework.ui.Model;
+
+import pe.pilseong.recipe.domain.Recipe;
+import pe.pilseong.recipe.service.RecipeService;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+
+import java.util.HashSet;
+
+import org.junit.Before;
+
+public class IndexControllerTest {
+
+  IndexController indexController;
+
+  @Mock
+  RecipeService recipeService;
+
+  @Mock
+  Model model;
+
+  @Before
+  public void setup() {
+    MockitoAnnotations.initMocks(this);
+
+    indexController = new IndexController(recipeService);
+  }
+
+  @Test
+  public void getIndexPage() {
+    Recipe recipe = new Recipe();
+    HashSet<Recipe> recipes = new HashSet<>();
+    recipes.add(recipe);
+
+    when(recipeService.getRecipes()).thenReturn(recipes);
+
+    String viewName = indexController.getIndexPage(model);    
+
+    assertEquals(viewName, "main");
+
+    verify(recipeService, times(1)).getRecipes();
+    verify(model, times(1)).addAttribute(eq("recipes"), eq(recipes));
+
+  }
+
+  @Test
+  public void test() {
+
+  }
+} Post 테스트 하기 1. Web MVC프로그램에서 Unit Test시 Post를 테스트하는 간단한 예제이다. 1-1 WebMVC 테스트 할 때는 url에 아주 주의해야 한다. '/'  가 있고 없고에 따라 실행이 될 수도 안 될 수도 있다. 2. JUnit 4 버전으로 작성되어 있다. 3. post를 사용할 때는 contentType과 param을 통하여 원하는 데이터를 보내 테스트를 할 수 있다. 3-1 Web MVC에서 post는 일반적으로 form 데이터를 전송하는데 content type은 보통 x-www-form-urlencoded이다. 3-2 redirect 테스트 하는 경우는 staus()에서 is3xxRedirection를 사용하면 간단하다. package pe.pilseong.recipe.controller;
+
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.Mockito.when;
+
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.junit.MockitoJUnitRunner;
+import org.springframework.http.MediaType;
+import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.request.MockMvcRequestBuilders;
+import org.springframework.test.web.servlet.result.MockMvcResultMatchers;
+import org.springframework.test.web.servlet.setup.MockMvcBuilders;
+import org.springframework.ui.Model;
+
+import pe.pilseong.recipe.command.RecipeCommand;
+import pe.pilseong.recipe.coverter.RecipeToRecipeCommand;
+import pe.pilseong.recipe.domain.Recipe;
+import pe.pilseong.recipe.service.RecipeService;
+
+@RunWith(MockitoJUnitRunner.class)
+public class RecipeControllerTest {
+
+  MockMvc mockMvc;
+
+  @InjectMocks
+  RecipeController recipeController;
+
+  @Mock
+  RecipeService recipeService;
+
+  @Mock
+  RecipeToRecipeCommand commandConverter;
+
+  @Mock
+  Model model;
+
+  @Before
+  public void setup() {
+    recipeController = new RecipeController(recipeService, commandConverter);
+    mockMvc = MockMvcBuilders.standaloneSetup(recipeController).build();
+  }
+
+  @Test
+  public void showById() throws Exception {
+    Recipe returnRecipe = Recipe.builder().id(1L).build();
+
+    when(recipeService.findById(anyLong())).thenReturn(returnRecipe);
+
+    mockMvc.perform(MockMvcRequestBuilders.get("/recipe/1/show"))
+      .andExpect(MockMvcResultMatchers.status().isOk())
+      .andExpect(MockMvcResultMatchers.view().name("recipe/show"))
+      .andExpect(MockMvcResultMatchers.model().attributeExists("recipe"));
+  }
+  
+  @Test
+  public void newReipe() throws Exception {
+
+    mockMvc.perform(MockMvcRequestBuilders.get("/recipe/new"))
+      .andExpect(MockMvcResultMatchers.status().isOk())
+      .andExpect(MockMvcResultMatchers.view().name("recipe/recipeForm"))
+      .andExpect(MockMvcResultMatchers.model().attributeExists("recipe"));
+
+  }
+
+  @Test
+  public void saveOrUpdate() throws Exception {
+    Recipe recipe = new Recipe();
+    recipe.setId(2L);
+
+    RecipeCommand command = new RecipeCommand();
+    command.setId(2L);
+
+    when(recipeService.save(any())).thenReturn(recipe);
+    when(commandConverter.convert(any())).thenReturn(command);
+
+    mockMvc.perform(MockMvcRequestBuilders.post("/recipe/")
+      .contentType(MediaType.APPLICATION_FORM_URLENCODED)
+        .param("id", "")
+        .param("description", "some string")
+      )
+      .andExpect(MockMvcResultMatchers.status().is3xxRedirection())
+      .andExpect(MockMvcResultMatchers.view().name("redirect:/recipe/2/show"));
+  }
+
+  @Test
+  public void testGetUpdateView() throws Exception {
+    RecipeCommand command = new RecipeCommand();
+    command.setId(2L);
+
+    when(recipeService.findCommandById(anyLong())).thenReturn(command);
+
+    mockMvc.perform(MockMvcRequestBuilders.get("/recipe/1/update"))
+      .andExpect(MockMvcResultMatchers.status().isOk())
+      .andExpect(MockMvcResultMatchers.view().name("recipe/recipeForm"))
+      .andExpect(MockMvcResultMatchers.model().attributeExists("recipe"));
+  }
+} Global 레벨 Exception Handler 테스트 (@ControllerAdvice) 1. Controller 레벨의 @ExceptionHandler는 Controller 내에 정의된 메소드이기 때문에 신경쓸 것 없다. 2. @ControllerAdvice를 사용한 별도의 글로벌 예외처리자를 테스트에서 사용하려면 추가의 설정이 필요한다. 2-1 아래의 setUp() 메소드를 보면 mockMvc를 생성하는 코드가 있는데 여기서 setControllerAdvice를 설정할 수 있다. 3. 이 주제와 상관없이 아래의 코드에서 보면 response를 받아서 테스트하는 부분이 나온다. 3-1 andReturn.getResponse() 를 사용하면 되는데 여기서 반환된 헤더나 데이터를 확인할 수 있다. // when
+    MockHttpServletResponse response = mockMvc.perform(MockMvcRequestBuilders.get("/recipe/1/recipeimage"))
+      .andExpect(MockMvcResultMatchers.status().isOk())
+      .andReturn().getResponse(); package pe.pilseong.recipe.controller;
+
+import org.junit.Test;
+import org.mockito.Mock;
+import org.mockito.MockitoAnnotations;
+import org.springframework.mock.web.MockHttpServletResponse;
+import org.springframework.mock.web.MockMultipartFile;
+import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.request.MockMvcRequestBuilders;
+import org.springframework.test.web.servlet.result.MockMvcResultMatchers;
+import org.springframework.test.web.servlet.setup.MockMvcBuilders;
+
+import pe.pilseong.recipe.command.RecipeCommand;
+import pe.pilseong.recipe.service.ImageService;
+import pe.pilseong.recipe.service.RecipeService;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+
+import org.junit.Before;
+
+public class ImageControllerTest {
+
+  ImageController imageController;
+
+  @Mock
+  RecipeService recipeService;
+
+  @Mock
+  ImageService imageService;
+
+  MockMvc mockMvc;
+
+  @Before
+  public void setup() {
+
+    MockitoAnnotations.initMocks(this);
+
+    imageController = new ImageController(recipeService, imageService);
+
+    mockMvc = MockMvcBuilders.standaloneSetup(imageController)
+      .setControllerAdvice(new ControllerExceptionHandler()).build();
+  }
+
+  @Test
+  public void testShowUploadImageFormn() throws Exception {
+    // given
+    final RecipeCommand command = new RecipeCommand();
+    command.setId(1L);
+
+    // when
+    when(recipeService.findCommandById(anyLong())).thenReturn(command);
+
+    // then
+    mockMvc.perform(MockMvcRequestBuilders.get("/recipe/1/image"))
+      .andExpect(MockMvcResultMatchers.status().isOk())
+      .andExpect(MockMvcResultMatchers.model().attributeExists("recipe"))
+      .andExpect(MockMvcResultMatchers.view().name("recipe/imageUploadForm"));
+
+    verify(recipeService, times(1)).findCommandById(anyLong());
+  }
+
+  @Test
+  public void testHandleImagePost() throws Exception {
+    final MockMultipartFile multipartFile = 
+      new MockMultipartFile("imageFile", "testing.txt", "text/plain", "Recipe".getBytes());
+
+    mockMvc.perform(MockMvcRequestBuilders.multipart("/recipe/1/image").file(multipartFile))
+      .andExpect(MockMvcResultMatchers.status().is3xxRedirection())
+      .andExpect(MockMvcResultMatchers.header().string("Location", "/recipe/1/show"));
+
+    verify(imageService, times(1)).saveImageFile(anyLong(), any());
+  }
+
+  @Test
+  public void testRenderImageFromDBNumberFormatException() throws Exception {
+
+    // when
+    mockMvc.perform(MockMvcRequestBuilders.get("/recipe/asdf/recipeimage"))
+      .andExpect(MockMvcResultMatchers.status().isBadRequest())
+      .andExpect(MockMvcResultMatchers.view().name("400error"));
+
+  }
+
+  @Test
+  public void testRenderImageFromDB() throws Exception {
+    // given
+    RecipeCommand command = new RecipeCommand();
+    command.setId(1L);
+
+    String s = "fake image text";
+    Byte[] bytesBoxed = new Byte[s.getBytes().length];
+
+    int i = 0;
+    for (byte b: s.getBytes()) {
+      bytesBoxed[i++] = b;
+    }
+    command.setImage(bytesBoxed);
+
+    when(recipeService.findCommandById(anyLong())).thenReturn(command);
+
+    // when
+    MockHttpServletResponse response = mockMvc.perform(MockMvcRequestBuilders.get("/recipe/1/recipeimage"))
+      .andExpect(MockMvcResultMatchers.status().isOk())
+      .andReturn().getResponse();
+
+    byte[] responseBytes = response.getContentAsByteArray();
+
+    // then
+    assertEquals(s.getBytes().length, responseBytes.length);
+  }
+
+
+}

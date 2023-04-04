@@ -1,0 +1,51 @@
+1. React에서 css를 사용하려면 loader와 webpack 설정을 해 주어야 한다. 1-1 우선 css-loader, style-loader를 설치한다. webpack에서는 이 두개를 같이 사용하는 것을 권장하고 있다. 1-2 css-loader는 @import, url() 같은 구문을 해석하고 적용해 준다. 1-3 style-loader는 <style>테그를 통해서 CSS를 DOM에 적용해 준다. 1-4 이제 webpack.config.js파일에서 css파일을 검색하여 적용할 수 있도록 설정해야 한다. 1-4-1 아래의 파일을 보면 module 아래의 rules안에 새로운 객체를 열어 새로운 rule을 등록한다. 1-4-2 test는 .css로 끝나는 파일을 찾아 css-loader와 style-loader를 적용하도록 등록한다. 1-4-3 style-loader, css-loader 순서로 등록해야 한다. 이 순서가 아주 중요하다. 반대로 하면 동작하지 않는다. const path = require('path')
+
+module.exports = {
+  mode: 'development',
+  entry: './src/app.js',
+  output: {
+    path: path.join(__dirname, 'public'),
+    filename: 'bundle.js'
+  },
+  module: {
+    rules: [{
+      test: /\.js$/,
+      exclude: /node_modules/,
+      use: {
+        loader: 'babel-loader',
+        options: {
+          presets: [
+            '@babel/preset-env',
+            '@babel/preset-react'
+          ],
+          "plugins": [
+            ["@babel/plugin-proposal-class-properties", { "loose": true }]
+          ]
+        }
+      }
+    }, {
+      test: /\.css$/,
+      use: [
+        'style-loader',
+        'css-loader'        
+      ]
+    }]
+  },
+  devServer: {
+    contentBase: path.join(__dirname, 'public'),
+    port: 8081
+  },
+  devtool: 'eval-cheap-module-source-map',
+} 1-5 이젠 프로그램에 적용될 수 있도록 css파일을 생성해야 한다. 1-5-1 src폴더 아래에 styles 폴더를 생성하고 styles.css파일을 만든다. 1-5-2 내용은 아무 것이나 테스트를 위해서 넣어준다. body {
+  color: blue;
+  background-color: gray;
+} 1-5-3 이제 이 css를 사용하도록 컴포넌트에서 import 해본다. TodoApp.js에서 아래처럼 등록한다. 1-5-3-1 import 부분의 제일 아래를 보면 styles.css를 import하는 부분이 있다. import React from 'react'
+
+import Header from './Header'
+import Action from './Action'
+import TodoList from './TodoList'
+import AddTodo from './AddTodo'
+import TodoModal from './TodoModal'
+import '../styles/styles.css'
+
+export default class TodoApp extends React.Component { 1-6 결과 화면

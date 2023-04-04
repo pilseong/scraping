@@ -1,0 +1,14 @@
+1. 이 포스트는 Email Client를 작성하는 시리즈의 일부이다. 2. 작성순서 2-1 프로젝트 생성 2-1-1 환경설정하기 -> 여기서 다룬다. 2-1-2 메뉴 template 작성하기 2-2 보안 모듈 작성 2-3 이메일 모듈 작성 3. 환경설정 순서 3-1 ng new emailclient --routing 3-2 ng add @ng-bootstrap/ng-bootstrap 3-3 fontawesome 링크를 index.html에 붙인다. <!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Emailclient</title>
+  <base href="/">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="icon" type="image/x-icon" href="favicon.ico">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.13.1/css/all.min.css">
+</head>
+<body>
+  <app-root></app-root>
+</body>
+</html> 3-4 필요한 모듈, 컴포넌트, 서비스를 생성한다. 기본적인 것들만 생성하고 필요할 때 추가로 생성한다. 3-4-1 인증, 이메일, 공유 모듈을 생성했다. 3-4-2 실수 한 게 있는데, --routing을 안붙여서 모듈마다 파일을 생성해야 한다. ㅠ.ㅠ --routing 붙이는 게 좋다. 3-4-2 email 모듈의 첫화면인 home을 생성하고, 인증의 signin, singup 페이지도 생성하였다. 3-4-3 서비스는 기본적으로 인증과 이메일 요청 시 필요해서 생성했다.

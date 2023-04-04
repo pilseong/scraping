@@ -1,0 +1,120 @@
+1. 이 포스트는 축구 클럽 관리를 위한 테스트 프로젝트로 다양한 스프링 기능을 데모하기 위해 만들었다. 1-1 @SessionAttributes로 Session 범위의 attribute 사용하는 방법 1-2 세션에 원하는 객체가 없거나(만료) 정상적이지 않은 경로로 선수가 없는 team이 넘어온 경우 처리하기 1-2 Entity에 내장된 또 다른 클래스의 속성을 thymleaf로 접근하는 방법 1-3 Entity에 내장된 객체의 속성을 검증하는 방법 2 선수정보를 저장했으면 팀정보를 구성하는 Team 컨트롤러로 넘어간다. 2-1 팀정보를 구성화면을 보여주는 메소드는 showTeamSetup이다. 2-2 이 컨트롤러는 @SessionAttributes를 사용하고 있으므로 이미 사용중인 team 객체를 받아서 사용할 수 있다. 2-3 화면을 보여주는 메소드의 인자로 @SessionAttribute를 받고 있다. 2-3-1 이 값으로 전달 받은 세션 객체가 만료되었거나 (null), 선수가 없는 경우 선수등록으로 다시 돌아간다. 2-3-2 @SessionAttribute의 속성에 requried를 false로 설정하지 않으면 원천적으로 error가 발생한다. package pe.pilseong.fooball.controller;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Controller;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.SessionAttribute;
+import org.springframework.web.bind.annotation.SessionAttributes;
+
+import lombok.extern.slf4j.Slf4j;
+import pe.pilseong.fooball.entity.Team;
+import pe.pilseong.fooball.repository.TeamRepository;
+
+@Slf4j
+@Controller
+@RequestMapping("/teams")
+@SessionAttributes("team")
+public class TeamController {
+
+  @Autowired
+  private TeamRepository teamRepository;
+
+  @GetMapping
+  public String showTeamSetup(@SessionAttribute(required = false) Team team) {
+    log.info("showTeamSetup in TeamController");
+
+    if (team == null || team.getPlayers().size() == 0) {
+      return "redirect:/players";
+    }
+
+    return "team-creation";
+  } 3. 팀정보를 구성하는 View를 작성한다. 3-1 간단한 팀정보를 받는 form이다. 3-2 좀 어려운 부분은 Address인데 이전에 말했던 것처럼 Team Entity에서 @Valid로 수식되어 검증지정하고 있다. 3-2-1 Address 클래스 내부에도 검증자가 지정되어야 한다. package pe.pilseong.fooball.entity;
+
+import javax.validation.constraints.NotBlank;
+
+import lombok.Data;
+
+@Data
+public class Address {
+  @NotBlank
+  private String street;
+
+  @NotBlank
+  private String city;
+
+  @NotBlank
+  private String state;
+
+  @NotBlank
+  private String country;
+} 3-2-2 검증 에러 체크는 th:object에 지정된 team 객체를 기준으로 설정하면 된다. 3-2-2-1 따라서 주소검증을 원하면 address.street 같은 방식으로 접근할 수 있다. 3-3 Register Another player버튼이 있는데 이 버튼을 누르면 다시 player 생성화면으로 돌아간다. 3-3-1 여기에 다른 플레이어를 만들면 그 플레이어도 팀에 추가하게 된다. <!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+  <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.4.1/css/bootstrap.min.css"
+    integrity="sha384-Vkoo8x4CGsO3+Hhxv8T/Q5PaXtkKtu6ug5TOeNV6gBiFeWPGFN9MuhOf23Q9Ifjh" crossorigin="anonymous">
+  <title>Setting a Team</title>
+</head>
+
+<body>
+  <div class="container">
+    <img class="img-fluid" th:src=" @{ /images/football-ground.png }" alt="">
+    <h1 class="mt-2 mb-3">Set your own team</h1>
+
+    <a class="btn btn-secondary mb-3" th:href=" @{ /players } " id="another">Register Another Player</a><br />
+
+    <form method="POST" th:object="${team}">
+      <div th:if="${ #fields.hasErrors() }">
+        <div class="py-1 alert alert-warning text-muted">Please correct the problems below and resubmit</div>
+      </div>
+      <div class="card">
+        <div class="card-body">
+          <h5 class="card-title">Specific information of your team ...</h5>
+          <p class="card-text">
+            <div class="form-group">
+              <label for="name">Name: </label>
+              <input class="form-control mb-1" type="text" th:field="*{name}" />
+              <span class="alert alert-secondary text-muted py-1 small" 
+              	th:if="${ #fields.hasErrors('name') }"
+                th:errors="*{name}"></span>
+            </div>
+            <div class="form-group">
+              <label for="street">Street address: </label>
+              <input class="form-control mb-1" type="text" th:field="*{address.street}" />
+              <span class="alert alert-secondary text-muted py-1 small" 
+              	th:if="${ #fields.hasErrors('address.street') }"
+                th:errors="*{address.street}"></span>
+            </div>
+            <div class="form-group">
+              <label for="city">City: </label>
+              <input class="form-control mb-1" type="text" th:field="*{address.city}" />
+              <span class="alert alert-secondary text-muted py-1 small" 
+              	th:if="${ #fields.hasErrors('address.city') }"
+                th:errors="*{address.city}"></span>
+            </div>
+            <div class="form-group">
+              <label for="state">State: </label>
+              <input class="form-control mb-1" type="text" th:field="*{address.state}" />
+              <span class="alert alert-secondary text-muted py-1 small" 
+              	th:if="${ #fields.hasErrors('address.state') }"
+                th:errors="*{address.state}"></span>
+            </div>
+            <div class="form-group">
+              <label for="zip">Country: </label>
+              <input class="form-control mb-1" type="text" th:field="*{address.country}" />
+              <span class="alert alert-secondary text-muted py-1 small"
+                th:if="${ #fields.hasErrors('address.country') }" 
+                th:errors="*{address.country}"></span>
+            </div>
+            <input class="btn btn-primary" type="submit" value="Submit Order">
+          </p>
+        </div>
+      </div>
+    </form>
+  </div>
+</body>
+
+</html> 4. 실행화면

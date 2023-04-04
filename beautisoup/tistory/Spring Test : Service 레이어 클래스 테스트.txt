@@ -1,0 +1,54 @@
+1. JUnit 4 버전의 테스트 코드이다. 2. 아래는 Service 구현체의 Unit테스트의 예시이다. 연동이 필요하기 때문에 Mock object를 사용한다. 2-1 테스트는 context를 사용하지 않는다. 2-2 Mockito를 통해 Repository fixture을 구현하고 있다. 2-3 MockitoAnnotations은 @Mock으로 지정된 fixture를 초기화 해 준다. initMocks의 인자는 테스트 클래스가 된다. 2-3-1 더 정확히 말하면 @org.mockito.Mock,  @Spy, @Captor, @InjectMocks 로 지정된 fixture를 초기화 해준다. 2-3-2 이 방식을 사용하지 않으려면 클래스에 @RunWith(MockitoJUnitRunner.class) 를 사용하면 된다. 2-3-3 JUnit 5에서는 @ExtendWith(MockitoExtension.class) 를 사용한다. 2-4 verify는 integration 테스트를 위한 함수 2-4-1 아래의 경우는 recipeRepository의 findAll 함수가 몇번 호출되었는지를 확인한다. package pe.pilseong.recipe.service;
+
+import org.junit.Test;
+import org.mockito.Mock;
+import org.mockito.MockitoAnnotations;
+
+import pe.pilseong.recipe.domain.Recipe;
+import pe.pilseong.recipe.repository.RecipeRepository;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+
+import java.util.HashSet;
+import java.util.Set;
+
+import org.junit.Before;
+
+public class RecipeServiceImplTest {
+
+  RecipeServiceImpl recipeService;
+
+  @Mock
+  RecipeRepository recipeRepository;
+
+  @Before
+  public void setup() {
+    MockitoAnnotations.initMocks(this);
+
+    recipeService = new RecipeServiceImpl(recipeRepository);
+  }
+
+  @Test
+  public void getRecipes() {
+
+    Recipe recipe = new Recipe();
+    HashSet<Recipe> recipeData = new HashSet<>();
+    recipeData.add(recipe);
+
+    when(recipeRepository.findAll()).thenReturn(recipeData);
+
+    Set<Recipe> recipes = recipeService.getRecipes();
+    assertEquals(recipes.size(), 1);
+
+    // check to see how many times findAll method invoked
+    verify(recipeRepository, times(1)).findAll();
+  }
+
+  @Test
+  public void test() {
+
+  }
+}

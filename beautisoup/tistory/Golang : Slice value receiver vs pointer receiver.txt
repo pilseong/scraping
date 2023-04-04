@@ -1,0 +1,40 @@
+1. Go는 아주 단순한 문법을 가진 아주 간단한 언어이다.  정적 타입, 간단한 문법, 직관적인 구조 때문에 소스를 이해하기가 굉장히 쉽다. 소스를 보고 분석하는 데 필요한 시간이 다른 언어에 비해 굉장히 짧다. 다르게 해석할 여지가 없기 때문이다. 기본 라이브러리 소스도 바로 볼 수 있고 그냥 죽보면 직관적으로 쉽게 따라갈 수 있다. 스프링이나 자바 라이브러리와는 다르게 굉장히 쉽다. 2. 문제는 C언어를 생각하고 쉽게 생각하면서 포인터를 사용하려고 하면 안되는 것이 많다. 예를 들면 slice 포인터를 받아서는 개체에 []문법으로 접근할 수가 없다. 아래에 문법을 보면 pointer receiver를 사용할 경우 d[i] 같이 접근하는 게 불가능하다. 항상 (*d)[i] 처럼 접근해야 한다. 3. 이 포스트를 적는 것 이유는 한 가지 쉽게 이해안되는 부분 때문이데, 기록해 두는 것이 의미가 있을 것 같았다. 3-0 method를 작성할 때, slice의 경우는 아래의 소스처럼 (d deck) 이나 (d *deck)이나 결국은 d slice의 내용이 변경된다는 점이다. deck은 string slice로 정의하였다. 단순히 생각하면 value로 받는 경우 호출한 slice의 내용을 복사해서 d라는 새로운 deck을 만들 것 같고 복사한 객체만 손을 때문에 호출 부의 deck은 변경되지 않을 것 같지만 사실은 그게 아니다. Go의 모든 parameter 전달은 call by value이기 때문에 이 부분은 더 이해하기 쉽지 않다. 3-1 사실 이 문제는 단순하다. call by value로 slice를 복사해도 호출한 deck에도 수정사항이 반영되는 이유는 slice 자체가 껍데기이기 때문이다. 즉 slice가 내부적으로는 Array를 사용하기 때문에 slice라는 타입의 내부에 있는 header에 Array를 가리키는 pointer와 현재 slice의 length와 현재 수용가능한 element의 용량을 담는 size라는 변수가 있는데, 이런 것들만 slice변수가 가지고 있다. 결국 value receiver를 사용하면 이 header만 call by value로 복사되기 때문에 내부적으로 사용하는 Array는 호출부와 동일하다. 즉 껍데기만 d라는 메소드 receiver로 전달 될 뿐이다. 3-2  3-1의 내용은 아래의 코드에서 pointer를 찍어보면 알 수 있다. type deck []string
+
+func (d deck) shuffle() {
+	// func (d *deck) shuffle() {
+	log.Printf("address of pointer to cards %p", &d)
+	log.Printf("the value of pointer %p", d)
+	// log.Printf("address of the pointing object %p", *d)
+	fmt.Printf("time.Now().Unix(): %v\n", time.Now().Unix())
+	fmt.Printf("time.Now().UnixNano(): %v\n", time.Now().UnixNano())
+	// rand.Seed(time.Now().UnixNano())
+	// rand.Seed(time.Now().Unix())
+
+	s := rand.NewSource(time.Now().UnixNano())
+	r := rand.New(s)
+
+	sort.Slice(d, func(i, j int) bool { return r.Float64()-0.5 > 0 })
+
+	// rand.Shuffle(len(d), func(i, j int) {
+	// 	d[i], d[j] = d[j], d[i]
+	// })
+	// rand.Shuffle(len(*d), func(i, j int) {
+	// 	(*d)[i], (*d)[j] = (*d)[j], (*d)[i]
+	// })
+}
+
+package main
+
+import "log"
+
+func main() {
+	log.Println("Read from file")
+	cards := ReadDeckFromFile("deckfile")
+
+	log.Printf("address of cards %p", &cards)
+	log.Printf("cards %p", cards)
+	cards.shuffle()
+
+	log.Println("Shuffled deck")
+	cards.print()
+} 4. 한 가지 더 적어 놓자면 위의 소스는 새로운 source로 *Rand를 생성해서 사용하는 방법과 간편한게 기본 source의 값을 seed로 변경하는 방법을 둘다 적어 놓았다. slice의 내용을 shuffle하는 간단한 내용인데, sort를 통해서 섞는 방법과 새롭게 추가된 sort.shuffle 함수를 사용하는 방법 모두 적어 놓았다. 5. Go는 굉장히 쉽고 대부분의 기능도 이미 제공되고 있어 개발에만 집중할 수 있게 해준다. 추가로 라이브러리를 만드는 것도 아주 쉬우므로 확장성도 뛰어나다. 경험한 언어 중에 가장 심플하고 아름답다.

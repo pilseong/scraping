@@ -1,0 +1,135 @@
+0. 이 포스트는 Spring : AOP with Java Config 시리즈의 연속이다. 1. @Pointcut annotation의 목적은 하나의 point cut expression을 여러 advice 메소드에서 사용하기 위한 것이다. 1-1 즉 여러 개의 advice 메소드를 동일한 조건에서 사용할 경우에 중복을 제거하기 위함이다. 1-2 장점을 나열해 보면 쉬운 재사용, 한 곳에서 수정할 수 있음, 여러 포인트 컷의 공유와 조합이 편리함 2. @Pointcut 메소드를 정의한다. 2-1 아래의 코드의 forDAOPackage메소드는 @Pointcut으로 수식되어 있다. 2-2 단순히 point cut expression의 중복을 줄이기 위해서 사용하였다. 2-3 아래 소스는 예전의 소스와 동일하다. 2-4 결과는 이전과 동일하다. @Aspect
+@Component
+public class LoggingAspect {
+
+//  @Before(value = "execution(public void addAccount())")
+//  @Before(value = "execution(public void add*())")
+//  @Before(value="execution(boolean add*())")
+//  @Before(value="execution(* add*())")
+//  @Before(value="execution(* add*(pe.pilseong.spring_aop_review.Account))")
+//  @Before(value="execution(* add*(pe.pilseong.spring_aop_review.Account, ..))")
+//  @Before(value="execution(* add*(..))")
+//  @Before("execution(* pe.pilseong.spring_aop_review.dao.*.*(..))")
+//  public void beforeAddAccountAdvice() {
+//    System.out.println("\nExecuting @Before advice on pe.pilseong.spring_aop_review.dao.*.*(..)");
+//  }
+  
+
+  @Pointcut(value = "execution(* pe.pilseong.spring_aop_review.dao.*.*(..))")
+  public void forDAOPackage() {}
+  
+  @Before(value = "forDAOPackage()")
+  public void beforeAddAccountAdvice() {
+    System.out.println("\nExecuting @Before advice on pe.pilseong.spring_aop_review.dao.*.*(..)");
+  }
+}
+
+// 실행 클래스
+public class App {
+  public static void main(String[] args) {
+    AnnotationConfigApplicationContext context = 
+        new AnnotationConfigApplicationContext(JavaConfig.class);
+    
+    AccountDAO accountDAO = context.getBean("accountDAO", AccountDAO.class);
+    accountDAO.addAccount();
+    
+    Account account = new Account();
+    accountDAO.addAccount(account);
+    
+    accountDAO.addAccount(account, true);
+    
+    MembershipDAO membershipDAO = context.getBean("membershipDAO", MembershipDAO.class);
+    
+    membershipDAO.addAccount();
+    membershipDAO.addGoodAccount();
+    membershipDAO.membership();
+    
+    context.close();
+  }
+}
+
+// 실행 결과
+
+Executing @Before advice on pe.pilseong.spring_aop_review.dao.*.*(..)
+in beforeAddAccountAdvice
+class pe.pilseong.spring_aop_review.dao.AccountDAO: with Account Parameter. Doing my DB work: Adding an account
+
+
+
+Executing @Before advice on pe.pilseong.spring_aop_review.dao.*.*(..)
+in beforeAddAccountAdvice
+class pe.pilseong.spring_aop_review.dao.AccountDAO: with Account, boolean Parameter. Doing my DB work: Adding an account
+
+
+Executing @Before advice on pe.pilseong.spring_aop_review.dao.*.*(..)
+in beforeAddAccountAdvice
+class pe.pilseong.spring_aop_review.dao.MembershipDAO: Doing my DB work: Adding an account
+
+
+
+Executing @Before advice on pe.pilseong.spring_aop_review.dao.*.*(..)
+in beforeAddAccountAdvice
+class pe.pilseong.spring_aop_review.dao.MembershipDAO: Doing my DB work: Adding a good account
+
+
+
+Executing @Before advice on pe.pilseong.spring_aop_review.dao.*.*(..)
+in beforeAddAccountAdvice
+class pe.pilseong.spring_aop_review.dao.MembershipDAO: Doing my DB work: membership method is doing something 3. 동일한 @Pointcut을 사용하는 다른 메소드를 Advice에서 정의한다. 3-1 패키지에 포함된 메소드가 호출될 때 두 advice메소드가 차례로 실행된다. @Aspect
+@Component
+public class LoggingAspect {
+  @Pointcut(value = "execution(* pe.pilseong.spring_aop_review.dao.*.*(..))")
+  public void forDAOPackage() {}
+  
+  @Before(value = "forDAOPackage()")
+  public void beforeAddAccountAdvice() {
+    System.out.println("\nExecuting in beforeAddAccountAdvice @Before advice on pe.pilseong.spring_aop_review.dao.*.*(..)");
+  }
+  
+  @Before(value = "forDAOPackage()")
+  public void performApiAnalytics() {
+    System.out.println("\nExecuting in performApiAnalytics @Before advice on pe.pilseong.spring_aop_review.dao.*.*(..)");
+  }
+}
+
+// 실행 결과
+
+
+Executing in beforeAddAccountAdvice @Before advice on pe.pilseong.spring_aop_review.dao.*.*(..)
+
+Executing in performApiAnalytics @Before advice on pe.pilseong.spring_aop_review.dao.*.*(..)
+class pe.pilseong.spring_aop_review.dao.AccountDAO: with No Parameter Doing my DB work: Adding an account
+
+
+
+Executing in beforeAddAccountAdvice @Before advice on pe.pilseong.spring_aop_review.dao.*.*(..)
+
+Executing in performApiAnalytics @Before advice on pe.pilseong.spring_aop_review.dao.*.*(..)
+class pe.pilseong.spring_aop_review.dao.AccountDAO: with Account Parameter. Doing my DB work: Adding an account
+
+
+
+Executing in beforeAddAccountAdvice @Before advice on pe.pilseong.spring_aop_review.dao.*.*(..)
+
+Executing in performApiAnalytics @Before advice on pe.pilseong.spring_aop_review.dao.*.*(..)
+class pe.pilseong.spring_aop_review.dao.AccountDAO: with Account, boolean Parameter. Doing my DB work: Adding an account
+
+
+Executing in beforeAddAccountAdvice @Before advice on pe.pilseong.spring_aop_review.dao.*.*(..)
+
+Executing in performApiAnalytics @Before advice on pe.pilseong.spring_aop_review.dao.*.*(..)
+class pe.pilseong.spring_aop_review.dao.MembershipDAO: Doing my DB work: Adding an account
+
+
+
+Executing in beforeAddAccountAdvice @Before advice on pe.pilseong.spring_aop_review.dao.*.*(..)
+
+Executing in performApiAnalytics @Before advice on pe.pilseong.spring_aop_review.dao.*.*(..)
+class pe.pilseong.spring_aop_review.dao.MembershipDAO: Doing my DB work: Adding a good account
+
+
+
+Executing in beforeAddAccountAdvice @Before advice on pe.pilseong.spring_aop_review.dao.*.*(..)
+
+Executing in performApiAnalytics @Before advice on pe.pilseong.spring_aop_review.dao.*.*(..)
+class pe.pilseong.spring_aop_review.dao.MembershipDAO: Doing my DB work: membership method is doing something

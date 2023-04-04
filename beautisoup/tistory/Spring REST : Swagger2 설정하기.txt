@@ -1,0 +1,155 @@
+1. Swagger는 REST를 문서화하는데 도움을 주는 도구이다. REST는 SOAP처럼 표준이 없지만 표준처럼 사용되고 있다. 2. pom 설정에서 여러가지 swagger라이브러리를 지정할 수 있다. 여기서는 가장 많이 사용하는 springfox을 예시햔다. 2-1 귀찮아서 다 붙였는데, 버전에 보면 io.springfox.version이 있다. 2-2 io.springfox의 group id를 가지는 라이브러리가 2개가 추가되어 있다. <?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+  <parent>
+    <groupId>org.springframework.boot</groupId>
+    <artifactId>spring-boot-starter-parent</artifactId>
+    <version>2.3.3.RELEASE</version>
+    <relativePath /> <!-- lookup parent from repository -->
+  </parent>
+  <groupId>pe.pilseong</groupId>
+  <artifactId>restdemo</artifactId>
+  <version>0.0.1-SNAPSHOT</version>
+  <name>restdemo</name>
+  <description>Demo project for Spring Boot</description>
+
+  <properties>
+    <java.version>11</java.version>
+    <org.mapstruct.version>1.3.1.Final</org.mapstruct.version>
+    <io.springfox.version>3.0.0</io.springfox.version>
+  </properties>
+
+  <dependencies>
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-data-jpa</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-web</artifactId>
+    </dependency>
+
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-devtools</artifactId>
+      <scope>runtime</scope>
+      <optional>true</optional>
+    </dependency>
+
+    <dependency>
+      <groupId>org.mapstruct</groupId>
+      <artifactId>mapstruct</artifactId>
+      <version>${org.mapstruct.version}</version>
+    </dependency>
+
+    <dependency>
+      <groupId>io.springfox</groupId>
+      <artifactId>springfox-boot-starter</artifactId>
+      <version>${io.springfox.version}</version>
+    </dependency>
+
+    <dependency>
+      <groupId>io.springfox</groupId>
+      <artifactId>springfox-swagger-ui</artifactId>
+      <version>2.10.5</version>
+  </dependency>
+
+    <dependency>
+      <groupId>com.h2database</groupId>
+      <artifactId>h2</artifactId>
+      <scope>runtime</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.projectlombok</groupId>
+      <artifactId>lombok</artifactId>
+      <optional>true</optional>
+    </dependency>
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-test</artifactId>
+      <scope>test</scope>
+      <exclusions>
+        <exclusion>
+          <groupId>org.junit.vintage</groupId>
+          <artifactId>junit-vintage-engine</artifactId>
+        </exclusion>
+      </exclusions>
+    </dependency>
+  </dependencies>
+
+  <build>
+    <plugins>
+      <plugin>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-maven-plugin</artifactId>
+      </plugin>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-compiler-plugin</artifactId>
+        <version>3.5.1</version>
+        <configuration>
+          <source>11</source>
+          <target>11</target>
+          <annotationProcessorPaths>
+            <path>
+              <groupId>org.mapstruct</groupId>
+              <artifactId>mapstruct-processor</artifactId>
+              <version>${org.mapstruct.version}</version>
+            </path>
+            <path>
+              <groupId>org.projectlombok</groupId>
+              <artifactId>lombok</artifactId>
+              <version>${lombok.version}</version>
+            </path>
+          </annotationProcessorPaths>
+          <compilerArgs>
+            <compilerArg>
+                -Amapstruct.defaultComponentModel=spring
+            </compilerArg>
+          </compilerArgs>
+        </configuration>
+      </plugin>
+    </plugins>
+  </build>
+
+</project> 3. 스프링 부트에서는 위와 같이 설정하면 약간의 Configration에서 설정하는 부분만 해 주면 된다. 3-1 아래처럼 설정해 주면 이제 동작할 설정은 거의 다한 셈이다. package pe.pilseong.restdemo.config;
+
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+
+import springfox.documentation.builders.PathSelectors;
+import springfox.documentation.builders.RequestHandlerSelectors;
+import springfox.documentation.spi.DocumentationType;
+import springfox.documentation.spring.web.plugins.Docket;
+import springfox.documentation.swagger2.annotations.EnableSwagger2;
+
+@Configuration
+@EnableSwagger2
+public class SwaggerConfig {
+  
+  @Bean
+  public Docket api() {
+    return new Docket(DocumentationType.SWAGGER_2)
+      .select()
+      .apis(RequestHandlerSelectors.any())
+      .paths(PathSelectors.any())
+      .build()
+      .pathMapping("/");
+  }
+} 4. 서비스를 시작하고 http://localhost:8080/v2/api-docs 를 열어보면 4-1 아래와 같은 json 형식으로 사용할 수 있는 api를 확인할 수 있다. 4-2 swagger는 ui도 지원하는데 http://localhost:8080/swagger-ui.html 로 들어가면 ui로 구성된 화면을 볼 수 있다. 4-2-1 vendor-controller을 들어가보면 4-2-2 제일 위쪽의 get에 들어가 테스트도 해 볼 수 있다. 존나 좋다. 5. 스프링부트를 사용하지 않는 경우에는 swagger ui를 사용하려면 리소스 설정을 해주어야 한다. 5-1 webjars와 swagger-ui view에 대한 리소스 정보를 등록해 주어야 한다. @Configuration
+@EnableWebMvc
+@EnableTransactionManagement
+@PropertySource("classpath:persistence-mysql.properties")
+@ComponentScan(basePackages = "pe.pilseong.customermanagement")
+public class WebConfig implements WebMvcConfigurer {
+
+...
+
+@Override
+  public void addResourceHandlers(ResourceHandlerRegistry registry) {
+    registry.addResourceHandler("swagger-ui.html")
+      .addResourceLocations("classpath:/META-INF/resources/");
+ 
+    registry.addResourceHandler("/webjars/**")
+      .addResourceLocations("classpath:/META-INF/resources/webjars/");
+  }

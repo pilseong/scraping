@@ -1,0 +1,97 @@
+1. 직전에 포스트의 예제를 이어서 사용한다. 1-1 삭제버튼을 하나 추가하여 설명을 이어 간다. 2. 아래 코드를 보면 인스턴스 메소드나 인스턴스 변수로의 접근은 this, 로컬은 그냥 변수 이름으로 접근한다. 2-1 this의 여부는 아주 중요하다. 이벤트 등록 부분을 보면 this를 사용하여야 인스턴스 메소드로 접근이 가능하다. 2-2 이전에도 이야기 했듯 이벤트에 메소드를 등록하는 것은 메소드 호출이 아니고 메소드 자체의 할당이다. 2-2-1 사용자가 클릭한 시점에 해당 메소드가 호출되어야 함을 의미한다. 2-2-2 TodoList를 보면 Remove all이라는 버튼이 있다. 이 버튼의 click 등록시 해당함수 끝에 bind(this)가 있다. 2-2-2-1 이 부분은 이미 언급했듯 함수의 호출이 아니고 할당이기 때문인데, 2-2-2-2 할당 시 context를 잃어버려, 함수 호출 시 onRemoveAllClicked 내부의 this가 동작하지 않기 때문이다. 2-2-2-3 그렇기 때문에 명시적으로 render에서 접근가능한 context를 바인딩 해 주어야 한다. 2-2-2-4 바인딩의 유무는 context의 필요에 따라서 해주면 된다. 2-2-2-5 이것이 번거로울 경우는 생성자에서 아예 처음에 this.onRemoveAllClicked 함수 변수에 미리 지정한다. 2-2-2-5-1 this.onRemoveAllClick = this.onRemoveAll.bind(this) 코드를 사용하면 된다. class TodoApp extends React.Component {
+  render() {
+    const title = "TO DO List"
+    let todos = [
+      "Take your mask",
+      "Wash your hands"
+    ]
+
+    return (
+      <div>
+        <Header title={title} />
+        <Action />
+        <TodoList todos={todos}/>
+        <AddTodo />
+      </div>
+    )
+  }
+}
+
+class Header extends React.Component {
+  render() {
+    return (
+      <div>
+        <h1>{this.props.title}</h1>
+      </div>
+    )
+  }
+}
+
+class Action extends React.Component {
+
+  onNextTodoClick() {
+    alert('Select Next todo clicked')
+  }
+
+  render() {
+    return (
+      <div>
+        <button onClick={this.onNextTodoClick}>Next Todo?</button>
+      </div>
+    )
+  }
+}
+
+class TodoList extends React.Component {
+  onRemoveAllClicked() {
+    console.log(this.props.todos)
+  }
+
+  render() {
+    return (
+      <div>
+      <button onClick={this.onRemoveAllClicked.bind(this)}>Remove All</button>
+        {
+          this.props.todos.map(todo => <Todo key={todo} todoText={todo} />)
+        }
+      </div>
+    )
+  }
+}
+
+class Todo extends React.Component {
+  render() {
+    return (
+      <div>
+        <p>
+          {this.props.todoText}
+        </p>
+      </div>
+    )
+  }
+}
+
+class AddTodo extends React.Component {
+
+  onFormSubmit(e) {
+    e.preventDefault()
+    const typedTodo = e.target.elements.newTodo.value
+    if (typedTodo) {
+      alert(typedTodo)
+      e.target.elements.newTodo.value = ''
+    }
+  }
+
+  render() {
+    return (
+      <div>
+        <form onSubmit={this.onFormSubmit}>
+          <input type="text" name="newTodo" />
+          <button>Add</button>
+        </form>
+      </div>
+    )
+  }
+}
+
+ReactDOM.render(<TodoApp />, document.getElementById('app')) 3. 결과 화면

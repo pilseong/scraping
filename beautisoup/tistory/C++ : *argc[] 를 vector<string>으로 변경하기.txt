@@ -1,0 +1,39 @@
+1. 별의미는 없지만 잊어버릴 것 같아 적어 놓는다. 2. vector<string> arguments(argv+1, argv+argc) 형식으로 vector의 range constructor를 사용된다. 2-1 begin, end를 넣어주는 것이 포인트이다. 2-2 vector 역시 array기반의 가변 array라서 array와 완벽하게 호환이 된다. #include <iostream>
+#include <vector>
+#include <fstream>
+#include <algorithm>
+
+using namespace std;
+
+
+int count_lines(string filename) {
+    ifstream in(filename);
+
+    return count(istreambuf_iterator<char>(in), istreambuf_iterator<char>(), '\n');
+}
+
+vector<int>
+count_lines_in_files(const vector<string>& files)
+{
+    vector<int> results;
+
+    for (const auto& file : files) {
+
+        ifstream in(file);
+        results.push_back(count_lines(file));
+    }
+
+    return results;
+}
+
+int main(int argc, char *argv[])
+{
+    vector<string> arguments(argv+1, argv+argc);
+    auto results = count_lines_in_files(arguments);
+
+    for (const auto& ptr : results) {
+        cout<<ptr<<endl;
+    }
+
+    return 0;
+}

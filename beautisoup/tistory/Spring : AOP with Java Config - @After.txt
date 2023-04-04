@@ -1,0 +1,59 @@
+0. 이 포스트는 Spring : AOP with Java Config의 연속이다. 1. @After advice는 타겟 메소드에서 Exception의 발생여부과 관계없이 실행된다. 1-1 실행시점은 @AfterReturning 이나 @AfterThrowing advice가 실행되기 직전에 실행된다. 1-2 @After advice는 에러에 대한 접근이 불가능하다. 1-2-1 예외 관련 처리가 필요하면 @AfterThrowing을 추가로 구현해야 한다. 2. 사용 용도는 2-1 예외 로그를 남기거나 감사를 업무수행 2-2 결과 관계없이 처리해야 하는 리소스 해제 같은 로직 수행 3. @After는 @AfterReturning, @AfterThrowing과 같이 실행해야 동작을 확인할 수 있어 추가된 부분만 붙여넣기 한다. @Aspect
+@Component
+public class LoggingAspect {
+
+  @AfterThrowing(pointcut = "execution(* pe.pilseong.aop_after_returning.dao.AccountDAO.findAccounts(..))", throwing = "ex")
+  public void afterThrowingFindAccountsAdvice(JoinPoint joinPoint, Throwable ex) {
+    System.out.println("Aspect(@AfterThrowing) :: afterThrowingFindAccountsAdvice is executed after "
+        + joinPoint.getSignature().toShortString());
+  }
+
+  @AfterReturning(pointcut = "execution(* pe.pilseong.aop_after_returning.dao.AccountDAO.findAccounts(..))")
+  public void afterReturningFindAccountsAdvice(JoinPoint joinPoint) {
+    System.out.println("Aspect(@AfterReturning) :: afterReturningFindAccountsAdvice is executed after "
+        + joinPoint.getSignature().toShortString());
+  }
+  
+  @After(value = "execution(* pe.pilseong.aop_after_returning.dao.AccountDAO.findAccounts(..))")
+  public void afterFindAccountsAdvice(JoinPoint joinPoint) {
+    System.out.println("Aspect(@After) :: afterReturningFindAccountsAdvice is executed after "
+        + joinPoint.getSignature().toShortString());
+  } 4. 실행 결과 4-1 결과를 보면 예외의 발생 여부와 상관없이 @After advice가 실행된 것을 확인 할 수 있다. public class App {
+  public static void main(String[] args) {
+    AnnotationConfigApplicationContext context = new AnnotationConfigApplicationContext(JavaConfig.class);
+
+    AccountDAO accountDAO = context.getBean("accountDAO", AccountDAO.class);
+
+    List<Account> accounts = null;
+    try {
+      boolean triggerError = true;
+      accounts = accountDAO.findAccounts(triggerError);
+    } catch (Exception e) {
+      System.out.println("Main App class :: " + e.getMessage());
+    }
+
+    System.out.println("\nMain App class :: ");
+    System.out.println("Main App class Accounts List :: " + accounts);
+
+    context.close();
+  }
+}
+
+// triggerError가 true로 예외를 발생시킨 경우
+findAccounts is executed
+Aspect(@After) :: afterReturningFindAccountsAdvice is executed after AccountDAO.findAccounts(..)
+Aspect(@AfterThrowing) :: afterThrowingFindAccountsAdvice is executed after AccountDAO.findAccounts(..)
+Main App class :: Exception :: To trigger @AfterThrowing
+
+Main App class :: 
+Main App class Accounts List :: null
+
+---------------------------------------------------------------------------
+
+// triggerError가 false인 정상 경로 실행의 경우
+findAccounts is executed
+Aspect(@After) :: afterReturningFindAccountsAdvice is executed after AccountDAO.findAccounts(..)
+Aspect(@AfterReturning) :: afterReturningFindAccountsAdvice is executed after AccountDAO.findAccounts(..)
+
+Main App class :: 
+Main App class Accounts List :: [Account [name=Pilseong, level=Admin], Account [name=Suel, level=Admin], Account [name=Noel, level=Staff]]

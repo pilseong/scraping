@@ -1,0 +1,50 @@
+1. React는 브라우저에서 동작하는 독립형 클라이언트를 작성하는 기술 중 하나이다. 1-1 이 카테고리의 게시물들은 create-react-app에서 미리 생성 해주는 많은 것들이 어떤 방식으로 설정되는지를 1-2 이해하기 위해 점차적으로 create-react-app으로 실행한 프로젝트의 결과물에 다가간다. 1-3 왜 React가 Angular, Vue보다 좀더 npm 모듈을 자유롭게 활용할 수 있는지 이해하는 것이 주된 목적이다. 2. React는 JSX라는 Javascript를 확장하는 문법을 사용하고 있어 babel 컴파일러의 @babel/preset-react가 필요하다. 2-1 엄밀히 말하면 @babel/preset-env도 당연히 있어야 동작한다. 2-2 babel은 표준자바 스크립트에서 지원하지 않는 다양한 문법을 분석하여 표준자바로 변환해 주는 라이브러리이다. 2-2-1 즉 react 문법이 필요하면 @babel/preset-react가 필요하고 es6, es7같은 공통문법은 preset-env에서 지원한다. 3. 예제를 위해 빈 폴더를 만들고 아래에 public, public/scripts, src 폴더를 만든다. index.html, app.js 파일을 만든다. 3-1 npm init을 프로젝트 폴더 안에서 실행하여 package.json파일을 생성한다. 3-2 JSX 문법을 사용하기 위하여 babel을 설치한다. 3-2-1 @babel/core, @babel/cli, @babel/preset-env, @babel/preset-react 를 설치한다. 3-3 이제 자바스크립트가 탑재될 index.html을 작성한다. <!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Basic React</title>
+</head>
+
+<body>
+  <div id="app"></div>
+  <script crossorigin src="https://unpkg.com/react@16/umd/react.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@16/umd/react-dom.production.min.js"></script>
+  <script src="scripts/app.js"></script>
+</body>
+
+</html> 3-3-1 그냥 기본적인 html 파일이다. 여기에 react 라이브러리 사용하기 위한 CDN 링크를 걸었다. 3-3-2 실제 Vanilia javascript 코드가 들어갈 scripts/app.js 파일의 링크도 걸었다. 3-4 JSX 코드를 작성하기 위해 src/app.js 파일을 작성한다. var template = <div>
+  <h1>Reaact Basic title</h1>
+  <p>React Basic subtitle with JSX</p>
+</div>
+
+var appRoot = document.getElementById('app')
+
+ReactDOM.render(template, appRoot) 3-5 작성한 app.js를 순수 자바스크립트로 변환하기 위해 babel 명령어와 --watch 옵션으로 실시간 처리한다. 3-5-0 watch 옵션은 감시기능으로 한번 변환 후 끝내는 게 아니라 대상파일을 감시하여 수정이 생기면 재컴파일한다. ./node_modules/.bin/babel src/app.js --out-file public/scripts/app.js --presets=@babel/preset-env,@babel/preset-react --watch 3-5-1 위의 명령을 실행하면 바로 src/app.js를 컴파일하여 /public/scripts/app.js를 생성한다. 3-6 화면으로 동작을 확인하기 위하여 live-server를 설치하고 실행한다. 3-7 결과확인 3-7-1 오타가 있지만 잘 동작한다. 4. React에서 가장 많이 활용되는 기능이 {}로 된 JSX expression이다. 4-1 {} 안에는 html 코드나 자바스크립트 모두 들어갈 수 있다. 4-2 일반적으로 가장 많이 사용되는 것은 trinary operator와 conditional rendering이다. 4-3 jsx expression을 사용하여 변수에서 값을 읽어올 수 있는데 아래의 코드는 그 예시다. 결과는 동일하다. 4-3-1 {} 안의 결과값이 만일 undefined, null 이나 boolean 값이 들어오는 경우 아무런 것도 표출되지 않는다. var titles = {
+  title: 'React Basic title',
+  subtitle: 'React Basic subtitle with JSX'
+}
+
+var template = <div>
+  <h1>{titles.title}</h1>
+  <p>{titles.subtitle}</p>
+</div>
+
+var appRoot = document.getElementById('app')
+
+ReactDOM.render(template, appRoot) 4-4 조건 문을 사용하여 다양하게 처리할 수 있다. var titles = {
+  title: 'React Basic title',
+  subtitle: 'React Basic subtitle with JSX',
+  // author: 'Pilseong'
+}
+
+var template = <div>
+  <h1>{titles.title}</h1>
+  {titles.subtitle && <p>{titles.subtitle}</p>}
+  {titles.author ? <p>{titles.author}</p> : <p>No author</p>}
+</div>
+
+var appRoot = document.getElementById('app')
+
+ReactDOM.render(template, appRoot) 4-4-1 결과 화면

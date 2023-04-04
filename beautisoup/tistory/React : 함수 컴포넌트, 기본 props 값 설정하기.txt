@@ -1,0 +1,186 @@
+1. 리액트는 리액트 컴포넌트를 상속하는 다기능의 리액트 클래스보다 함수로 정의된 단순한 컴포넌트도 지원한다. 1-1 함수로 컴포넌트를 정의할 경우 리액트 컴포넌트를 상속하지 않기 때문에 상태값이나 구현 메소드를 쓸 수 없다. 1-2 그 대신 단순한 함수를 실행하는 것이기 때문에 속도가 빠르다. 1-3 보통 상태를 가지지 않는 단순 데이터 표출용 컴포넌트를 만들 때 활용된다. 1-4 부모 컴포넌트에서 속성을 전달하면 함수 컴포넌트의 props 인자의 내부 속성값으로 전달이 된다. 1-5 아래 코드는 지난 포스트에서 상태가 필요한 TodoApp, AddTodo 컴포넌트를 제외한 나머지를 변경하였다. class TodoApp extends React.Component {
+
+  constructor(props) {
+    super(props)
+
+    this.onRemoveAllClicked = this.onRemoveAllClicked.bind(this)
+    this.onNextTodoClicked = this.onNextTodoClicked.bind(this)
+    this.handleAddTodo = this.handleAddTodo.bind(this)
+
+    this.state = {
+      todos: [
+        "Take your mask",
+        "Wash your hands",
+        "Drink more water"
+      ]
+    }
+  }
+
+  onRemoveAllClicked() {
+    this.setState(() => {
+      return {
+        todos: []
+      }
+    })
+  }
+
+  onNextTodoClicked() {
+    const index = Math.floor(Math.random() * this.state.todos.length)
+    alert(this.state.todos[index])
+  }
+
+  handleAddTodo(todo) {
+    if (!todo) {
+      return 'Please type vaild item'
+    } else if (this.state.todos.indexOf(todo) > -1) {
+      return 'Duplicated item typed'
+    }
+
+    this.setState((prevState) => {
+      return {
+        todos: prevState.todos.concat(todo)
+      }
+    })
+  }
+
+  render() {
+    const title = "TO DO List"
+
+    return (
+      <div>
+        <Header title={title} />
+        <Action 
+          hasTodos={this.state.todos.length > 0} 
+          onNextTodoClicked={this.onNextTodoClicked}
+        />
+        <TodoList 
+          hasTodos={this.state.todos.length > 0}
+          todos={this.state.todos}
+          onRemoveAllClicked={this.onRemoveAllClicked}
+        />
+        <AddTodo handleAddTodo={this.handleAddTodo} />
+      </div>
+    )
+  }
+}
+
+const Header = (props) => {
+  return (
+    <div>
+      <h1>{props.title}</h1>
+    </div>
+  )
+}
+
+const Action = (props) => {
+  return (
+    <div>
+      <button 
+        onClick={props.onNextTodoClicked}
+        disabled={!props.hasTodos}
+      >Next Todo?</button>
+    </div>
+  )
+}
+
+const TodoList = (props) => {
+  return (
+    <div>
+    <button 
+      onClick={props.onRemoveAllClicked}
+      disabled={!props.hasTodos}
+    >Remove All</button>
+      {
+        props.todos.map(todo => <Todo key={todo} todoText={todo} />)
+      }
+    </div>
+  )
+}
+
+const Todo = (props) => {
+  return (
+    <div>
+      <p>
+        {props.todoText}
+      </p>
+    </div>
+  )
+}
+
+class AddTodo extends React.Component {
+
+  constructor(props) {
+    super(props)
+
+    this.onFormSubmit = this.onFormSubmit.bind(this)
+
+    this.state = {
+      error: undefined
+    }
+  }
+
+  onFormSubmit(e) {
+    e.preventDefault()
+    const typedTodo = e.target.elements.newTodo.value
+
+    const error = this.props.handleAddTodo(typedTodo)
+
+    this.setState(() => {
+      return {
+        error
+      }
+    })
+    e.target.elements.newTodo.value = ''
+  }
+
+  render() {
+    return (
+      <div>
+        {this.state.error && <p>{this.state.error}</p>}
+        <form onSubmit={this.onFormSubmit}>
+          <input type="text" name="newTodo" />
+          <button>Add</button>
+        </form>
+      </div>
+    )
+  }
+}
+
+ReactDOM.render(<TodoApp />, document.getElementById('app')) 2. props에 기본값을 설정하는 예제는 다음과 같다. 2-1 아래의 코드는 TodoApp에서 Header로 전달하는 title을 삭제하여 전달하지 않고 Header에 default값을 쓰고 있다. 2-1-1 마지막 부분을 보면 defaultProps라는 Header함수의 속성으로 객체를 할당하고 있다. class TodoApp extends React.Component {
+
+	...
+
+  render() {
+    // const title = "TO DO List"
+
+    return (
+      <div>
+        {/* <Header title={title} /> */}
+        <Header />
+        <Action 
+          hasTodos={this.state.todos.length > 0} 
+          onNextTodoClicked={this.onNextTodoClicked}
+        />
+        <TodoList 
+          hasTodos={this.state.todos.length > 0}
+          todos={this.state.todos}
+          onRemoveAllClicked={this.onRemoveAllClicked}
+        />
+        <AddTodo handleAddTodo={this.handleAddTodo} />
+      </div>
+    )
+  }
+}
+
+
+const Header = (props) => {
+  return (
+    <div>
+      <h1>{props.title}</h1>
+    </div>
+  )
+}
+
+Header.defaultProps = {
+  title: 'Your Todo List'
+} 2-2 실행결과

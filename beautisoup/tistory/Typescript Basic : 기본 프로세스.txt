@@ -1,0 +1,15 @@
+기본적인 Typescript 개발 설정하기 0. 기본적인 세팅 0-1 Editor - Typescript는 MS에서 만든 것이라 MS에서 만든 VS Code가 좋다. 0-2 node 0-3 npm 0-4 tsc 1. Typescript 코드 생성 1-1 .ts 확장자를 가지는 코드를 작성한다. 2. 코드 컴파일 2-1 브라우저는 Typescript를 이해하지 못한다. 2-2 Typescript를 Javascript로 변환이 필요한데 이 과정을 transpiling이라고 한다. 2-3 컴파일을 위해 tsc 명령어를 사용한다. ts 확장자 파일을 컴파일하여 js 확장자 파일을 생성한다. 2-4 생성된 Javascript는 node로 실행할 수 있다. 3. 코드 실행 4. tsc 컴파일러는 에러가 발생해도 js파일을 생성한다. 4-1 Typescript와 달리 Javascript는 Type에 엄격하지 않기 때문이다. 4-2 이를 방지하기 위해서 --noEmitOnError option을 사용하는 것이 좋다. 좀 더 편리한 Typescript 환경 설정하기 0. 폴더를 하나 만들고 npm init을 실행하여 package.json을 생성한다. 1. typescript와 ts-node-dev 설치하기 1-1 typescript는 언어지원이므로 필수적이다. 1-2 ts-node-dev는 typescript 작업을 node에서 편하게 해주는 도구이다. $ npm install typescript ts-node-dev 2. 위에 설치한 두 개의 패키지를 가지고 소스 수정시 자동 실행되도록 package.json을 수정한다. 2-1 실행부분인 scripts에 start 속성을 추가한다. respawn은 다시 실행하는 부분이다. {
+  "name": "ts",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "start": "ts-node-dev --no-notify --respawn"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "ts-node-dev": "^1.0.0-pre.47",
+    "typescript": "^3.9.5"
+  }
+} 2-2 실행은 npm start + 실행파일이름이다. 예를 들면) npm start index.ts

@@ -1,0 +1,200 @@
+0. 스프링을 쓸일이 별로 없는데, 아주 예전 스프링 4.4를 스프링부트로 마이그레이션할 일이 생겼다. 기존의 client 스크립트가 JSP라서 대략 난감이다. 아무튼 인터넷에 찾아보니 제대로 돌아가는 게 없어 이것저것 끌어모아 틀로 사용할 만한 것들 구성하였다. 짜집기 코드라서 내가 만든 것은 아니다. 1. 스프링 부트 initializer에서 Spring Web, Oracle Driver, Lombok 만 선택했다. 패키지는 war로 설정했다. 2. 그런 후 jstl과 tomcat-embed-jasper를 넣었다. 나머지는 initializer에서 알아서 설정해 주었다. 2-1 bootstrap 5.0.1을 webjar로 추가하였다. <?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+  <parent>
+    <groupId>org.springframework.boot</groupId>
+    <artifactId>spring-boot-starter-parent</artifactId>
+    <version>2.5.2</version>
+    <relativePath/> <!-- lookup parent from repository -->
+  </parent>
+  <groupId>pe.pilseong</groupId>
+  <artifactId>cmsapp</artifactId>
+  <version>0.0.1-SNAPSHOT</version>
+  <packaging>war</packaging>
+  <name>cmsapp</name>
+  <description>Demo project for Spring Boot</description>
+  <properties>
+    <java.version>11</java.version>
+  </properties>
+  <dependencies>
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-web</artifactId>
+    </dependency>
+
+    <dependency>
+      <groupId>org.projectlombok</groupId>
+      <artifactId>lombok</artifactId>
+      <optional>true</optional>
+    </dependency>
+
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-tomcat</artifactId>
+      <scope>provided</scope>
+    </dependency>
+
+    <dependency>
+      <groupId>javax.servlet</groupId>
+      <artifactId>jstl</artifactId>
+      <version>1.2</version>
+    </dependency>
+
+    <dependency>
+      <groupId>org.apache.tomcat.embed</groupId>
+      <artifactId>tomcat-embed-jasper</artifactId>
+      <version>9.0.44</version>
+    </dependency>
+
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-test</artifactId>
+      <scope>test</scope>
+    </dependency>
+
+    <!-- https://mvnrepository.com/artifact/org.webjars/bootstrap -->
+    <dependency>
+      <groupId>org.webjars</groupId>
+      <artifactId>bootstrap</artifactId>
+      <version>5.0.1</version>
+    </dependency>
+
+    <dependency>
+      <groupId>com.oracle.database.jdbc</groupId>
+      <artifactId>ojdbc8</artifactId>
+      <scope>runtime</scope>
+    </dependency>
+  </dependencies>
+
+  <build>
+    <plugins>
+      <plugin>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-maven-plugin</artifactId>
+        <configuration>
+          <excludes>
+            <exclude>
+              <groupId>org.projectlombok</groupId>
+              <artifactId>lombok</artifactId>
+            </exclude>
+          </excludes>
+        </configuration>
+      </plugin>
+    </plugins>
+  </build>
+
+</project> 3 application.properties 파일 spring.mvc.view.prefix: /WEB-INF/jsp/
+spring.mvc.view.suffix: .jsp
+
+welcome.message: Hello Pilseong
+
+spring.datasource.driver-class-name=oracle.jdbc.OracleDriver
+spring.datasource.url=jdbc:oracle:thin:@127.0.0.1...
+spring.datasource.username=username
+spring.datasource.password=password 4. 파일 구조 4-1 src/main/webapp/WEB-INF 폴더를 만들어야 한다. 거기 아래 jsp 위치 4-2 static 파일을 src/resources/static 아래에 들어가야 한다. 아래는 css폴더를 만들고 사용하고 있다. 5. jsp 파일 <!DOCTYPE html>
+<%@ taglib prefix="spring" uri="http://www.springframework.org/tags"%>
+<%@ taglib prefix="c" uri="http://java.sun.com/jsp/jstl/core"%>
+<html lang="en">
+<head>
+
+    <!-- Access the bootstrap Css like this, 
+        Spring boot will handle the resource mapping automcatically -->
+    <link rel="stylesheet" type="text/css" href="webjars/bootstrap//5.0.1/css/bootstrap.min.css" />
+
+    <!-- 
+    <spring:url value="/css/main.css" var="springCss" />
+    <link href="${springCss}" rel="stylesheet" />
+     -->
+    <c:url value="/css/main.css" var="jstlCss" />
+    <link href="${jstlCss}" rel="stylesheet" />
+
+</head>
+<body>
+
+    <nav class="navbar navbar-inverse">
+        <div class="container">
+            <div class="navbar-header">
+                <a class="navbar-brand" href="#">Spring Boot</a>
+            </div>
+            <div id="navbar" class="collapse navbar-collapse">
+                <ul class="nav navbar-nav">
+                    <li class="active"><a href="#">Home</a></li>
+                    <li><a href="#about">About</a></li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container">
+
+        <div class="starter-template">
+            <h1>Spring Boot Web JSP Example</h1>
+            <h2>Message: ${message}</h2>
+        </div>
+
+    </div>
+    
+    <script type="text/javascript" src="webjars/bootstrap/5.0.1/js/bootstrap.min.js"></script>
+
+</body>
+
+</html> 5-1 css 파일 h1{
+  color:#0000FF;
+}
+
+h2{
+  color:#FF0000;
+} 6. 기동 파일 6-1 ServletInitalizer는 패키징을 war로 설정하면 자동으로 생성된다. package pe.pilseong.cmsapp;
+
+import org.springframework.boot.SpringApplication;
+import org.springframework.boot.autoconfigure.SpringBootApplication;
+
+@SpringBootApplication
+public class CmsappApplication {
+
+	public static void main(String[] args) {
+		SpringApplication.run(CmsappApplication.class, args);
+	}
+
+}
+
+
+
+
+package pe.pilseong.cmsapp;
+
+import org.springframework.boot.builder.SpringApplicationBuilder;
+import org.springframework.boot.web.servlet.support.SpringBootServletInitializer;
+
+public class ServletInitializer extends SpringBootServletInitializer {
+
+	@Override
+	protected SpringApplicationBuilder configure(SpringApplicationBuilder application) {
+		return application.sources(CmsappApplication.class);
+	}
+
+}
+
+
+
+package pe.pilseong.cmsapp.controller;
+
+import java.util.Map;
+
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Controller;
+import org.springframework.web.bind.annotation.RequestMapping;
+
+@Controller
+public class WelcomeController {
+  // inject via application.properties
+  @Value("${welcome.message:test}")
+  private String message = "Hello World";
+
+  @RequestMapping("/")
+  public String welcome(Map<String, Object> model) {
+    model.put("message", this.message);
+    return "welcome";
+  }
+} 7. mvnw로 빌드해서 spring-boot:run 이나 IDE로 기동하면 된다.

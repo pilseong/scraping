@@ -1,0 +1,47 @@
+0. 이 포스트는 가장 많이 사용되는 Reactive Form에 대한 정리 시리즈이다. 0-0 이 포스트에서는 ngx-mask를 사용하여 입력을 정의하는 내용을 다룬다. 0-1 ngx-mask는 사용자가 입력을 제대로 할 수 있도록 도와주는 기능을 한다. 0-2 예제와 기능은 아래 링크를 참조한다. 1. 작성 순서 1-1 화면이 만들어졌으니 이제 ngx-mask를 사용하여 입력 패턴을 설정한다. 1-2 먼저 ngx-mask를 사용하기 위해 app.module.ts에 import 한다. 1-3 신용카드 컴포넌트 template에 사용자 입력 제약 설정을 한다. 2. ngx-mask import하기 2-1 다른 라이브러리와 마찬가지로 import 해야 한다. 2-1-0 초기화에 대한 부분으 ngx-mask npm페이지를 참고하였다. ngx-mask awesome ngx mask www.npmjs.com 2-1-1 options이라는 Partial객체를 하나 만들어서 NgxMaskModule을 초기화 할 때 지정해 주어야 한다 import { BrowserModule } from '@angular/platform-browser';
+import { NgModule } from '@angular/core';
+
+import { AppComponent } from './app.component';
+import { CreditCardFormComponent } from './credit-card-form/credit-card-form.component';
+import { NgbModule } from '@ng-bootstrap/ng-bootstrap';
+import { NgxMaskModule, IConfig } from 'ngx-mask'
+import { ValidatorComponent } from './validator/validator.component';
+
+export const options: Partial<IConfig> | (() => Partial<IConfig>) = {}
+
+@NgModule({
+  declarations: [
+    AppComponent,
+    CreditCardFormComponent,
+    ValidatorComponent
+  ],
+  imports: [
+    BrowserModule,
+    NgbModule,
+    NgxMaskModule.forRoot(options)
+  ],
+  providers: [],
+  bootstrap: [AppComponent]
+})
+export class AppModule { } 2. mask 설정하기 2-1 설정할 부분은 4글자씩 구분된 신용카드 숫자 16자리, 신용카드 만료일 mm/yy 형식, 보안번호 숫자 3자리이다. 2-1-1 아래처럼 mask에 형식을 지정하면 된다. 0은 0-9까지의 숫자가 들어가고 -, /는 구분에서 들어간다. 2-1-2 -, /는 실제 입력데이터에는 존재하지 않는 사용자 화면을 위해서 보여진다. 2-1-3 mask는 입력 포멧을 설정해 주지만 실제로 입력값이 정상적인지에 대한 부분은 validator의 몫이다. <form>
+  <div class="form-group" >
+    <label class="form-label">Name On Card</label>
+    <input type="text" class="form-control">
+  </div>
+  <div class="form-group">
+    <label class="form-label">Card Number</label>
+    <input type="text" class="form-control" mask="0000-0000-0000-0000">
+  </div>
+  <div class="form-row">
+    <div class="form-group col-6">
+      <label class="form-label">Expiration</label>
+      <input type="text" class="form-control" mask="00/00">
+    </div>
+    <div class="form-group col-6">
+      <label class="form-label">Security Code</label>
+      <input type="text" class="form-control" mask="000">
+    </div>
+  </div>
+  <button class="btn btn-primary mr-2" type="submit">Submit</button>
+  <button class="btn btn-warning" type="reset">Reset</button>
+</form> 3. 입력 결과 3-1 이제 아래의 입력된 정보는 Name On Card를 제외한 나머지는 숫자값만 입력이 되었고, 3-2 지정된 자리 수 이상의 입력과 숫자를 제외한 다른 입력은 받아들이지 않는다.

@@ -1,0 +1,85 @@
+0. 이 포스트는 가장 많이 사용되는 Reactive Form에 대한 정리 시리즈이다. 1. 이제 모두 설정했으니 에러 결과를 가지고 적절하게 화면에 안내구문을 표출하는 것만 남았다. 1-1 근데 이 부분이 제일 지랄맞는 부분이다. 지저분하기 때문에 메시지를 위한 공용 모듈을 생성을 것을 추천한다. 1-2 추가로 각 form-control의 에러표출하는 부분은 control 개수만큼 필요하기 때문에 validator 컴포넌트도 필요하다. 2. 작성순서 2-1 메시지를 생성하기 위한 validator 서비스를 생성한다. 2-1-1 static으로 생성해도 좋고 DI를 해도 좋다. 어차피 하나의 객체를 공유하기 때문에 상관없다. 2-2 각 control의 에러 표출을 위한 validaotr 컴포넌트도 생성한다. 3. 에러메시지를 관리하는 validator 서비스 작성하기 3-1 각 validator 컴포넌트에서 에러메시지를 요청할 때 어떤 검증속성인지 그리고 그 에러의 값 객체를 보낸다. 3-1-1 아래를 보면 검증속성 property는 minlength가 되고 값은 { "requiredLength" ... } 가 된다. 3-2 defaultmessage에서 에러가 발생한 속성이름에 일치하는 메시지를 가지고 와서 반환해 준다. import { Injectable } from '@angular/core';
+
+@Injectable({
+  providedIn: 'root'
+})
+export class ValidatorService {
+  getErrorMessage(property: string, validatorValue: any): string {
+    const defaultMessages = {
+      required: 'Required',
+      pattern: 'Wrong Format',
+      minlength: `Minimun length ${validatorValue.requiredLength}, Entered ${validatorValue.actualLength}`,
+      maxlength: `Maximun length ${validatorValue.requiredLength}, Entered ${validatorValue.actualLength}`
+    }
+    return defaultMessages[property]
+  }
+} 3. 이 서비스를 사용하는 Validator 컴포넌트 작성하기 3-1 우선 신용카드 template의 control마다 하나씩 붙이고 해당하는 control를 바인딩 해준다. 3-1-1 각 validator 컴포넌트는 각 control의 에러 메시지를 처리한다. <form [formGroup]="creditFormGroup">
+  <div class="form-group" >
+    <label class="form-label">Name On Card</label>
+    <input type="text" class="form-control" formControlName="nameOnCard">
+    <app-validator [control]="creditFormGroup.get('nameOnCard')"></app-validator>
+  </div>
+  <div class="form-group">
+    <label class="form-label">Card Number</label>
+    <input type="text" class="form-control" mask="0000-0000-0000-0000" formControlName="cardNumber">
+    <app-validator [control]="creditFormGroup.get('cardNumber')"></app-validator>
+  </div>
+  <div class="form-row">
+    <div class="form-group col-6">
+      <label class="form-label">Expiration</label>
+      <input type="text" class="form-control" mask="00/00" formControlName="expiration">
+      <app-validator [control]="creditFormGroup.get('expiration')"></app-validator>
+    </div>
+    <div class="form-group col-6">
+      <label class="form-label">Security Code</label>
+      <input type="text" class="form-control" mask="000" formControlName="securityCode">
+      <app-validator [control]="creditFormGroup.get('securityCode')"></app-validator>
+    </div>
+  </div>
+  <button class="btn btn-primary mr-2" type="submit">Submit</button>
+  <button class="btn btn-warning" type="reset">Reset</button>
+</form>
+<div>
+
+  name on card errors : {{ creditFormGroup.controls.nameOnCard.errors | json }}<br>
+  card number errors : {{ creditFormGroup.controls.cardNumber.errors | json }}<br>
+  excpiration errors : {{ creditFormGroup.controls.expiration.errors | json }}<br>
+  securiy errors : {{ creditFormGroup.controls.securityCode.errors | json }}<br>
+  Entire Form valid : {{creditFormGroup.valid}}
+</div> 3-2 이제 validator 컴포넌트가 어떻게 표출될지를 작성한다. 3-2-1 우선 화면에 표출될 validator template을 작성한다. 3-2-1-1 template에서는 errorMessage의 내용이 있으면 표출하고 없으면 표출하지 않는 단순한 구조다. 3-2-1-2 이제 이 errorMessage를 채울 부분을 class에서 작성해야 한다. <div *ngIf="errorMessage?.length > 1">
+  <small class="text-muted">{{ errorMessage }}</small>
+</div> 3-2-2 errorMessage 속성에 메시지를 받아오는 부분을 검증 클래스에서 작성한다. 3-2-2-1 errorMessage는 getter로 처리하여 control의 에러가 변경될 때마다 자동적으로 호출된다. 3-2-2-2 검증 서비스를 주입받아서 getter에서 에러가 발생한 검증 속성과 검증값을 전달하여 에러내용을 받아온다. 3-3-2-3 for in 문은 객체를 검색하는 구문으로 기억해 두는 게 좋다. 아주 유용하다. import { Component, Input } from '@angular/core';
+import { FormControl } from '@angular/forms';
+import { ValidatorService } from '../validator.service';
+
+@Component({
+  selector: 'app-validator',
+  templateUrl: './validator.component.html',
+  styleUrls: ['./validator.component.css']
+})
+export class ValidatorComponent {
+
+  @Input() control: FormControl = new FormControl()
+
+  _errorMessage: string = ""
+
+  constructor(private validatorService: ValidatorService) { }
+
+  get errorMessage() {
+
+    // if there is an error in the control
+    for (let property in this.control.errors) {
+      if (this.control.touched) {
+        if (this.control.errors.hasOwnProperty(property)) {
+          this._errorMessage = this.validatorService.getErrorMessage(
+            property, this.control.errors[property]
+          )
+          return this._errorMessage
+        }
+      }
+    }
+    // returns emtpy string only when there is no error
+    return '';
+  }
+
+} 4. 결과 화면

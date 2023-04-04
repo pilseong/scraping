@@ -1,0 +1,217 @@
+1. Bootstrap4는 3버전과 비교하면 많은 부분이 변경되었다. 특히 has-error, help-block이 삭제되었다. 2. 아래의 예시에서 중요한 부분은 아래 부분인데 2-1 컨트롤러의 ResultBiding에 담은 에러가 #fields로 연결되어 #fields.hasErrors로 체크할 수 있다. 2-1-1 '*' 은 어떤 경우라도 에러가 존재하는 경우를 찾기 위한 것이다. 2-1-2 pb-0는 부트스트랩 4 alert의 bottom padding 1rem으로 잡혀있어서 제거해주는 것이 보기 좋다. 2-2 개별적으로 에러를 처리하는 부분인데 2-2-1 2-1과 동일하게 fields.hasErrors로 체크할 수 있는데 특정한 속성을 넣어서 체크할 수 있다. 2-2-2 th:class의 경우는 3항 연산자를 사용하여 값이 첫항목이 true이면 ? 아래가 실행되고 false면 : 아래가 실행된다. 2-2-3 input에서 th:errorclass를 지정할 수 있는데 해당 속성에 오류가 존재할 경우 is-invalid가 설정된다. 2-2-4 input아래 span 구분에는 th:if가 있는데 실제 에러가 있는 경우 메시지를 표출하도록 체크한다. 2-2-4-1 span의 클래스에 invalid-feedback이 있는데, is-invalid와 같이 설정되는 경우 css를 표출하게 된다. 2-2-5 ul, li는 실제 에러 메시지 표출을 위해서 th:each로 #fields.error를 사용하여 개별적인 에러를 출력하고 있다. <form th:object="${recipe}" th:action="@{/recipe/}" method="post">
+      <div th:if="${#fields.hasErrors('*')}" class="alert alert-danger pb-0">
+        <p>Please Correct Errors Below</p>
+      </div>
+          
+          ...
+                
+          <div class="row form-group" 
+            th:class="${#fields.hasErrors('description')} ? 'row form-group text-danger' : 'row form-group'">
+            <label class="col-lg-4 col-xl-3 mx-0 pr-0 col-form-label">Recipe Description:</label>
+            <div class="col-lg-8 col-xl-9">
+              <input type="text" class="form-control" th:field="*{description}" th:errorclass="is-invalid" />
+              <span  class="small form-text text-muted invalid-feedback" th:if="${#fields.hasErrors('description')}">
+                <ul>
+                  <li th:each="err : ${#fields.errors('description')}" th:text="${err}"></li>
+                </ul>
+              </span>
+            </div>
+          </div> <!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+
+<head>
+  <!-- Required meta tags -->
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+
+  <!-- Bootstrap CSS -->
+  <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.0/css/bootstrap.min.css"
+    integrity="sha384-9aIt2nRpC12Uk9gS9baDl411NQApFmC26EwAOH8WgZl5MYYxFfc+NcPb1dKGj7Sk" crossorigin="anonymous"
+    th:href="@{/webjars/bootstrap/4.5.0/css/bootstrap.min.css}">
+
+  <title>Recipe Homer</title>
+</head>
+
+<body>
+  <!--/*@thymesVar id="recipe" type="guru.springframework.domain.Recipe"*/-->
+  <div class="container-fluid" style="margin-top: 20px">
+    <div class="row">
+      <div class="col-md-6 offset-md-3">
+        <form th:object="${recipe}" th:action="@{/recipe/}" method="post">
+          <div th:if="${#fields.hasErrors('*')}" class="alert alert-danger pb-0">
+            <p>Please Correct Errors Below</p>
+          </div>
+          <input type="hidden" th:field="*{id}" />
+          <div class="card text-white bg-primary">
+            <div class="card-body p-0">
+              <div class="card-title">
+                <p class="m-2 font-weight-bold">Edit Recipe Information</p>
+              </div>
+              <div class="card-text bg-white text-dark m-0 p-2">
+                <div class="row form-group" 
+                  th:class="${#fields.hasErrors('description')} ? 'row form-group text-danger' : 'row form-group'">
+                  <label class="col-lg-4 col-xl-3 mx-0 pr-0 col-form-label">Recipe Description:</label>
+                  <div class="col-lg-8 col-xl-9">
+                    <input type="text" class="form-control" th:field="*{description}" th:errorclass="is-invalid" />
+                    <span  class="small form-text text-muted invalid-feedback" th:if="${#fields.hasErrors('description')}">
+                      <ul>
+                        <li th:each="err : ${#fields.errors('description')}" th:text="${err}"></li>
+                      </ul>
+                    </span>
+                  </div>
+                </div>
+                <div class="row form-group">
+                  <div class="col-form-label col-md-3">
+                    <label>Categories:</label>
+                  </div>
+                  <div class="col-md-9">
+                    <div class="form-check">
+                      <input class="form-check-input" type="checkbox" value="" />
+                      <label class="form-check-label">
+                        Cat 1
+                      </label>
+                    </div>
+                    <div class="form-check" th:remove="all">
+                      <input class="form-check-input" type="checkbox" value="" />
+                      <label class="form-check-label">
+                        Cat 2
+                      </label>
+                    </div>
+                  </div>
+                </div>
+                <div class="row">
+                  <div class="col-md-4 form-group" 
+                  th:class="${#fields.hasErrors('prepTime')} ? 'col-md-4 form-group text-danger' : 'col-md-4 form-group'">
+                    <label class="col-form-label">Prep Time:</label>
+                    <input type="text" class="form-control" th:field="*{prepTime}" th:errorclass="is-invalid" />
+                    <span  class="small form-text text-muted invalid-feedback" th:if="${#fields.hasErrors('prepTime')}">
+                      <ul>
+                        <li th:each="err : ${#fields.errors('prepTime')}" th:text="${err}"></li>
+                      </ul>
+                    </span>
+                  </div>
+                  <div class="col-md-4 form-group"
+                  th:class="${#fields.hasErrors('cookTime')} ? 'col-md-4 form-group text-danger' : 'col-md-4 form-group'">
+                    <label class="col-form-label">Cooktime:</label>
+                    <input type="text" class="form-control" th:field="*{cookTime}" th:errorclass="is-invalid" />
+                    <span  class="small form-text text-muted invalid-feedback" th:if="${#fields.hasErrors('cookTime')}">
+                      <ul>
+                        <li th:each="err : ${#fields.errors('cookTime')}" th:text="${err}"></li>
+                      </ul>
+                    </span>
+                  </div>
+                  <div class="col-md-4 form-group">
+                    <label class="col-form-label">Difficulty:</label>
+                    <select class="form-control" th:field="*{difficulty}">
+                      <option th:each="difficultyValue : ${T(pe.pilseong.recipe.domain.Difficulty).values()}"
+                        th:value="${difficultyValue.name()}"
+                        th:text="${difficultyValue.name()}">
+                        val
+                      </option>
+                    </select>
+                  </div>
+                </div>
+                <div class="row">
+                  <div class="col-md-4 form-group"
+                  th:class="${#fields.hasErrors('servings')} ? 'col-md-4 form-group text-danger' : 'col-md-4 form-group'">
+                    <label class="col-form-label">Servings:</label>
+                    <input type="text" class="form-control" th:field="*{servings}" th:errorclass="is-invalid" />
+                    <span  class="small form-text text-muted invalid-feedback" th:if="${#fields.hasErrors('servings')}">
+                      <ul>
+                        <li th:each="err : ${#fields.errors('servings')}" th:text="${err}"></li>
+                      </ul>
+                    </span>
+                  </div>
+                  <div class="col-md-4 form-group">
+                    <label class="col-form-label">Source:</label>
+                    <input type="text" class="form-control" th:field="*{source}" />
+                  </div>
+                  <div class="col-md-4 form-group"
+                  th:class="${#fields.hasErrors('url')} ? 'col-md-4 form-group text-danger' : 'col-md-4 form-group'">
+                    <label class="col-form-label">URL:</label>
+                    <input type="text" class="form-control" th:field="*{url}" th:errorclass="is-invalid" />
+                    <span  class="small form-text text-muted invalid-feedback" th:if="${#fields.hasErrors('url')}">
+                      <ul>
+                        <li th:each="err : ${#fields.errors('url')}" th:text="${err}"></li>
+                      </ul>
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="card-body p-0">
+              <div class="card-title mb-0">
+                <div class="row m-0">
+                  <div class="col-md-10 p-0">
+                    <p class="m-2 font-weight-bold">Ingredients</p>
+                  </div>
+                  <div class="col-md-2">
+                    <a class="btn btn-success font-weight-bold" href="#" role="button">View</a>
+                  </div>
+                </div>
+              </div>
+              <div class="card-text bg-white text-dark m-0 p-2">
+                <div class="row">
+                  <div class="col-md-12">
+                    <ul th:if="${not #lists.isEmpty(recipe.ingredients)}">
+                      <li th:remove="all">1 Cup of milk</li>
+                      <li th:remove="all">1 Teaspoon of chocolate</li>
+                      <li th:remove="all">1 Doggy of SAXU</li>
+                      <li th:each="ingredient : ${recipe.ingredients}" th:text="${(ingredient.getAmount() +
+                                        ' ' + ingredient.uom.getDescription() +
+                                        ' - ' + ingredient.getDescription())}">1 Teaspoon of Sugar
+                      </li>
+                    </ul>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="card text-white bg-primary">
+              <div class="card-body p-0">
+                <div class="card-title">
+                  <p class="m-2 font-weight-bold">Directions</p>
+                </div>
+                <div class="card-text bg-white text-dark m-0 p-2">
+                  <div class="row">
+                    <div class="col-md-12 form-group">
+                      <textarea class="form-control" rows="3" th:field="*{directions}"></textarea>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="card text-white bg-primary">
+              <div class="card-body p-0">
+                <div class="card-title">
+                  <p class="m-2 font-weight-bold">Notes</p>
+                </div>
+                <div class="card-text bg-white text-dark m-0 p-2">
+                  <div class="row">
+                    <div class="col-md-12 form-group">
+                      <textarea class="form-control" rows="3" th:field="*{note.recipeNote}"></textarea>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <button type="submit" class="btn btn-primary">Submit</button>
+        </form>
+      </div>
+    </div>
+  </div>
+  <!-- Optional JavaScript -->
+  <!-- jQuery first, then Popper.js, then Bootstrap JS -->
+  <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"
+    integrity="sha384-DfXdz2htPH0lsSSs5nCTpuj/zy4C+OGpamoFVy38MVBnE+IbbVYUew+OrCXaRkfj" crossorigin="anonymous"
+    th:src="@{/webjars/jquery/3.5.1/jquery.min.js}">
+  </script>
+  <script src="https://cdn.jsdelivr.net/npm/popper.js@1.16.0/dist/umd/popper.min.js"
+    integrity="sha384-Q6E9RHvbIyZFJoft+2mJbHaEWldlvI9IOYy5n3zV9zzTtmI3UksdQRVvoxMfooAo" crossorigin="anonymous"
+    th:src="@{/webjars/popper.js/1.16.0/popper.min.js}">
+  </script>
+  <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.0/js/bootstrap.min.js"
+    integrity="sha384-OgVRvuATP1z7JjHLkuOU7Xw704+h835Lr+6QL9UvYjZE3Ipu6Tp75j7Bh/kR0JKI" crossorigin="anonymous"
+    th:src="@{/webjars/bootstrap/4.5.0/js/bootstrap.min.js}">
+  </script>
+</body>
+</html> 3. 표출 화면

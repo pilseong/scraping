@@ -1,0 +1,98 @@
+0. 이 포스트는 Email Client를 작성하는 시리즈의 일부이다 0-1 여기에서는 로그아웃기능을 추가한다. 1. SignOut은 서버에서 post로 수신하며 url은 https://api.angular-email.com/auth/signout 이다. 1-1 성공하면 200번 빈 {} 데이터가 반환된다. 2. 가장 쉬운 방법은 컴포넌트를 생성하여 그곳으로 이동한 후  signOut처리를 한 것이다. 2-1 SignOut 컴포넌트를 하나 생성한다. 2-2 인증 모듈 라우팅 테이블을 업데이트 한다. 2-2-1 메뉴바에서 Sign Out이 클릭되면 auth/signOut이 이동하고 SignOut 컴포넌트가 로딩된다. import { NgModule } from '@angular/core';
+import { Routes, RouterModule } from '@angular/router';
+import { SignUpComponent } from './sign-up/sign-up.component';
+import { SignInComponent } from './sign-in/sign-in.component';
+import { SignOutComponent } from './sign-out/sign-out.component';
+
+
+const routes: Routes = [
+  { path: 'signUp', component: SignUpComponent },
+  { path: 'signIn', component: SignInComponent },
+  { path: 'signOut', component: SignOutComponent }
+];
+
+@NgModule({
+  imports: [RouterModule.forChild(routes)],
+  exports: [RouterModule]
+})
+export class AuthRoutingModule { } 2-2-2 authServie에 signOut메소드를 추가한다. 2-2-2-1 성공한 경우 username 은 빈공백으로, 로그인 상태는 false로 변경한다. import { Injectable } from '@angular/core';
+import { HttpClient } from '@angular/common/http';
+import { Observable, BehaviorSubject } from 'rxjs';
+import { tap } from 'rxjs/operators'
+import { AuthCredential, LoginCredential } from './auth-responses';
+
+@Injectable({
+  providedIn: 'root'
+})
+export class AuthService {
+
+  signedIn$ = new BehaviorSubject<boolean>(null)
+  username: string = ''
+
+  url = 'https://api.angular-email.com/auth'
+  constructor(private http: HttpClient) { }
+
+  signedIn(): Observable<SignedInResponse> {
+    return this.http.get<SignedInResponse>(`${this.url}/signedIn`).pipe(
+      tap((response: SignedInResponse)=> {
+        this.username = response.username
+        this.signedIn$.next(response.authenticated)
+      })
+    )
+  }
+
+  signUp(crediential: AuthCredential): Observable<SignUpResponse> {
+    return this.http.post<SignUpResponse>(`${this.url}/signup`, crediential).pipe(
+      tap(({username})=> {
+        this.username = username
+        this.signedIn$.next(true)
+      })
+    )
+  }
+
+  signIn(crediential: LoginCredential): Observable<any> {
+    return this.http.post(`${this.url}/signin`, crediential).pipe(
+      tap(({username}) => {
+        this.username = username
+        this.signedIn$.next(true)
+      })
+    )
+  }
+
+  signOut() {
+    return this.http.post(`${this.url}/signout`, {}).pipe(
+      tap(() => {
+        this.username = ''
+        this.signedIn$.next(false)
+      })
+    )
+  }
+
+  checkDuplication(username: string) {
+    return this.http.post(`${this.url}/username`, { username })
+  }
+}
+
+interface SignedInResponse {
+  authenticated: boolean,
+  username: string
+}
+
+interface SignUpResponse {
+  username: string
+} 2-2-3 sign out 컴포넌트이다. template에 작성할 내용이 없어 클래스에 template으로 포함시켰다. import { Component, OnInit } from '@angular/core';
+import { AuthService } from '../auth.service';
+import { Router } from '@angular/router';
+
+@Component({
+  selector: 'app-sign-out',
+  template: `<h3>Signing Out!!!</h3>`,
+  styleUrls: ['./sign-out.component.css'],
+})
+export class SignOutComponent implements OnInit {
+  constructor(private authService: AuthService, private router: Router) {}
+
+  ngOnInit(): void {
+    this.authService.signOut().subscribe(() => this.router.navigateByUrl('/'));
+  }
+} 3. 그냥 기능이라서 결과화면은 의미가 없는 것 같다. 동영상이 좋긴한데 만들기 귀찮다.

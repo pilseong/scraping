@@ -1,0 +1,31 @@
+1. 직전 포스팅은 각각 Controller에 대한 예외처리만 가능하였다. 2. 전역적으로 예외처리를 하려면 별도의 클래스를 생성한다. 2-0 클래스에 @ControllerAdvice를 붙여 Controller에 대한 AOP처리임을 명시한다. 2-1 여기로 모든 예외 처리 코드들 모두 옮겨와서 정리한다. 3. 주의할 점은 이 전역 예외 처리는 @Controller를 수식한 컨트롤러에서 발생한 예외만 처리한다는 점이다. package pe.pilseong.restbasic.rest;
+
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.ControllerAdvice;
+import org.springframework.web.bind.annotation.ExceptionHandler;
+
+
+@ControllerAdvice
+public class StudentExceptionHandler {
+
+  @ExceptionHandler
+  public ResponseEntity<StudentErrorResponse> errorHandling(StudentNotFoundException e) {
+    StudentErrorResponse response = new StudentErrorResponse();
+    response.setStatusCode(HttpStatus.NOT_FOUND.value());
+    response.setMessage(e.getMessage());
+    response.setTimestamp(System.currentTimeMillis());
+
+    return new ResponseEntity<>(response, HttpStatus.NOT_FOUND);
+  }  
+  
+  @ExceptionHandler
+  public ResponseEntity<StudentErrorResponse> errorHandling(Exception e) {
+    StudentErrorResponse response = new StudentErrorResponse();
+    response.setStatusCode(HttpStatus.BAD_REQUEST.value());
+    response.setMessage(e.getMessage());
+    response.setTimestamp(System.currentTimeMillis());
+
+    return new ResponseEntity<>(response, HttpStatus.BAD_REQUEST);
+  }
+}

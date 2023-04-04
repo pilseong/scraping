@@ -1,0 +1,47 @@
+1. maven을 사용하려면 pom.xml이 필요하다. 아래처럼 간단히 만들었다. 1-1 의존성이 없는 버전과 프로젝트 이름과 버전만 담겨져 있다. <?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <groupId>pe.pilseong</groupId>
+    <artifactId>hello-maven</artifactId>
+    <version>0.0.1-SNAPSHOT</version>
+    
+    <properties>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+        <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
+        <java.version>11</java.version>
+        <maven.compiler.source>${java.version}</maven.compiler.source>
+        <maven.compiler.target>${java.version}</maven.compiler.target>
+    </properties>
+    
+</project> 1-2 폴더에 파일을 복사하고 mvn package를 실행하면 기본적인 메이븐과 관련된 파일이 자동으로 다운로드 된다. 1-3 그 후 컴파일을 하게 되는데 소스코드가 없어도 pom.xml에서 설정한 프로젝트 이름과 버전대로 jar을 생성한다. 1-3-1 생성되는 확장자는 기본이 jar이고 target폴더가 생성되어 그 안에 위치하게 된다. 1-4 생성된 jar파일을 압축해제 해보면 역시 META-INF폴더에 설정파일이 생성된 것을 확인 할 수 있다. 1-4-1 기본적으로 MANIFEST.MF에는 버전과 생성 툴의 버전 작성자 이름과 컴파일러 버전 같은 것들이 들어있다. 1-4-2 압축해제한 파일을 보면 소스는 없다. 그리고 pom.xml은 패키지 루트로 복사된다. 1-5 이제 mvn clean을 실행한다. 1-5-1 결과를 보면 target 폴더가 통째로 사라진 것을 볼 수 있다. 2. 소스코드를 컴파일을 해 본다. 2-1 다시 3rd 파티 라이브러리를 사용하지 않도록 소스를 수정한다. 2-2 소스를 저장할 src/main/java 폴더를 만들고 거기에 소스코드를 저장한다. 2-2-1 그런 후 mvn clean package를 실행하면 아래와 같은 결과를 볼 수 있다. 2-2-1-1 - src/resources 폴더의 파일들을 classes 폴더로 옮기려고 시도한다. 여기서는 폴더가 없다. 2-2-1-2 - 컴파일을 하고 그결과를 표준 output 폴더 target/classes에 복사한다. 2-2-1-3 - 그 후에 src/test/resources의 파일을 classes 폴더로 복사한다. 2-2-1-4 - 이제 테스트 코드를 컴파일하려고 하는데 여기에서는 없다. 있으면 복사하고 classes폴더로 간다. 2-2-1-5 - 생성된 테스트 클래스로 테스트를 하는데 이 경우에는 없다. 2-2-1-6 모든 절차가 성공적으로 끝났으니 jar을 만들고 target/ 폴더에 복사된다. 2-2-1-7 HelloWorld.class의 위치가 jar의 최상위 폴더에 있는 이유는 자바 패키지 지정이 없기 때문이다. 2-2-2 모든 파일들의 target/classes로 복사되는 이유는 그곳이 바로 classpath root이기 때문이다. 3 이젠 3rd 파티 라이브러리를 가지고 패키지를 생성해 본다. 3-1 우선 pom.xml에 외부라이브러리를 지정해야 한다. <?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <groupId>pe.pilseong</groupId>
+  <artifactId>hello-maven</artifactId>
+  <version>0.0.1-SNAPSHOT</version>
+
+  <properties>
+    <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+    <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
+    <java.version>11</java.version>
+    <maven.compiler.source>${java.version}</maven.compiler.source>
+    <maven.compiler.target>${java.version}</maven.compiler.target>
+  </properties>
+
+  <dependencies>
+    <dependency>
+      <groupId>org.apache.commons</groupId>
+      <artifactId>commons-lang3</artifactId>
+      <version>3.11</version>
+    </dependency>
+  </dependencies>
+</project> 3-2 소스코드를 apach lang3를 사용하도록 수정한다. import org.apache.commons.lang3.StringUtils;
+
+public class HelloWorld {
+  public static void main(String args[]) {
+    System.out.println("Hello Maven World");
+    System.out.println(StringUtils.capitalize("hello maven world"));
+  }
+} 3-3 메이븐으로 mvn clean package를 실행하면 정상적으로 컴파일 된다. 3-3-1 이런 식으로 메이븐은 classpath를 작성하고 라이브러리를 다운로드하는 수고를 덜어준다. 3-4 결과로 나온 jar파일은 fat jar가 아니므로 라이브러리를 포함하고 있지 않다. 3-4-1 즉 컴파일 시에 메이븐은 라이브러리를 가져와 컴파일을 할 뿐 패키지에는 포함하지 않는다. 3-4-2 scope이 compile이라는 의미이다.

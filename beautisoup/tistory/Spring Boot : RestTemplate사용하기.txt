@@ -1,0 +1,93 @@
+0. 스프링 부트에서 RestTemplate을 사용하기 위해 필요한 Dependency는 Spring Web밖에 없다. 1. RestTemplate은 Rest API를 호출하기 위해 사용한다. 2. 다른 서비스 정의와 동일한 방식으로 구현하면 된다. 사실 서비스이다. 2-1. integration 패키지에서 호출할 REST API 기능을 정의하기 위해 RestClient 인터페이스를 생성한다. import pe.pilseong.flightcheckin.integration.dto.Reservation;
+import pe.pilseong.flightcheckin.integration.dto.ReservationUpdateRequest;
+
+public interface ReservationRestClient {
+
+  Reservation findReservation(Long id);
+  
+  Reservation updateReservation(ReservationUpdateRequest request);
+  
+} 2-2. 구현 클래스에 @Component를 지정하여 스프링 컴포넌트로 등록한다. 2-3. 인터페이스를 구현하는 구현 클래스를 만든다. 2-3-1 여기서 중요한 부분은 RestTemplate에서 호출하는 HTTP Method와 2-3-2 실제 Rest Api 서비스의 HTTP Method를 일치 시켜야 한다. 2-3-3 맞지 않으면 "Method Not Allowed","message":"Request method 'POST' not supported" 가 발생한다. 2-3-3-1 이 부분이 까다로운 이유는 호출하는 쪽의 Controller가 전혀 실행되지 않기 때문이다. 2-3-3-2 분명히 @PostMapping("/completeCheckin")가 정의되어 있는데도 발생하기 때문에 상당히 까다롭다. 2-3-4 아래 findReservation은 GET을 사용하고 updateReservation은 POST를 사용하고 있다. 2-3-5 이는 RestTemplate에서 사용하는 method를 보면 알 수 있다. import org.springframework.stereotype.Component;
+import org.springframework.web.client.RestTemplate;
+
+import pe.pilseong.flightcheckin.integration.dto.Reservation;
+import pe.pilseong.flightcheckin.integration.dto.ReservationUpdateRequest;
+
+@Component
+public class ReservationRestClientImpl implements ReservationRestClient {
+
+  private static final String FLIGHTRESERVATION_RESERVATIONS = 
+    "http://localhost:8080/flightreservation/reservations/";
+
+  @Override
+  public Reservation findReservation(Long id) {
+    RestTemplate restTemplate = new RestTemplate();
+    
+    return restTemplate.getForObject(FLIGHTRESERVATION_RESERVATIONS+id, Reservation.class);
+  }
+
+  @Override
+  public Reservation updateReservation(ReservationUpdateRequest request) {
+    RestTemplate restTemplate = new RestTemplate();
+    
+    return restTemplate.postForObject(FLIGHTRESERVATION_RESERVATIONS, request, Reservation.class);
+  }
+
+} 3. 정의한 RestClient를 Controller에서 사용자에 요청에 따라서 적절하게 사용한다. import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Controller;
+import org.springframework.ui.Model;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+
+import pe.pilseong.flightcheckin.integration.ReservationRestClient;
+import pe.pilseong.flightcheckin.integration.dto.ReservationUpdateRequest;
+
+@Controller
+public class CheckinController {
+  
+  @Autowired
+  ReservationRestClient client;
+  
+  @GetMapping("/showCheckin")
+  public String showCheckinInput() {
+    return "showCheckin";
+  }
+  
+  @PostMapping("/showCheckin")
+  public String displayReservationInfo(@RequestParam("reservationId") Long reservationId, Model model) {
+    model.addAttribute("reservation", this.client.findReservation(reservationId));
+    
+    return "displayReservationDetails";
+  }
+  
+  @PostMapping("/completeCheckin")
+  public String completeCheckin(
+      @RequestParam("reservationId") Long id, 
+      @RequestParam("numberOfBags") int numOfBags) {
+    
+    System.out.println("\n\ntest\n\n" + id +" " + numOfBags);
+    
+    ReservationUpdateRequest request = new ReservationUpdateRequest();
+    
+    request.setCheckedIn(true);
+    request.setId(id);
+    request.setNumberOfBags(numOfBags);
+    
+    this.client.updateReservation(request);
+    
+    return "completeCheckin";
+  }
+  
+  @GetMapping("completeCheckin")
+  public String complete() {
+    return "completeCheckin";
+  }
+} 4. RestTemplate과 상관은 없지만 Mapping 설정에서 끝 부분은 '/' 스프링의 다른 부분처럼 상당히 예민하다. 4-1 아래처럼 /reservations 라고 정의 되어 있으면 client 호출 시 /reservations 이나 /reservations/ 둘 다 동작하지만 4-2 /reservations/ 라고 정의 된 경우는 클라이언트에서 /reservations로 호출하면 mapping 되지 않는다. 4-2-1 즉 항상 뒤에 '/'가 없어야 한다는 의미다. @PutMapping("/reservations")
+  public Reservation updateReservation(@RequestBody ReservationUpdateRequest request) {
+    Reservation reservation = this.reservationRepository.findById(request.getId()).get();
+    reservation.setNumberOfBags(request.getNumberOfBags());
+    reservation.setCheckedIn(request.getCheckedIn());
+      
+    return this.reservationRepository.save(reservation);
+  }

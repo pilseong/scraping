@@ -1,0 +1,236 @@
+0. 이 포스트는 Spring : AOP with Java Config 시리즈의 연속이다. 1. @Around는 @Before와 @After를 같이 사용하는 것과 같다. 하지만 좀 더 섬세한 컨트롤이 가능하다. 1-1 @Around advice는 Proceeding Join Point를 받을 수 있다. 1-2 Proceeding Join Point는 타겟 메소드의 직접 호출 할 수 있다. 2. Use cases 2-1 로깅, 보안, 감사 등에 사용 2-2 데이터의 전처리, 후처리 2-3 성능 측정 2-4 예외 처리 3. 메소드의 실행시간을 측정하는 @Around advice 예제 3-1 설정 클래스는 @Configuration, @EnableAspectJAutoProxy, @ComponentScan이 설정되어야 한다. 3-2 @Around advice는 첫번 째인자로 ProceedingJoinPoint를 받고 있다. 3-2-1 이 ProceedingJoinPoint의 proceed는 @Around의 타겟 메소드를 실행하고 그 메소드의 리턴 값을 반환한다. 3-3 @Around는 advice는 @Before, @After를 모두 실행하는 형태이므로 타겟메소드의 리턴타입을 반환해야 한다. 4. 실행 클래스(main 함수가 있는 클래스)에서 bean으로 받아오는 클래스가 인터페이스를 구현하는 경우 4-1 반드시 인터페이스 형으로 받아 메소드를 호출해야 정상동작한다. 4-2 인터페이스 형이 아닌 경우 BeanNotOfRequiredTypeException 예외를 발생하게 된다. // 설정 클래스
+package pe.pilseong.aop_around.config;
+
+import org.springframework.context.annotation.ComponentScan;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.EnableAspectJAutoProxy;
+
+@Configuration
+@EnableAspectJAutoProxy
+@ComponentScan(basePackages = "pe.pilseong.aop_around")
+public class JavaConfig {}
+
+
+// Aspect 클래스
+package pe.pilseong.aop_around.aspect;
+
+import org.aspectj.lang.ProceedingJoinPoint;
+import org.aspectj.lang.annotation.Around;
+import org.aspectj.lang.annotation.Aspect;
+import org.springframework.stereotype.Component;
+
+@Aspect
+@Component
+public class AroundAspect {
+  
+  @Around(value = "execution(* pe.pilseong.aop_around.service.*.*(..))")
+  public Object afterGetFortuneAdvice(ProceedingJoinPoint joinPoint) throws Throwable {
+    System.out.println("afterGetFortuneAdvice is executed after " + joinPoint.getSignature().toShortString());
+    
+    long begin = System.currentTimeMillis();
+    
+    // 타겟 메소드의 실행하고 결과 값을 받아온다.
+    Object result = joinPoint.proceed();
+    
+    long end = System.currentTimeMillis();
+    
+    System.out.println("Duration: " + (end - begin) / 1000.0 + " seconds\n");
+    
+    // 타겟 메소드의 리턴값을 다시 반환한다. 필요 시 수정도 가능하다.
+    return result;
+  }
+}
+
+// 더미 서비스
+package pe.pilseong.aop_around.service;
+
+import java.util.concurrent.TimeUnit;
+
+import org.springframework.stereotype.Component;
+
+@Component
+public class BaseballCoachService {
+
+  public String getFortune() {
+    
+    try {
+      System.out.println(getClass() + " in getFoturne with no param");
+      TimeUnit.SECONDS.sleep(2);
+    } catch (InterruptedException e) {
+      e.printStackTrace();
+    }
+    
+    return "You are gonna have a great day";
+  }
+  
+  public String test() {
+    return "I love it";
+  }
+}
+
+
+// 실행 클래스이다
+package pe.pilseong.aop_around;
+
+import org.springframework.context.annotation.AnnotationConfigApplicationContext;
+
+import pe.pilseong.aop_around.config.JavaConfig;
+import pe.pilseong.aop_around.service.BaseballCoachService;
+
+public class App {
+  public static void main(String[] args) {
+    AnnotationConfigApplicationContext context 
+      = new AnnotationConfigApplicationContext(JavaConfig.class);
+   
+    BaseballCoachService coach = context.getBean("baseballCoachService", BaseballCoachService.class);
+    
+    System.out.println(coach.getFortune());
+    System.out.println(coach.test());
+    
+    context.close();
+  }
+}
+
+// 실행결과
+afterGetFortuneAdvice is executed around BaseballCoachService.getFortune()
+class pe.pilseong.aop_around.service.BaseballCoachService in getFoturne with no param
+Duration: 2.014 seconds
+
+You are gonna have a great day
+afterGetFortuneAdvice is executed around BaseballCoachService.test()
+I love it
+Duration: 0.001 seconds 5. 호출자에게 전파되지 않는 예외처리 예제 추가 5-1 간결성을 위해 코드가 추가된 클래스만 아래에 붙였다. 5-2 타겟 메소드를 try-catch로 처리 후 리턴 값을 생성해서 반환하면 호출자가 알 수 없는 형식으로 처리된다. // 더미 서비스 클래스
+@Component
+public class BaseballCoachService {
+
+  public String getFortune() {
+    
+    try {
+      System.out.println(getClass() + " in getFoturne with no param");
+      TimeUnit.SECONDS.sleep(2);
+    } catch (InterruptedException e) {
+      e.printStackTrace();
+    }
+    
+    return "You are gonna have a great day";
+  }
+  
+  public String test() {
+    return "I love it";
+  }
+  
+  // 추가됨
+  public String throwException() {
+    throw new RuntimeException("Exception from throwException in BaseballCoachServce");
+  }
+}
+
+// Aspect 클래스
+@Aspect
+@Component
+public class AroundAspect {
+
+  @Around(value = "execution(* pe.pilseong.aop_around.service.*.*(..))")
+  public Object afterGetFortuneAdvice(ProceedingJoinPoint joinPoint) throws Throwable {
+    System.out.println("\n@Around afterGetFortuneAdvice is executed around " + joinPoint.getSignature().toShortString());
+
+    long begin = System.currentTimeMillis();
+
+    Object result = null;
+    try {
+      result = joinPoint.proceed();
+    } catch (Exception e) {
+      System.out.println("@Around afterGetFortuneAdvice" + e.getMessage());
+      result = "Nothing really matters";
+    }
+
+    long end = System.currentTimeMillis();
+
+    System.out.println("Duration: " + (end - begin) / 1000.0 + " seconds");
+
+    return result;
+  }
+}
+
+// 실행 클래스
+public class App {
+  public static void main(String[] args) {
+    AnnotationConfigApplicationContext context 
+      = new AnnotationConfigApplicationContext(JavaConfig.class);
+   
+    BaseballCoachService coach = context.getBean("baseballCoachService", BaseballCoachService.class);
+    
+    System.out.println(coach.getFortune());
+    System.out.println(coach.test());
+    
+    // 추가됨
+    System.out.println(coach.throwException());
+    
+    context.close();
+  }
+}
+
+
+// 실행 결과
+@Around afterGetFortuneAdvice is executed around BaseballCoachService.getFortune()
+class pe.pilseong.aop_around.service.BaseballCoachService in getFoturne with no param
+Duration: 2.023 seconds
+You are gonna have a great day
+
+@Around afterGetFortuneAdvice is executed around BaseballCoachService.test()
+Duration: 0.0 seconds
+I love it
+
+@Around afterGetFortuneAdvice is executed around BaseballCoachService.throwException()
+@Around afterGetFortuneAdviceException from throwException in BaseballCoachServce
+Duration: 0.0 seconds
+Nothing really matters 6. @Around에서 다시 예외를 던지는 예제 6-1 5번 항목의 예제처럼 예외를 완전히 감추는 것도 가능하지만 처리 후 예외를 다시 던질 수도 있다. 6-2 결과를 보면 advice 진입 후 예외 발생 시 catch 문이 호출되고 다시 예외가 전파되는 것을 확인 할 수 있다. // Aspect
+  @Around(value = "execution(* pe.pilseong.aop_around.service.*.*(..))")
+  public Object afterGetFortuneAdvice(ProceedingJoinPoint joinPoint) throws Throwable {
+    System.out.println("\n@Around afterGetFortuneAdvice is executed around " + joinPoint.getSignature().toShortString());
+    
+    try {
+      // 정상적으로 결과가 반환 된 경우
+      return joinPoint.proceed();
+    } catch (Exception e) {
+      // 예외 발생 시 여기서 예외를 처리 한 후 다시 throw로 예외를 발생시킨다.
+      System.out.println("@Around afterGetFortuneAdvice" + e.getMessage());
+      
+      throw e;
+    }
+  }
+  
+  // 실행 결과
+@Around afterGetFortuneAdvice is executed around BaseballCoachService.getFortune()
+class pe.pilseong.aop_around.service.BaseballCoachService in getFoturne with no param
+You are gonna have a great day
+Exception in thread "main" 
+@Around afterGetFortuneAdvice is executed around BaseballCoachService.test()
+I love it
+
+@Around afterGetFortuneAdvice is executed around BaseballCoachService.throwException()
+@Around afterGetFortuneAdviceException from throwException in BaseballCoachServce
+java.lang.RuntimeException: Exception from throwException in BaseballCoachServce
+	at pe.pilseong.aop_around.service.BaseballCoachService.throwException(BaseballCoachService.java:27)
+	at pe.pilseong.aop_around.service.BaseballCoachService$$FastClassBySpringCGLIB$$23270b6.invoke(<generated>)
+	at org.springframework.cglib.proxy.MethodProxy.invoke(MethodProxy.java:218)
+	at org.springframework.aop.framework.CglibAopProxy$CglibMethodInvocation.invokeJoinpoint(CglibAopProxy.java:771)
+	at org.springframework.aop.framework.ReflectiveMethodInvocation.proceed(ReflectiveMethodInvocation.java:163)
+	at org.springframework.aop.framework.CglibAopProxy$CglibMethodInvocation.proceed(CglibAopProxy.java:749)
+	at org.springframework.aop.aspectj.MethodInvocationProceedingJoinPoint.proceed(MethodInvocationProceedingJoinPoint.java:88)
+	at pe.pilseong.aop_around.aspect.AroundAspect.afterGetFortuneAdvice(AroundAspect.java:38)
+	at java.base/jdk.internal.reflect.NativeMethodAccessorImpl.invoke0(Native Method)
+	at java.base/jdk.internal.reflect.NativeMethodAccessorImpl.invoke(NativeMethodAccessorImpl.java:62)
+	at java.base/jdk.internal.reflect.DelegatingMethodAccessorImpl.invoke(DelegatingMethodAccessorImpl.java:43)
+	at java.base/java.lang.reflect.Method.invoke(Method.java:566)
+	at org.springframework.aop.aspectj.AbstractAspectJAdvice.invokeAdviceMethodWithGivenArgs(AbstractAspectJAdvice.java:644)
+	at org.springframework.aop.aspectj.AbstractAspectJAdvice.invokeAdviceMethod(AbstractAspectJAdvice.java:633)
+	at org.springframework.aop.aspectj.AspectJAroundAdvice.invoke(AspectJAroundAdvice.java:70)
+	at org.springframework.aop.framework.ReflectiveMethodInvocation.proceed(ReflectiveMethodInvocation.java:186)
+	at org.springframework.aop.framework.CglibAopProxy$CglibMethodInvocation.proceed(CglibAopProxy.java:749)
+	at org.springframework.aop.interceptor.ExposeInvocationInterceptor.invoke(ExposeInvocationInterceptor.java:95)
+	at org.springframework.aop.framework.ReflectiveMethodInvocation.proceed(ReflectiveMethodInvocation.java:186)
+	at org.springframework.aop.framework.CglibAopProxy$CglibMethodInvocation.proceed(CglibAopProxy.java:749)
+	at org.springframework.aop.framework.CglibAopProxy$DynamicAdvisedInterceptor.intercept(CglibAopProxy.java:691)
+	at pe.pilseong.aop_around.service.BaseballCoachService$$EnhancerBySpringCGLIB$$2f3df6aa.throwException(<generated>)
+	at pe.pilseong.aop_around.App.main(App.java:21)

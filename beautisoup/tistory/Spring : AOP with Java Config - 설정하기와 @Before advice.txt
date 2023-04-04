@@ -1,0 +1,112 @@
+1. 기본적으로 AOP를 테스트하고 사용하기 위한 dependency 1-1 스프링의 기동을 위한 기본 라이브러리 spring core, spring context 1-2 스프링 AOP 사용을 위한 spring aop, aspectj weaver 1-2-1 spring aop이 aspectJ의 일부 annotation과 class를 사용하기 때문에 aspectj가 필요하다. <dependency>
+	<groupId>junit</groupId>
+	<artifactId>junit</artifactId>
+	<version>4.11</version>
+	<scope>test</scope>
+</dependency>
+<dependency>
+	<groupId>org.springframework</groupId>
+	<artifactId>spring-core</artifactId>
+	<version>5.2.6.RELEASE</version>
+</dependency>
+<dependency>
+	<groupId>org.springframework</groupId>
+	<artifactId>spring-context</artifactId>
+	<version>5.2.6.RELEASE</version>
+</dependency>
+<dependency>
+	<groupId>org.springframework</groupId>
+	<artifactId>spring-aop</artifactId>
+	<version>5.2.6.RELEASE</version>
+</dependency>
+<dependency>
+	<groupId>org.aspectj</groupId>
+	<artifactId>aspectjweaver</artifactId>
+	<version>1.9.5</version>
+</dependency> 2. 이젠 XML 설정 따위는 쓰지 않는다. 2-1 스프링 설정으로 사용하기 위해서 @Configuration 를 추가한다. 2-2 AspectJ를 사용하기 위한 AutoProxy설정 2-3 @ Autowired를 사용하기 위한 Component Scanning 설정 package pe.pilseong.spring_aop_review.config;
+
+import org.springframework.context.annotation.ComponentScan;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.EnableAspectJAutoProxy;
+
+@Configuration
+@EnableAspectJAutoProxy
+@ComponentScan(basePackages = "pe.pilseong.spring_aop_review")
+public class JavaConfig {
+
+} 3. DB를 안쓰고 예제를 단순화하기 위해 DAO를 흉내만 낸다. 3-1 여기서는 2개의 Mock DAO를 작성한다. 3-2 두 클래스 모두 addAccount라는 공통적인 method를 가지고 있고 3-3 테스트로 이 공통 메소드 실행 직전에 AOP의 @Before로 지정된 advice를 실행하려 한다. package pe.pilseong.spring_aop_review.dao;
+
+import org.springframework.stereotype.Component;
+
+@Component
+public class AccountDAO {
+  public void addAccount() {
+    System.out.println(getClass() + ": Doing my DB work: Adding an account");
+  }
+}
+
+
+
+package pe.pilseong.spring_aop_review.dao;
+
+import org.springframework.stereotype.Component;
+
+@Component
+public class MembershipDAO {
+
+  public void addAccount() {
+    System.out.println(getClass() + ": Doing my DB work: Adding an account");
+  }
+} 4. AOP 클래스를 작성한다. 4-1 Aspect 클래스는 기본적으로 @Aspect로 지정되어야 AspectJAutoProxy에 걸린다. 4-2 @Before는 value에서 지정된 패턴의 메소드들이 실행되기 직전에 실행된다. package pe.pilseong.spring_aop_review.aspect;
+
+import org.aspectj.lang.annotation.Aspect;
+import org.aspectj.lang.annotation.Before;
+import org.springframework.stereotype.Component;
+
+@Aspect
+@Component
+public class LoggingAspect {
+
+  @Before(value = "execution(public void addAccount())")
+  public void beforeAddAccountAdvice() {
+    System.out.println("\n\nExecuting @Before advice on addAccount()\n\n");
+  }
+} 5. 테스트 실행을 위해서 main 클래스를 작성한다. 5-1 단순히 Configuration 클래스를 지정하고 AccountDAO, MembershipDAO의 addAccount()를 실행한다. 5-2 결과 값을 보면 공통적인 addAccount 실행 전에 beforeAddAccountAdvice 메소드가 실행되었음을 알 수 있다. package pe.pilseong.spring_aop_review;
+
+import org.springframework.context.annotation.AnnotationConfigApplicationContext;
+
+import pe.pilseong.spring_aop_review.config.JavaConfig;
+import pe.pilseong.spring_aop_review.dao.AccountDAO;
+
+/**
+ * Hello world!
+ *
+ */
+public class App {
+  public static void main(String[] args) {
+    AnnotationConfigApplicationContext context = 
+        new AnnotationConfigApplicationContext(JavaConfig.class);
+    
+    AccountDAO accountDAO = context.getBean("accountDAO", AccountDAO.class);
+    accountDAO.addAccount();
+    
+    MembershipDAO membershipDAO = context.getBean("membershipDAO", MembershipDAO.class);
+    membershipDAO.addAccount();
+    
+    context.close();
+  }
+}
+
+
+
+// 결과 값이다.
+Executing @Before advice on addAccount()
+
+
+class pe.pilseong.spring_aop_review.dao.AccountDAO: Doing my DB work: Adding an account
+
+
+Executing @Before advice on addAccount()
+
+
+class pe.pilseong.spring_aop_review.dao.MembershipDAO: Doing my DB work: Adding an account

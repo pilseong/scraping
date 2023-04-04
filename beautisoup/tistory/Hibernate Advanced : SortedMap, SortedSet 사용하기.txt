@@ -1,0 +1,206 @@
+0. 이 포스트는 하이버네이트 Annotation으로 SortedMap, SortedSet을 사용하는 방법이다. 0-1 이 두 Collection은 각 AbstractMap, AbstractSet을 구현하고 있다. 0-2 따라서 각 SotedSet, SortedMap을 구현한 NavigatableSet, NavigableMap을 상속하는 클래스를 사용해야 한다. 0-3 Set의 경우는 TreeSet이고 Map의 경우는 TreeMap이 된다. 1. Sorted 컬렉션은 데이터베이스에서 데이터를 저장 할 때 컬렉션의 정렬 기준을 지정해 주어야 한다. 1-1 데이터베이스 검색에서 @OrderBy는 데이터베이스 쿼리 내의 검색 결과의 정렬이기 때문에 1-2 collection에 저장하는 순간 Sorted 컬렉션 내부정렬에 의해 다시 정렬된다. 1-3 그래서 @OrderBy를 사용하는 의미가 없다. 1-4 일반적으로 정렬 기준 설정은 생성자에 Comparator 인터페이스를 구현한 lambda를 많이 사용하지만 1-5 이 경우는 데이터베이스와의 매핑이기 때문에 동작하지 않는다. * 상식적이지 않은 내용이다. 2. Sorted 컬렉션을 Hibernate에서 사용할 때는 @SortComparator를 사용하여 기준을 설정해야 한다. 2-1 별도의 클래스를 정의하여 그 클래스를 @SortComparator()에 제공해야 한다. 2-2 lambda식도 지원하지 않기 때문에 이런 건 사용 안하는 게 좋다. 2-3 그냥 수동으로 HQL로 쓰고 만다. 이걸 왜 하고 있냐 2-4 그래서 정리 포스트기 때문에 남겨 두어야 안쓰더라도 안 잊어 버린다. 3. Student Entity 3-0 코드에서는 SortedMap을 예시로 구성했다. 3-1 아래 코드를 보면 제일 아래 정렬 내부 클래스가 있다. 한 줄 짜리가 lambda가 지원이 안되 엄청 길어진다. package pe.pilseong.hibernateset.entity;
+
+import java.util.Comparator;
+import java.util.SortedSet;
+import java.util.TreeSet;
+
+import javax.persistence.CollectionTable;
+import javax.persistence.Column;
+import javax.persistence.ElementCollection;
+import javax.persistence.Entity;
+import javax.persistence.GeneratedValue;
+import javax.persistence.GenerationType;
+import javax.persistence.Id;
+import javax.persistence.JoinColumn;
+import javax.persistence.Table;
+
+import org.hibernate.annotations.SortComparator;
+
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+@Entity
+@Table(name = "student")
+@Data
+@NoArgsConstructor
+public class Student {
+
+  public Student(String firstName, String lastName, String email) {
+    this.firstName = firstName;
+    this.lastName = lastName;
+    this.email = email;
+  }
+
+  @Id
+  @GeneratedValue(strategy = GenerationType.IDENTITY)
+  private Long id;
+
+  @Column(name = "first_name")
+  private String firstName;
+
+  @Column(name = "last_name")
+  private String lastName;
+
+  @Column(name = "email")
+  private String email;
+
+  @ElementCollection
+  @CollectionTable(name = "course", joinColumns = @JoinColumn(name = "student_id"))
+  @SortComparator(ReverseComparator.class)
+  @Column(name = "course_name")
+  private SortedSet<String> courses = new TreeSet<>();
+
+  public static class ReverseComparator implements Comparator<String> {
+    @Override
+    public int compare(String o1, String o2) {
+      return o2.compareTo(o1);
+    }
+  }
+} 4. 실행코드 package pe.pilseong.hibernatemap;
+
+import java.util.Map;
+
+import org.hibernate.Session;
+import org.hibernate.SessionFactory;
+import org.hibernate.cfg.Configuration;
+
+import pe.pilseong.hibernatemap.entity.Student;
+
+/**
+ * Hello world!
+ *
+ */
+public class App {
+  public static void main(String[] args) {
+    
+    SessionFactory factory = new Configuration().configure()
+        .addAnnotatedClass(Student.class)
+        .buildSessionFactory();
+    
+    Session session = factory.getCurrentSession();
+    
+    session.beginTransaction();
+    
+//    Student student = new Student("Pilseong", "Heo", "heops79@gmail.com");
+//    Map<String, String> courses = student.getCourses();
+//    
+//    courses.put("MT","Math");
+//    courses.put("SC", "Science");
+//    courses.put("EC", "Economics");
+//    courses.put("LG1", "Language");
+//    courses.put("LG2", "Language");    
+//    
+//    session.persist(student);
+    
+    Student student = session.get(Student.class, 1L);
+    System.out.println("Student :: " + student.toString());
+    
+    for (String st : student.getCourses().keySet()) {
+      System.out.println("Course :: " + student.getCourses().get(st));
+    }
+    
+    session.getTransaction().commit();
+    
+    factory.close();
+  }
+} 5. 실행 결과 5-1 데이터베이스 내용 5-2 실행결과 로그 6. SortedSet도 추가했다. 6-1 Student Entity package pe.pilseong.hibernateset.entity;
+
+import java.util.Comparator;
+import java.util.SortedSet;
+import java.util.TreeSet;
+
+import javax.persistence.CollectionTable;
+import javax.persistence.Column;
+import javax.persistence.ElementCollection;
+import javax.persistence.Entity;
+import javax.persistence.GeneratedValue;
+import javax.persistence.GenerationType;
+import javax.persistence.Id;
+import javax.persistence.JoinColumn;
+import javax.persistence.Table;
+
+import org.hibernate.annotations.SortComparator;
+
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+@Entity
+@Table(name = "student")
+@Data
+@NoArgsConstructor
+public class Student {
+
+  public Student(String firstName, String lastName, String email) {
+    this.firstName = firstName;
+    this.lastName = lastName;
+    this.email = email;
+  }
+
+  @Id
+  @GeneratedValue(strategy = GenerationType.IDENTITY)
+  private Long id;
+
+  @Column(name = "first_name")
+  private String firstName;
+
+  @Column(name = "last_name")
+  private String lastName;
+
+  @Column(name = "email")
+  private String email;
+
+  @ElementCollection
+  @CollectionTable(name = "course", joinColumns = @JoinColumn(name = "student_id"))
+  @SortComparator(ReverseComparator.class)
+  @Column(name = "course_name")
+  private SortedSet<String> courses = new TreeSet<>();
+
+  public static class ReverseComparator implements Comparator<String> {
+    @Override
+    public int compare(String o1, String o2) {
+      return o2.compareTo(o1);
+    }
+  }
+} 6-2 실행코드 6-2-1 입력은 중복을 포함한 4개를 넣었다. package pe.pilseong.hibernateset;
+
+import java.util.Set;
+
+import org.hibernate.Session;
+import org.hibernate.SessionFactory;
+import org.hibernate.cfg.Configuration;
+
+import pe.pilseong.hibernateset.entity.Student;
+
+/**
+ * Hello world!
+ *
+ */
+public class App {
+  public static void main(String[] args) {
+    SessionFactory factory = new Configuration().configure()
+        .addAnnotatedClass(Student.class)
+        .buildSessionFactory();
+    
+    Session session = factory.getCurrentSession();
+    
+    session.beginTransaction();
+    
+    Student student = new Student("Pilseong", "Heo", "heops79@gmail.com");
+    Set<String> courses = student.getCourses();
+    courses.add("Java");
+    courses.add("Hibernate");
+    courses.add("JPA");
+    courses.add("JPA");
+    
+    session.persist(student);
+    
+    
+//    Student student = session.get(Student.class, 1L);
+//    System.out.println("Student :: " + student.toString());
+//    
+    session.getTransaction().commit();
+    
+    factory.close();
+    
+  }
+} 6-3 데이터베이스 내용 6-3-1 중복이 제거되고 3개만 들어가 있다. Set이기 때문이다. 6-4 로그 출력 결과 6-4-1 순서가 역순으로 출력되었다.

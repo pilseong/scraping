@@ -1,0 +1,12 @@
+1. MySql은 기본언어가 latin1으로 되어 있기 때문에 한글 입력이 있는 경우 에러가 발생한다. 2. 우선 my.cnf에 아래와 설정한다. utf-8의 경우 3바이트 unicode까지 저장가능한데 utf8mb4는 4바이트까지 가능하다. # UTF-8 should be used instead of Latin1. Obviously.
+# NOTE "utf8" in MySQL is NOT full UTF-8: http://mathiasbynens.be/notes/mysql-utf8mb4
+
+[client]
+default-character-set = utf8mb4
+
+[mysqld]
+character-set-server = utf8mb4
+collation-server = utf8mb4_unicode_ci
+
+[mysql]
+default-character-set = utf8mb4 3. 위의 설정 후 데이터베이스를 재기동하면 기본적인 설정이 변한다. 하지만 기존 테이블은 변하지 않는다. 3-1 데이터베이스의 character set을 변경는 구문 3-1-1 alter database web_customer_tracker character set utf8mb4 collate utf8mb4_unicode_ci; 3-2 테이블의 character set을 변경하는 구문 3-2-2 alter table web_customer_tracker.customer convert to character set utf8mb4 collate utf8mb4_unicode_ci 4. variable에 대한 조회는 아래 구문을 사용한다. 4-1 show variables like 'char%' 4-2 show variables like 'collation%'

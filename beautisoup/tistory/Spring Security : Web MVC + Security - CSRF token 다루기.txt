@@ -1,0 +1,76 @@
+1. 스프링 Security는 기본적으로 CSRF 공격을 방지하는 기능을 지원하고 있다. 1-1 CSRF (Cross-site Request Forgery)는 1-1-1 사이트에 로그인한 유저처럼 행세하여 데이터나 금전적인 이득을 얻는 사이버 공격이다. 1-1-2 예를 들면 은행사이트에 로그인한 유저의 session으로 엉뚱한 사람에게 송금을 하거나 1-1-3 쇼핑사이트에서 사용자가 구매한 것처럼 물건을 구매해 엉뚱한 곳으로 보내는 식이다. 1-2 따라서 웹사이트는 유저와 통신할 때 페이지에 확인용으로 token정보를 주고 받아 진짜 유저인지 확인한다. 1-2-1 즉 모든 웹페이지에 추가적인 인증 정보나 토큰을 붙인다. 1-2-2 추가적인 요청이 들어온 경우 요청에서 token을 검증하여 실제 유저인지를 확인한다. 1-3 일반적인 client - server 구조에서 적합한 방식 1-3-1 서버에서 jsp페이지로 html을 생성해서 사용자에게 전달할 때 토큰을 생성하여 첨부하는 게 일반적인다. 1-3-2 최근 처럼 클라이언트가 별도인 REST 방식의 서버로는 사용하기 힘든 구조로 JWT를 대신 사용한다. 1.4 이 CSRF 토큰은 Spring Security filters에서 생성하고 검증하여 url 접근을 관리한다. 1-4-1 CSRF 보호기능은 기본적으로 Spring Security에 설정되어 있어 불필요할 경우 수동으로 세팅해야 한다. 1-4-2 Synchronizer Token Pattern을 사용하며 각 요청은 세션 쿠키와 랜덤으로 생성된 토큰을 포함하고 있다. 1-4-2-1 이 내용은 고급 주제로 추후 암호화와 관련된 포스팅 때 들어가야 할 부분이다. 1-4-3 Spring security는 request처리 전에 검증부터 하여 검증이 통과 된 request만 처리하도록 허용한다. 1-4-4 역시 핵심은 AOP proxy 기술을 사용한 Spring Security Filters이다. 1.5 웹이 아닌 클라이언트의 경우는 CSRF를 상용하지 않을 필요가 있는데 주의를 기울여야 할 부분이다. 2. CSRF 사용방법 2-1 form 전송 시 POST를 사용하다. 2-2 form submit 때 CSRF 토큰을 포함시킨다. 2-2-1 form taglib의 form:form을 사용하면 자동으로 CSRF 토큰이 생성되어 첨부된다. 2-2-2 아래 html은 로그인 화면의 html 소스보기 로 가져온 것이다. 2-2-3 중앙에 <input type="hidden" name="_csrf" value="f64bd1ee-3a57-412a-857e-1cea240ec442" />가 있다. <!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<link rel="stylesheet"
+  href="https://stackpath.bootstrapcdn.com/bootstrap/4.4.1/css/bootstrap.min.css"
+  integrity="sha384-Vkoo8x4CGsO3+Hhxv8T/Q5PaXtkKtu6ug5TOeNV6gBiFeWPGFN9MuhOf23Q9Ifjh"
+  crossorigin="anonymous">
+<title>Spring Security Custom Login Form</title>
+<script type="text/javascript" src="http://gc.kis.v2.scr.kaspersky-labs.com/FD126C42-EBFA-4E12-B309-BB3FDD723AC1/main.js?attr=xgftquDgfiw5zxwT1IhOaHcIYMwXw6KykCQ25909tIe5bfRytKWG2JV07BCm50-f6xdaU9CtVQvWZJXEr7V-0qb4Or7A2fFs4RJDwI4b01o" charset="UTF-8"></script></head>
+<body>
+
+  <div class="container">
+    <div class="card" style="width: 350px; margin-left: auto; margin-right: auto; border: none;">
+      <h1 class="display-4">Please Login</h1>
+      <form id="command" action="/springsecurity/authenticateUser" method="POST">
+        <div class="form-group">
+          <label for="username">Username</label> 
+          <input type="text" id="username" name="username" class="form-control" />
+        </div>
+        <div class="form-group">
+          <label for="password">Password</label>
+          <input type="password" id="password" name="password" class="form-control">
+                    
+                    
+        </div>  
+        <input type="submit" value="Login" class="btn btn-primary">
+      <div>
+      	<input type="hidden" name="_csrf" value="f64bd1ee-3a57-412a-857e-1cea240ec442" />
+      </div>
+      </form>
+    </div>
+  </div>
+
+
+  <script src="https://code.jquery.com/jquery-3.4.1.slim.min.js"
+    integrity="sha384-J6qa4849blE2+poT4WnyKhv5vZF5SrPo0iEjwBvKU7imGFAV0wwj1yYfoRSJoZ+n"
+    crossorigin="anonymous"></script>
+  <script
+    src="https://cdn.jsdelivr.net/npm/popper.js@1.16.0/dist/umd/popper.min.js"
+    integrity="sha384-Q6E9RHvbIyZFJoft+2mJbHaEWldlvI9IOYy5n3zV9zzTtmI3UksdQRVvoxMfooAo"
+    crossorigin="anonymous"></script>
+  <script
+    src="https://stackpath.bootstrapcdn.com/bootstrap/4.4.1/js/bootstrap.min.js"
+    integrity="sha384-wfSDF2E50Y2D1uUdj0O3uMBJnjuUD4Ih7YwaYd1iqfktj0Uod8GCExl3Og8ifwB6"
+    crossorigin="anonymous"></script>
+</body>
+</html> 2-2-4 form 테그 라이브러리를 쓰기 싫으면 수동으로 첨부하면 된다. 2-2-4-1 아래의 부분은 form:form 대신 form을 사용하고 csrf 토큰을 수동으로 첨부한 부분이다. <input type="hidden" name="${ _csrf.parameterName }" value="${ _csrf.token }"> 2-2-4-2 중요한 부분의 소스는 다음과 같다. <div class="container">
+    <div class="card" style="width: 350px; margin-left: auto; margin-right: auto; border: none;">
+      <h1 class="display-4">Please Login</h1>
+      <form action="${pageContext.request.contextPath}/authenticateUser" method="POST">
+      
+        <input type="hidden" name="${ _csrf.parameterName }" value="${ _csrf.token }">
+        
+        <div class="form-group">
+          <label for="username">Username</label> 
+          <input type="text" id="username" name="username" class="form-control" />
+        </div>
+        <div class="form-group">
+          <label for="password">Password</label>
+          <input type="password" id="password" name="password" class="form-control">
+          <c:if test="${ param.error != null }">
+            <small id="passwordHelpBlock" class="form-text text-warning">
+              Sorry! You entered invalid username/password.
+            </small>
+          </c:if>          
+          <c:if test="${ param.logout != null }">
+            <small id="passwordHelpBlock" class="form-text text-info">
+              You have been logged out.
+            </small>
+          </c:if>          
+        </div>  
+        <input type="submit" value="Login" class="btn btn-primary">
+      </form>
+    </div>
+  </div> 2-2-5 결과는 동일하다. 3. CSRF에 대한 참고자료 3-1 https://docs.spring.io/spring-security/site/docs/3.2.0.CI-SNAPSHOT/reference/html/csrf.html 13. Cross Site Request Forgery (CSRF) So what are the steps necessary to use Spring Security's to protect our site against CSRF attacks? The steps to using Spring Security's CSRF protection are outlined below: 13.4.1 Use proper HTTP verbs The first step to protecting against CSRF attacks is t docs.spring.io 3-2 https://owasp.org/www-community/attacks/csrf Cross Site Request Forgery (CSRF) | OWASP Foundation Cross Site Request Forgery (CSRF) on the main website for The OWASP Foundation. OWASP is a nonprofit foundation that works to improve the security of software. owasp.org

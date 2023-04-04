@@ -1,0 +1,571 @@
+football-jpa.zip 2.35MB 1. 이 포스트는 지난 시리즈에 이어서 같은 프로그램을 JPA로 구현하는 것을 보여준다. 1-1 화면과 데이터베이스 조회 결과는 이전 포스트를 참고한다. Spring Basic : JDBC를 이용한 FootBall Club example 1. 환경설정 0 javax.validation가 2.3.1에서 빠져 먹지를 않는다. 2.2.7 버전은 동작하니 예전버전을 사용을 권장한다. 0-1 아니면 그냥 maven에서 javax.validation를 찾아서 라이브러리를 추가하면 된다. 1. 이 포스트는.. kogle.tistory.com 2. 지난 JdbcTemplate을 이용한 프로젝트에 Data-JPA starter를 추가한다. 3. JPA를 사용하기 때문에 Entity가 가장 중요하다. 3-1 Skill Entity 3-1-1 검증자는 그대로이고 JPA를 위한 annotationd을 추가하였다. 3-1-2 Enum 타입의 type의 경우는 @Enumerated를 사용하여 데이터베이스에 문자열이 저장도록 지정하였다. 3-1-2-1 @Enumerated를 지정하지 않으면 에러가 발생한다. 3-1-3 불필요한 문제가 발생하지 않도록 모든 종류의 생성자를 지정하였다. noArgsConstructor, AllArgsConstructor package pe.pilseong.footballjpa.entiry;
+
+import javax.persistence.Entity;
+import javax.persistence.EnumType;
+import javax.persistence.Enumerated;
+import javax.persistence.GeneratedValue;
+import javax.persistence.GenerationType;
+import javax.persistence.Id;
+import javax.persistence.Table;
+
+import lombok.AllArgsConstructor;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+@Entity
+@Table(name = "skill")
+@Data
+@AllArgsConstructor
+@NoArgsConstructor
+public class Skill {
+  
+  @Id
+  @GeneratedValue(strategy = GenerationType.IDENTITY)
+  private Long  id;
+
+  private String name;
+
+  @Enumerated(EnumType.STRING)
+  private Type type;
+
+  public static enum Type {
+    SHOOTING, PASSING, DEFENSING, PHYSICAL
+  }
+} 3-2 Player Entity 3-2-1 Player는 내부에 Skill을 가지고 있으므로 관계세팅을 해 주어야 한다. 3-2-2 Player와 Skill의 관계는 Many-To-Many이므로 설정하고 targetEntity를 관계하는 Skill.class를 지정한다. 3-2-2-1 이렇게 지정하면 간략하게 관계테이블 player_skills를 만들어 준다. 3-2-2-2 관계테이블의 이름은 자동으로 지정되고 속성도 자동을 player_id, skills_id로 지정된다. 3-2-2-3 원하는대로 변경하고 싶으면 아래 링크를 참조한다. Hibernate : Many-To-Many Mapping - Part 1 0. 학생 테이블을 도입하여 과정과 학생의 Many to Many 관계를 설명한다. 0-1 상식적으로 과정이 삭제되었다고 학생 데이터가 삭제되면 안된다. 0-2 학생 정보가 삭제되었다고 과정 정보가 삭제되면 kogle.tistory.com 3-2-3 createdAt 속성을 보면 @CreationTimestap가 지정되어 자동으로 시간이 등록되도록 설정하였다. package pe.pilseong.footballjpa.entiry;
+
+import java.util.ArrayList;
+import java.util.Date;
+import java.util.List;
+
+import javax.persistence.Column;
+import javax.persistence.Entity;
+import javax.persistence.GeneratedValue;
+import javax.persistence.GenerationType;
+import javax.persistence.Id;
+import javax.persistence.ManyToMany;
+import javax.persistence.Table;
+import javax.validation.constraints.NotBlank;
+import javax.validation.constraints.NotEmpty;
+
+import org.hibernate.annotations.CreationTimestamp;
+
+import lombok.Data;
+
+@Entity
+@Table(name = "player")
+@Data
+public class Player {
+
+  @Id
+  @GeneratedValue(strategy = GenerationType.IDENTITY)
+  private Long id;
+
+  @NotBlank
+  @Column(name = "first_name")
+  private String firstName;
+
+  @NotBlank
+  @Column(name = "last_name")
+  private String lastName;
+
+  @NotBlank
+  private String salary;
+
+  @Column(name = "created_at")
+  @CreationTimestamp
+  private Date createdAt;
+
+  @NotEmpty(message = "must choose at l east one item")
+  @ManyToMany(targetEntity = Skill.class)
+  private List<Skill> skills = new ArrayList<>();
+} 3-3 Team Entity 3-3-1 가장 눈에 띄는 부분은 @Embedded이다. 3-3-1-1 외부 클래스를 사용할 때 사용하는 방법으로 외부 클래스 역시 @Embeddable로 설정되어야 한다. 3-3-2 역시 팀과 선수는 Many-to-Many이므로 Player와 동일하게 간략한 관계 매핑을 설정하였다. 3-3-2-1 당연히 team_players 관계테이블이 생성된다. 속성도 team_id, players_id로 지정된다. package pe.pilseong.footballjpa.entiry;
+
+import java.util.Date;
+import java.util.HashSet;
+import java.util.Set;
+
+import javax.persistence.Column;
+import javax.persistence.Embedded;
+import javax.persistence.Entity;
+import javax.persistence.GeneratedValue;
+import javax.persistence.GenerationType;
+import javax.persistence.Id;
+import javax.persistence.ManyToMany;
+import javax.persistence.Table;
+import javax.validation.Valid;
+import javax.validation.constraints.NotBlank;
+
+import org.hibernate.annotations.CreationTimestamp;
+
+import lombok.Data;
+
+@Entity
+@Table(name = "team")
+@Data
+public class Team {
+
+  @Id
+  @GeneratedValue(strategy = GenerationType.IDENTITY)
+  private Long id;
+
+  @NotBlank
+  private String name;
+
+  @Valid
+  @Embedded
+  private Address address = new Address();
+
+  @Column(name = "created_at")
+  @CreationTimestamp
+  private Date createdAt;
+
+  @ManyToMany(targetEntity = Player.class)
+  private Set<Player> players = new HashSet<>();
+
+  public void addPlayer(Player player) {
+    this.players.add(player);
+  }
+} 3-3-2 Address 클래스 설정 package pe.pilseong.footballjpa.entiry;
+
+import javax.persistence.Embeddable;
+import javax.validation.constraints.NotBlank;
+
+import lombok.Data;
+
+@Data
+@Embeddable
+public class Address {
+  @NotBlank
+  private String street;
+
+  @NotBlank
+  private String city;
+
+  @NotBlank
+  private String state;
+
+  @NotBlank
+  private String country;
+} 4. 데이터베이스 설정파일 작성 4-1 데이터베이스 이름은 testdb로 명시하였고, 4-2 데이터베이스 생성은 jpa에 일임하여 자동생성하도록 하였다. spring.datasource.url=jdbc:h2:mem:testdb
+spring.jpa.hibernate.ddl-auto=create 4-3 기본 데이터 로딩 4-3-1 classpath에 data.sql을 아래 처럼 작성한다. 지난 번과 동일하나 delete에 테이블 이름을 바꿔야 한다. delete from player;
+
+delete from skill;
+
+delete from player_skills;
+
+delete from team;
+
+delete from team_players;
+
+insert into skill(name, type) values('Finsihing', 'SHOOTING');
+insert into skill(name, type) values('Positioning', 'SHOOTING');
+insert into skill(name, type) values('Shot Power', 'SHOOTING');
+insert into skill(name, type) values('Penalties', 'SHOOTING');
+insert into skill(name, type) values('Vision', 'PASSING');
+insert into skill(name, type) values('Crossing', 'PASSING');
+insert into skill(name, type) values('Free Kick', 'PASSING');
+insert into skill(name, type) values('Short Passing', 'PASSING');
+insert into skill(name, type) values('Interceptions', 'DEFENSING');
+insert into skill(name, type) values('Heading', 'DEFENSING');
+insert into skill(name, type) values('Marking', 'DEFENSING');
+insert into skill(name, type) values('Tackle', 'DEFENSING');
+insert into skill(name, type) values('Jumping', 'PHYSICAL');
+insert into skill(name, type) values('Stamina', 'PHYSICAL');
+insert into skill(name, type) values('Strenth', 'PHYSICAL');
+insert into skill(name, type) values('Aggression', 'PHYSICAL'); 5. 데이터베이스 접근 모듈 작성 5-1 SkillRepository package pe.pilseong.footballjpa.repository;
+
+import org.springframework.data.jpa.repository.JpaRepository;
+
+import pe.pilseong.footballjpa.entiry.Skill;
+
+
+public interface SkillRepository extends JpaRepository<Skill, Long>{  
+} 5-2 PlayerRepository package pe.pilseong.footballjpa.repository;
+
+import org.springframework.data.jpa.repository.JpaRepository;
+
+import pe.pilseong.footballjpa.entiry.Player;
+
+public interface PlayerRepository extends JpaRepository<Player, Long> {
+} 5-3 TeamRepository package pe.pilseong.footballjpa.repository;
+
+import org.springframework.data.jpa.repository.JpaRepository;
+
+import pe.pilseong.footballjpa.entiry.Team;
+
+public interface TeamRepository extends JpaRepository<Team, Long>{
+} 6. Controller들 6-1 선수 생성 관련 컨트롤러 6-1-1 바뀐 부분은 Converter에서 findOne대신 findById를 사용한 부분이고 6-1-1 Optional이 반환되므로 get()으로 받아와야 한다. package pe.pilseong.footballjpa.controller;
+
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
+import java.util.stream.Collectors;
+
+import javax.validation.Valid;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.core.convert.converter.Converter;
+import org.springframework.stereotype.Component;
+import org.springframework.stereotype.Controller;
+import org.springframework.ui.Model;
+import org.springframework.validation.BindingResult;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.ModelAttribute;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.SessionAttributes;
+
+import lombok.extern.slf4j.Slf4j;
+import pe.pilseong.footballjpa.entiry.Player;
+import pe.pilseong.footballjpa.entiry.Skill;
+import pe.pilseong.footballjpa.entiry.Team;
+import pe.pilseong.footballjpa.repository.PlayerRepository;
+import pe.pilseong.footballjpa.repository.SkillRepository;
+
+@Slf4j
+@Controller
+@RequestMapping("/players")
+@SessionAttributes("team")
+public class PlayerSkillController {
+
+  @Autowired
+  private SkillRepository skillRepository;
+
+  @Autowired
+  private PlayerRepository playerRepository;
+
+  @ModelAttribute(name = "player")
+  public Player player() {
+    return new Player();
+  }
+
+  @ModelAttribute(name = "team")
+  public Team team() {
+    return new Team();
+  }
+
+  @GetMapping
+  public String showPlayerSkill(Model model) {
+
+    setMenu(model);
+
+    model.addAttribute("checked", new ArrayList<>());
+    return "player-setting";
+  }
+
+  private void setMenu(Model model) {
+    List<Skill> skills = this.skillRepository.findAll();
+
+    Arrays.asList(Skill.Type.values()).stream().forEach(skill -> {
+      model.addAttribute(skill.toString().toLowerCase(),
+          skills.stream().filter(fetchedSkill -> fetchedSkill.getType().toString().equals(skill.toString()))
+              .collect(Collectors.toList()));
+    });
+  }
+
+  @PostMapping
+  public String processPlayerSkill(@Valid @ModelAttribute Player player, BindingResult errors, Model model,
+    @ModelAttribute Team team) {
+
+    if (errors.hasErrors()) {
+
+      log.info("processPlayerSKill error info :::" + errors.toString());
+
+      log.info(player.toString());
+
+      setMenu(model);
+
+      model.addAttribute("checked", 
+        player.getSkills().stream().map(skill-> 
+          skill.getId()
+        ).collect(Collectors.toList())
+      );
+      return "player-setting";
+    }
+
+    log.info(player.toString());
+
+    team.addPlayer(player);
+
+    this.playerRepository.save(player);
+
+    log.info(team.toString());
+    return "redirect:/teams";
+  }
+  
+}
+
+@Component
+class LongToSkillConverter implements Converter<String, Skill> {
+
+  @Autowired
+  private SkillRepository skillRepository;
+
+  @Override
+  public Skill convert(String id) {
+    return this.skillRepository.findById(Long.valueOf(id)).get();
+  }
+} 6-2 팀 생성 컨트롤러 6-2-1 변경된 코드가 없다. package pe.pilseong.footballjpa.controller;
+
+import javax.validation.Valid;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Controller;
+import org.springframework.validation.BindingResult;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.ModelAttribute;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.SessionAttribute;
+import org.springframework.web.bind.annotation.SessionAttributes;
+import org.springframework.web.bind.support.SessionStatus;
+
+import lombok.extern.slf4j.Slf4j;
+import pe.pilseong.footballjpa.entiry.Team;
+import pe.pilseong.footballjpa.repository.TeamRepository;
+
+@Slf4j
+@Controller
+@RequestMapping("/teams")
+@SessionAttributes("team")
+public class TeamController {
+
+  @Autowired
+  private TeamRepository teamRepository;
+
+  @GetMapping
+  public String showTeamSetup(@SessionAttribute(required = false) Team team) {
+    log.info("showTeamSetup in TeamController");
+
+    if (team == null || team.getPlayers().size() == 0) {
+      return "redirect:/players";
+    }
+
+    return "team-creation";
+  }
+
+  @PostMapping
+  public String processTeamSetup(@Valid @ModelAttribute Team team, BindingResult errors, SessionStatus status) {
+    if (errors.hasErrors()) {
+      return "team-creation";
+    }
+
+    this.teamRepository.save(team);
+    log.info("processTeamSetup in TeamController :: " + team.toString() + "\n");
+
+    status.setComplete();
+
+    return "redirect:/";
+  }
+} 7. View - 바뀐 부분이 전혀 없다. 7-1 home.html <!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+  <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.4.1/css/bootstrap.min.css"
+    integrity="sha384-Vkoo8x4CGsO3+Hhxv8T/Q5PaXtkKtu6ug5TOeNV6gBiFeWPGFN9MuhOf23Q9Ifjh" crossorigin="anonymous">
+  <title>Welcome to FootBall Club</title>
+</head>
+
+<body>
+  <div class="container">
+    <img class="img-fluid" th:src="@{ /images/football-ground.jpg }">
+
+    <h1 class="mt-2 mb-3">Welcome to FootBall Club</h1>
+    <a class="link" href="/players">Push this button to get started</a>
+  </div>
+</body>
+
+</html> 7-2 player-setting.html <!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+  <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.4.1/css/bootstrap.min.css"
+    integrity="sha384-Vkoo8x4CGsO3+Hhxv8T/Q5PaXtkKtu6ug5TOeNV6gBiFeWPGFN9MuhOf23Q9Ifjh" crossorigin="anonymous">
+  <title>Setting a player</title>
+</head>
+
+<body>
+  <div class="container">
+    <img class="img-fluid" th:src="@{ /images/football-ground.png }">
+
+    <h1 class="mt-2 mb-3">Setting a Player</h1>
+
+    <form method="POST" th:object="${player}">
+      <div th:if="${#fields.hasErrors()}">
+        <div class="py-1 alert alert-warning text-muted">Please correct the problems below and resubmit</div>
+      </div>
+      <div class="row">
+        <div class="card col-6">
+          <div class="card-body">
+            <h5 class="card-title">Shooting skills:</h5>
+            <p class="card-text">
+              <div class="form-check" th:each="skill : ${shooting}">
+                <input type="checkbox" class="form-check-input" name="skills" 
+                  th:checked="${#lists.contains(checked, skill.id)}" 
+                  th:value="${ skill.id }">
+                <span th:text="${ skill.name }" class="form-check-lable"></span>
+              </div>
+            </p>
+          </div>
+        </div>
+        <div class="card col-6">
+          <div class="card-body">
+            <h5 class="card-title">Passing skills:</h5>
+            <p class="card-text">
+              <div class="form-check" th:each="skill : ${passing}">
+                <input type="checkbox" class="form-check-input" name="skills"
+                  th:checked="${#lists.contains(checked, skill.id)}"
+                  th:value="${ skill.id }">
+                <span th:text="${ skill.name }" class="form-check-lable"></span>
+              </div>
+            </p>
+          </div>
+        </div>
+      </div>
+      <div class="row">
+        <div class="card col-6">
+          <div class="card-body">
+            <h5 class="card-title">Defensing skills:</h5>
+            <p class="card-text">
+              <div class="form-check" th:each="skill : ${defensing}">
+                <input type="checkbox" class="form-check-input" name="skills" 
+                  th:checked="${#lists.contains(checked, skill.id)}"
+                  th:value="${ skill.id }">
+                <span th:text="${ skill.name }" class="form-check-lable"></span>
+              </div>
+            </p>
+          </div>
+        </div>
+        <div class="card col-6">
+          <div class="card-body">
+            <h5 class="card-title">Physical elements:</h5>
+            <p class="card-text">
+              <div class="form-check" th:each="skill : ${physical}">
+                <input type="checkbox" class="form-check-input" name="skills" 
+                  th:checked="${#lists.contains(checked, skill.id)}"
+                  th:value="${ skill.id }">
+                <span th:text="${ skill.name }" class="form-check-lable"></span>
+              </div>
+            </p>
+          </div>
+        </div>
+      </div>
+      <div class="alert alert-danger text-muted mt-1 py-1 small" th:if="${ #fields.hasErrors('skills') }"
+      th:errors="*{skills}"></div>
+      <div class="row">
+        <div class="card col-12">
+          <h3 class="my-3">Name your football player:</h3>
+          <div class="form-row">
+            <div class="form-group col-md-6">
+              <label for="firstname">First Name</label>
+              <input type="text" id="firstname" class="form-control mb-1" th:field="*{firstName}" />
+              <span class="alert alert-secondary text-muted py-1 small" th:if="${#fields.hasErrors('firstName')}"
+                th:errors="*{firstName}"></span>
+            </div>
+            <div class="form-group  col-md-6">
+              <label for="lastname">Last Name</label>
+              <input type="text" id="lastname" class="form-control mb-1" th:field="*{lastName}" />
+              <span class="alert alert-secondary text-muted py-1 small" th:if="${#fields.hasErrors('lastName')}"
+                th:errors="*{lastName}"></span>
+            </div>
+          </div>
+          <div class="form-group">
+            <label for="salary">Salary</label>
+            <input type="text" id="salary" class="form-control mb-1" th:field="*{salary}" />
+            <span class="alert alert-secondary text-muted py-1 small" th:if="${#fields.hasErrors('salary')}"
+                th:errors="*{salary}"></span>
+          </div>
+          <button class="btn btn-primary mb-3">Player Submit</button>
+        </div>
+      </div>
+    </form>
+  </div>
+</body>
+
+</html> 7-3 team-creation.html <!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+  <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.4.1/css/bootstrap.min.css"
+    integrity="sha384-Vkoo8x4CGsO3+Hhxv8T/Q5PaXtkKtu6ug5TOeNV6gBiFeWPGFN9MuhOf23Q9Ifjh" crossorigin="anonymous">
+  <title>Setting a Team</title>
+</head>
+
+<body>
+  <div class="container">
+    <img class="img-fluid" th:src=" @{ /images/football-ground.png }" alt="">
+    <h1 class="mt-2 mb-3">Set your own team</h1>
+
+    <a class="btn btn-secondary mb-3" th:href=" @{ /players } " id="another">Register Another Player</a><br />
+
+    <form method="POST" th:object="${team}">
+      <div th:if="${ #fields.hasErrors() }">
+        <div class="py-1 alert alert-warning text-muted">Please correct the problems below and resubmit</div>
+      </div>
+      <div class="card">
+        <div class="card-body">
+          <h5 class="card-title">Specific information of your team ...</h5>
+          <p class="card-text">
+            <div class="form-group">
+              <label for="name">Name: </label>
+              <input class="form-control mb-1" type="text" th:field="*{name}" />
+              <span class="alert alert-secondary text-muted py-1 small" th:if="${ #fields.hasErrors('name') }"
+                th:errors="*{name}"></span>
+            </div>
+            <div class="form-group">
+              <label for="street">Street address: </label>
+              <input class="form-control mb-1" type="text" th:field="*{address.street}" />
+              <span class="alert alert-secondary text-muted py-1 small" th:if="${ #fields.hasErrors('address.street') }"
+                th:errors="*{address.street}"></span>
+            </div>
+            <div class="form-group">
+              <label for="city">City: </label>
+              <input class="form-control mb-1" type="text" th:field="*{address.city}" />
+              <span class="alert alert-secondary text-muted py-1 small" th:if="${ #fields.hasErrors('address.city') }"
+                th:errors="*{address.city}"></span>
+            </div>
+            <div class="form-group">
+              <label for="state">State: </label>
+              <input class="form-control mb-1" type="text" th:field="*{address.state}" />
+              <span class="alert alert-secondary text-muted py-1 small" th:if="${ #fields.hasErrors('address.state') }"
+                th:errors="*{address.state}"></span>
+            </div>
+            <div class="form-group">
+              <label for="zip">Country: </label>
+              <input class="form-control mb-1" type="text" th:field="*{address.country}" />
+              <span class="alert alert-secondary text-muted py-1 small"
+                th:if="${ #fields.hasErrors('address.country') }" th:errors="*{address.country}"></span>
+            </div>
+            <input class="btn btn-primary" type="submit" value="Submit Order">
+          </p>
+        </div>
+      </div>
+    </form>
+  </div>
+</body>
+
+</html> 8. 마지막으로 기동 Main 클래스 - 역시 바뀐 부분이 없다. package pe.pilseong.footballjpa;
+
+import org.springframework.boot.SpringApplication;
+import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.web.servlet.config.annotation.ViewControllerRegistry;
+import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
+
+@SpringBootApplication
+public class DemoApplication implements WebMvcConfigurer {
+
+	public static void main(String[] args) {
+		SpringApplication.run(DemoApplication.class, args);
+	}
+
+	@Override
+	public void addViewControllers(ViewControllerRegistry registry) {
+		registry.addViewController("/").setViewName("home");
+	}
+}

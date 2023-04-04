@@ -1,0 +1,53 @@
+Robot Bounded In Circle - LeetCode Level up your coding skills and quickly land a job. This is the best place to expand your knowledge and get prepared for your next interview. leetcode.com 1. 이 문제는 사실 기술적인 부분이 하나도 없다. 알고리즘을 몰라도 구현 가능한 문제이다. 2. 그런데 웃긴 건 아직도 이 문제의 해답을 이해하지 못하겠다는 점이다. 3. 문제의 핵심은 이 로봇이 벋어나지 못하는 경로를 계속해서 돌게 되는지 여부인데 이 조건에 대해서 이해 할 수가 없다. 4. 조건은 로봇에게 지시문이 주어지는데 이것을 무한히 반복하여 동작하게 된다. 그런데 로봇에 벗어나지 못할 경로에 있는지 여부는 현재 출발지에 있는지, 방향이 바뀌었는지 2 가지로 판단한다. 4-1 출발지로 다시 돌아왔다는 것은 당연히 반복을 하면 계속 출발지로 돌아온다는 의미이기 때문에 이해가 된다. 4-2 그런데 방향이 달라지는 경우에도 벗어나지 못할 경로에 존재한다는 내용은 이해하기 힘들다. 5. 아무튼 20분 정도 고민해서 만든 코드는 아래와 같다. /**
+ * @param {string} instructions
+ * @return {boolean}
+ */
+var isRobotBounded = function(instructions) {
+    const robot = new Robot();
+    return robot.run(instructions);
+};
+
+
+class Robot {
+    constructor() {
+        this.heading = ['N', 'E', 'S', 'W'];
+        this.directions = {
+         'N': [0, 1],
+         'S': [0,-1],
+         'E': [1, 0], 
+         'W': [-1, 0]
+        };
+        this.position = [0, 0];
+        this.headingIndex = 0;
+    }
+    
+    run(instructions) {
+        for (const ch of instructions) {
+            this.setHeading(ch);
+            if (ch === 'G') {
+                this.position[0] += this.directions[this.heading[this.headingIndex]][0];
+                this.position[1] += this.directions[this.heading[this.headingIndex]][1];
+            }
+        }
+        if ((this.position[0] === 0 && this.position[1] === 0) ||
+           this.headingIndex !== 0) {
+            return true;
+        }
+        return false;
+        
+    }
+    
+    setHeading(inst) {
+        if (inst === 'L') {
+            this.headingIndex = this.headingIndex-1 < 0 ? 
+                this.heading.length + this.headingIndex - 1 : this.headingIndex - 1;
+            return;
+        }
+        if (inst === 'R') {
+            this.headingIndex = this.headingIndex+1 >= this.heading.length ? 
+                (this.headingIndex+1)%this.heading.length : this.headingIndex + 1; 
+            return;
+        }
+        
+    }
+}

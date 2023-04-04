@@ -1,0 +1,8 @@
+1. 우분투의 기본 terminal에서는 git의 상태를 vscode에서 표시되는 것처럼 현재 브랜치나 변경 마크 같은 것이 표시되지 않는다. 2.아래의 코드를 .bashrc에 삽입하여 termainl 프롬프트를 변경할 수 있다. parse_git_branch() {
+ git branch 2> /dev/null | sed -e '/^[^*]/d' -e 's/* \(.*\)/(\1)/'
+}
+if [ "$color_prompt" = yes ]; then
+ PS1='${debian_chroot:+($debian_chroot)}\[\033[01;32m\]\u@\h\[\033[00m\]:\[\033[01;34m\]\w\[\033[01;31m\] $(parse_git_branch)\[\033[00m\]\$ '
+else
+ PS1='${debian_chroot:+($debian_chroot)}\u@\h:\w$(parse_git_branch)\$ '
+fi

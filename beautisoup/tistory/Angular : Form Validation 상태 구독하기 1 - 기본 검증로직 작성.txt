@@ -1,0 +1,72 @@
+1. 이 포스트는 Angular의 검증 절보를 구독하는 방법에 대해서 설명한다. 너무 길어지니 시리즈로 작성한다. 1-1 여기에서는 지난 포스트와 동일한 방식으로 재사용 가능한 클래스를 작성하는 것 까지 한다. 1-2 다음 포스트에서 실제로 검증상태를 구독하고 구독에 따른 적절한 처리를 하는 방법을 다룬다. 2. Angular는 Observable이라는 강력한 RxJS라이브러리르 사용한다. 2-1 그래서 상당히 편리하게 실시간으로 변경된 정보를 수신하여 처리할 수 있다. 2-2 예를 들면, url의 변화에 따른 로직을 처리하거나 한 곳에 데이터를 여러곳에서 수신하는 기능을 구현할 수 있다. 3. 검증에도 마찬가지로 각 FormControl이나 FormGroup의 상태를 구독할 수 있는 기능을 가지고 있다. 3-1 이것에 대한 정리를 구구단 맟추기 프로그램으로 설명한다. 4. 순서 - 직전 포스트를 참조하여 동일한 방식으로 구현한다. 4-1 timestable이라는 프로젝트를 만든다. 4-2 부트스트랩을 설치한다. 4-3 ReactiveFormsModule을 import한다. 4-4 Form Validation을 작성한다. 4-5 화면을 작성한다. 4-6 외부 검증로직을 생성한다. MathValidators 클래스를 작성한다. 5. 화면작성하기 5-1 4-3 까지는 그냥하면 되니 4-4부터 작성한다. 5-2 프로그램이 너무 간단하니 그냥 app.component에 작성했다. 5-2-1 클래스 코드이다. import { Component, OnInit } from '@angular/core';
+import { FormGroup, FormBuilder, Validators } from '@angular/forms';
+import { MathValidators } from './math-validators';
+
+@Component({
+  selector: 'app-root',
+  templateUrl: './app.component.html',
+  styleUrls: ['./app.component.css'],
+})
+export class AppComponent implements OnInit {
+  multiplicationGroup: FormGroup;
+
+  constructor(private formBuilder: FormBuilder) {
+    this.multiplicationGroup = this.formBuilder.group(
+      {
+        op1: this.getRandom(),
+        op2: this.getRandom(),
+        answer: ['', [Validators.required]],
+      },
+      {
+        validators: MathValidators.multiply('op1', 'op2', 'answer'),
+      }
+    );
+  }
+
+  get op1() {
+    return this.multiplicationGroup.value['op1'];
+  }
+
+  get op2() {
+    return this.multiplicationGroup.value['op2'];
+  }
+
+  getRandom() {
+    return Math.floor(Math.random() * 10);
+  }
+
+  ngOnInit(): void {}
+} 5-2-2 template이다. <div class="container">
+  <form [formGroup]="multiplicationGroup">
+    <div class="form-inline">
+      {{ op1 }} * {{ op2 }} = <input formControlName="answer" class="form-control d-inline" type="text">
+    </div>
+  </form>
+</div>
+
+<hr>
+<div>
+  <p>
+    Muliplication Valid : {{ multiplicationGroup.valid }}<br>
+    Muliplication errors : {{ multiplicationGroup.errors | json }}
+  </p>
+</div> 5-2-3 MathValidators를 생성하여 검증로직을 여기에 배치한다. 5-2-3-1 아래처럼 클래스를 하나 생성한다. 5-2-3-2 검증 로직을 다음과 같이 작성한다. import { AbstractControl } from '@angular/forms';
+
+export class MathValidators {
+  static multiply(param1: string, param2: string, result: string) {
+
+    return (form: AbstractControl) => {
+      const op1 = form.value[param1]
+      const op2 = form.value[param2]
+      const answer  = form.value[result]
+
+      console.log(op1, op2, answer);
+
+      if ((op1 * op2) === parseInt(answer)) {
+        return null
+      } else {
+        return { notMatched: true }
+      }
+    }
+  }
+} 5-3 여기까지 하면 다음의 결과를 볼 수 있다.

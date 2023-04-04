@@ -1,0 +1,36 @@
+0. Spring Security를 사용하려면 0-1. Spring Security Dependency를 pom에 등록한다. 0-2. SecurityConfig파일을 생성하여 필요한 Bean을 등록한다. 0-2-0. WebSecurityConfigurerAdapter를 extends해서 간편하게 구현할 수 있다. 0-2-1. 일반적으로 개발자가 구현한 컴포넌트는 @Component로 등록하면 끝이지만 0-2-2. 스프링에서 제공하는 컴포넌트 중 기본적으로 생성되지 않는 것들은 0-2-3. Config에서 별도로 제공해야 한다. 0-3. 여기서 생성해야 프로그램의 다른 부분에서 주입해서 사용할 수 있다. 1. BCryptPasswordEncoder 사용하기 1-1. 이 Encoder는 스프링에서 자동으로 생성되지 않는다. 1-2. 아래 Config 클래스에서 @Bean으로 생성해야 사용할 수 있다. import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.config.BeanIds;
+import org.springframework.security.config.annotation.web.builders.HttpSecurity;
+import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
+import org.springframework.security.config.annotation.web.configuration.WebSecurityConfigurerAdapter;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+
+@Configuration
+@EnableWebSecurity
+public class WebSecurityConfig extends WebSecurityConfigurerAdapter {
+
+  @Bean
+  public BCryptPasswordEncoder bcryptPasswordEncoder() {
+    return new BCryptPasswordEncoder();
+  }
+  
+  
+  @Bean(name = BeanIds.AUTHENTICATION_MANAGER)
+  @Override
+  public AuthenticationManager authenticationManagerBean() throws Exception {
+    return super.authenticationManagerBean();
+  }
+
+
+  @Override
+  protected void configure(HttpSecurity http) throws Exception {
+    http.authorizeRequests()
+        .antMatchers("/showRegister", "/", "/index.html", "/registerUser", "/login", "/showLogin", "/login/*", "/reservations/*").permitAll()
+        .antMatchers("/admin/showAddFlight").hasAnyAuthority("ADMIN").anyRequest().authenticated()
+        .and()
+        .csrf().disable();
+  }
+
+} 2. AuthenticationManager 사용하기 2-0 WebSecurityConfig 내에서 설정하는 경우는 필요가 없지만 외부에서 인증관리자를 사용하기 위한 설정이다. 2-1 AuthenticationManager는 Spring Boot 1.x에서는 기본적으로 스프링이 등록하였지만 2-2 Spring Boot 2.x부터는 자동등록 되지 않는다. 2-2-1 따라서 외부로 표출해 주는 메소드를 강제로 호출하여 @Bean으로 등록해 주어야 한다. 2-2-2 Override하는 메소드는 authenticationManagerBean()이다. authenticationManager()가 아니다. 2-2-3 만일 authenticationManager()를 override하면 엉뚱한 메소드가 override되어 StackOverflow가 발생한다. 2-3 따라서 위의 소스코드처럼 WebSecurityConfigurerAdapter를 Override하여 @Bean으로 등록해야 한다. 2-3-1 @Bean에 있는 name 속성은 선택적이다. 2-3-2 name 속성은 명시적으로 이 메소드에서 생성된 클래스가 프로그램의 AuthenticationManager라는 뜻이다. 3 기본적인 Spring Security설정은 WebSecurityConfigurerAdapter의 configure 메소드를 Override해서 한다. 3-1 antMatchers는 해당 경로의 기능을 어떤 권한과 매핑할지를 결정한다. 3-2 위 소스코드의 첫번째 antMatchers는 마지막에 permitAll 설정으로 누구나 사용할 수 있는 페이지를 지정한다. 3-3 두 번째 antMatchers는 ADMIN role이 등록된 사용자에게만 허용되는 기능이다.

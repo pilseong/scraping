@@ -1,0 +1,236 @@
+1. 프로그램의 실행환경에 따라 설정이 달라져야 할 때가 있다. 1-1 개발환경에서는 로그레벨이나 데이터베이스 설정 등이 달라질 수 있기 때문이다. 2. application properties를 작성하여 profile을 설정하는 방법 2-1 application.properties기본 설정파일 이외에 application-환경이름.properties 형식으로 설정파일을 작성할 수 있다. 2-2 예를 들면, 개발환경이면 application-dev.properties, 실제환경이면 application-prod.properties를 만들 수 있다. 2-3 실행 환경지정은 아래 application.properties의 spring.profiles.active=환경이름 으로 할 수 있다. 2-3-1 이렇게 지정한 프로파일은 applicatoin.properties에 지정된 디폴트 값과 함께 로딩이 된다. 2-3-2 중복되는 설정항목은 특정 profile에 지정된 것이 우선 순위를 가진다. spring.profiles.active=dev
+
+management.endpoints.web.exposure.include=*
+# spring.config.location=classpath:/default.properties --> program arguements 2-4 실행환경 프로파일을 아래 설정이라고 가정한다. 두 경우 모두 로그 레벨만 설정한 것이다. 2-4-1 application-prod.properties logging.level.org.springframework.boot.web=INFO 2-4-2 application-dev.properties logging.level.org.springframework.boot.web=DEBUG 3. 활성화 프로파일 설정은 2-3에서 말한 것처럼 application.properties에서 할 수 있지만 다음 같이도 지정이 가능하다. 3-1 mvn과 java 각 경우의 예시를 보여준다. #mvn으로 실행할 경우 스프링 2.0이상의 경우
+
+mvn spring-boot:run -Dspring-boot.run.profiles=prod
+
+
+# 스프링 1.x 버전의 방식처럼 형식은 동작하지 않는다.
+
+mvn spring-boot:run -Dspring.profiles.active=prod
+
+
+# java -jar로 실행할 때는 다음과 같이 한다.
+
+java -jar -Dspring.profiles.active=dev ./target/springdepth-0.0.1-SNAPSHOT.jar 4. @Profile annotation을 사용한 프로파일 설정방법 4-0 사용 예시 4-0-1 특정 Bean 생성을 특정 프로파일이 active 된 경우에만 실행할 경우에 사용할 수 있다. 4-0-2 동일한 타입이 컨테이너에 여러 개 등록된 경우는 특정 객체를 선택하는데 사용할 수 있다. 4-1 프로파일에 따라 Bean을 생성하려면 @Profile annotation을 사용하여 어떤 프로파일인지를 명시하면 된다. package pe.pilseong.springdepth;
+
+import org.springframework.boot.SpringApplication;
+import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Profile;
+
+@SpringBootApplication
+public class DemoApplication {
+
+	public static void main(String[] args) {
+		SpringApplication.run(DemoApplication.class, args);
+	}
+
+	@Profile("dev")
+	@Bean
+	public String demo_dev() {
+		return "demo_dev";
+	}
+
+	@Profile("prod")
+	@Bean
+	public String demo_prod() {
+		return "demo_prod";
+	}
+
+} 4-1-1 dev로 실행한 경우 4-1-1-1 아래처럼 demo_dev 문자열 만 생성되었음을 HAL 브라우저로 /actuator/beans를 통해 조회할 수 있다. 4-1-2 prod로 실행한 경우 4-1-2-1 아래처럼 demo_prod 문자열만 생성되었음을 알 수 있다. 4-2 동일한 타입으로 등록된 여러 개의 객체 중에 특정 프로파일로 설정된 객체를 사용하려면 4-2-1 등록할 이름을 지정하면서 동시에 프로파일을 지정하여 프로파일에 따라 변경되도록 한다. 4-2-2 아래의 경우 영어와 스페인어로 greeting하는 구현체를 동일한 이름이지만 다른 Profile을 지정했다. // 공통으로 구현할 인터페이스
+
+package pe.pilseong.demodi.services;
+
+public interface GreetingService {
+  String sayGreeting();
+}
+
+
+// 영어를 사용하는 구현 서비스
+package pe.pilseong.demodi.services;
+
+import org.springframework.context.annotation.Profile;
+import org.springframework.stereotype.Service;
+
+@Profile("EN")
+@Service("i18nService")
+public class I18nEnglishGreetingServiceImpl implements GreetingService {
+
+  @Override
+  public String sayGreeting() {
+    return "Hello World - English";
+  }
+  
+}
+
+
+// 스페인어를 사용하는 구현 서비스
+package pe.pilseong.demodi.services;
+
+import org.springframework.context.annotation.Profile;
+import org.springframework.stereotype.Service;
+
+@Profile("ES")
+@Service("i18nService")
+public class I18nSpanishGreetingServiceImpl implements GreetingService {
+
+  @Override
+  public String sayGreeting() {
+    return "Hola Mundo - Espanol";
+  }
+  
+} 4-2-3 이 서비스를 사용하는 controller는 해당 서비스 타입을 생성자 주입으로 받고 있으며 이름을 명시하고 있다. 4-2-3-1 명시한 이름은 고유하지 않기 때문에 active 프로파일 설정없이 실행하면 에러가 발생한다. 4-2-3-2 아래의 예시의 경우는 @Qualifier가 필요하지는 않다. 4-2-3-2-1 추가로 다른 동일한 타입의 객체가 있는 경우에만 의미가 있는데 여러 개 중 i18nService만 뽑게 된다. package pe.pilseong.demodi.controller;
+
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.stereotype.Controller;
+
+import pe.pilseong.demodi.services.GreetingService;
+
+@Controller
+public class I18nController {
+  private final GreetingService greetingService;
+
+  public I18nController(@Qualifier("i18nService") GreetingService greetingService) {
+    this.greetingService = greetingService;
+  }
+
+  public String sayHello() {
+    return greetingService.sayGreeting();
+  }
+} 4-2-4 아래의 설정처럼 application.properties에서 active 프로파일을 설정하면 설정에 따라 변경할 수 있다. spring.profiles.active=ES 4-2-3-1 실행 클래스 package pe.pilseong.demodi;
+
+import org.springframework.boot.SpringApplication;
+import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.context.ApplicationContext;
+
+import pe.pilseong.demodi.controller.ConstructorInjectedController;
+import pe.pilseong.demodi.controller.I18nController;
+
+@SpringBootApplication
+public class DemoApplication {
+
+  public static void main(String[] args) {
+    ApplicationContext ctx = SpringApplication.run(DemoApplication.class, args);
+
+    I18nController i18nController = (I18nController) ctx.getBean("i18nController");
+
+    System.out.println(i18nController.sayHello());
+  }
+} 4-2-3-2 실행결과 캡처 5. default profile 은 활성화 프로파일이 설정되지 않았을 때 실행되는 프로파일이다. 5-0 주의 해야 할 점은 default라는 것도 하나의 프로파일 이름이라는 것이다. 5-1 활성화된 프로파일이 있는 경우는 실행되지 않고 중복된 타입이 있는 경우 에러가 발생한다. 5-1 아래를 보면 ES 프로파일 뿐 아니라 default 프로파일도 추가하였다. package pe.pilseong.demodi.services;
+
+import org.springframework.context.annotation.Profile;
+import org.springframework.stereotype.Service;
+
+@Profile({"ES","default"})
+@Service("i18nService")
+public class I18nSpanishGreetingServiceImpl implements GreetingService {
+
+  @Override
+  public String sayGreeting() {
+    return "Hola Mundo - Espanol";
+  }
+  
+} 5-2 이렇게 하면 spring.profiles.active=ES 가 없어도 실행 시에 이 객체가 타입 중복시에도 default로 설정된다. 6. Profile을 사용하다 보면 @Primary와 순서가 혼동될 경우가 있다. 이런 식으로 생각하면 된다. 6-1 우선 스프링은 Auto Scan이든 @Bean이든 아무 것도 없는 경우와 active profile이 적용한 클래스 객체를 생성한다. 6-1-1 활성화 된 profile이 없다면 default profile로 지정된 객체를 생성하게 된다. 6-2 주입을 할 시점에 와서는 우선 주입가능한 Type의 모든 객체를 리스트 업을 한다. 6-2-1 @Qualifier가 지정되지 않은 경우는 @Primary로 지정된 경우가 있는지 확인을 하고 있으면 그것을 쓴다. 6-2-1-2 없다면 리스트 업 된 객체가 하나의 경우는 그것을 사용하고 둘 이상인 경우는 중복 에러를 발생시킨다. 6-2-2 @Qualifier가 있는 경우는 지정된 이름과 동일한 객체가 있는지 확인하고 있으면 추출한다. 6-2-2-1 뽑아낸 객체가 하나면 그것을 주입하고 6-2-2-2 둘 이상이면 @Primary를 확인하고 있으면 그것을 주입하고 없으면 에러처리한다. 7. Factory를 사용하여 @Profile에 따라 객체를 생성하는 예제 7-1 아래처럼 인터페이스와 그것을 구현한 세개의 구현클래스를 작성한다. 7-1-1 세개의 구현클래스에는 annotation과 profile을 지정하지 않고 생성에 관한 것은 factory와 설정에 위임한다. // 서비스의 인터페이스이다.
+
+package pe.pilseong.demodi.services;
+
+public interface GreetingService {
+  String sayGreeting();
+}
+
+
+
+package pe.pilseong.demodi.services;
+
+public class I18nEnglishGreetingServiceImpl implements GreetingService {
+  @Override
+  public String sayGreeting() {
+    return "Hello World - English";
+  }
+}
+
+package pe.pilseong.demodi.services;
+
+public class I18nGermanGreetingServiceImpl implements GreetingService {
+  @Override
+  public String sayGreeting() {
+    return " Hallo Welt - German";
+  }
+}
+
+package pe.pilseong.demodi.services;
+
+public class I18nSpanishGreetingServiceImpl implements GreetingService {
+  @Override
+  public String sayGreeting() {
+    return "Hola Mundo - Espanol";
+  }
+} 7-2 객체의 생성을 위임받은 factory 클래스이다. 언어 약자에 따라 적절한 객체를 생성해 준다. package pe.pilseong.demodi.services;
+
+public class GreetingServiceFactory {
+
+  public GreetingService createGreetingService(String lang) {
+    switch (lang) {
+      case "en":
+        return new I18nEnglishGreetingServiceImpl();
+      case "es":
+        return new I18nSpanishGreetingServiceImpl();
+      case "de":
+        return new I18nGermanGreetingServiceImpl();
+      default :
+        return new PrimaryGreetingServiceImpl();
+    }
+  }
+} 7-3 위의 factory를 사용하는 Configuration 파일을 작성한다. 7-3-1 우선 factory를 생성하는 @Bean을 수식한 메소드를 생성한다. 7-3-2 factory를 주입 받아 각 클래스를 생성하는 만들어주는 메소드를 생성한다. 적절한 프로파일을 붙여 준다. 7-3-3 빈의 이름을 i18nService 붙인 것은 GreetService 구현체가 3개 외에 더 있을 경우를 위해서 사용하였다. 7-3-4 사실 factory 클래스 없이 바로 서비스 구현체를 만들어서 반환해도 결과는 동일하다. 7-3-4-1 factory 클래스를 사용하는 방법에 대하여 보여주기 위한 내용이다. package pe.pilseong.demodi.config;
+
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Profile;
+
+import pe.pilseong.demodi.services.GreetingService;
+import pe.pilseong.demodi.services.GreetingServiceFactory;
+
+@Configuration
+public class GreetingServiceConfig {
+
+  @Bean
+  public GreetingServiceFactory greetingServiceFactory() {
+    return new GreetingServiceFactory();
+  }
+
+  @Profile({"en", "default"})
+  @Bean(name = "i18nService")
+  public GreetingService i18nEnglishGreetingService(GreetingServiceFactory greetingServiceFactory) {
+    System.out.println("creating en");
+    return greetingServiceFactory.createGreetingService("en");
+  }
+
+  @Profile("es")
+  @Bean(name = "i18nService")
+  public GreetingService i18nEsponolGreetingService(GreetingServiceFactory greetingServiceFactory) {
+    System.out.println("creating es");
+    return greetingServiceFactory.createGreetingService("es");
+  }
+
+  @Profile("de")
+  @Bean(name = "i18nService")
+  public GreetingService i18nGermanGreetingService(GreetingServiceFactory greetingServiceFactory) {
+    System.out.println("creating de");
+    return greetingServiceFactory.createGreetingService("de");
+  }
+} 7-4  프로파일을 de로 설정했을 때 결과이다. spring.profiles.active=de 8. yml을 사용하여 하나 이상의 profile을 사용하는 방법 8-1 yml 파일에는 '---' 라는 게 있는데 이것은 하나의 파일을 구분한다. 8-2 아래를 보면 --- 아래 profiles를 지정하는데 이것은 application-de.properites 파일과 동일하다. 8-2-1 실행을 해보면 기본 pe.jms.username를 대페한 결과가 출력됨을 알 수 있다. 8-3 이런 식을 하나의 application.yml 파일에 여러 개의 프로파일을 지정하여 사용할 수 있다. pe:
+  jms:
+    username: jmspil
+    password: jmspil
+    url: jms
+
+---
+
+spring:
+  profiles: de
+
+pe:
+  jms:
+    username: JMS Username German 8-3 출력 결과 캡처

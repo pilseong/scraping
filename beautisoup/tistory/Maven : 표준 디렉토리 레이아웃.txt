@@ -1,0 +1,1 @@
+1. 자바 개발의 표준이라고 생각하면 된다. Maven – Introduction to the Standard Directory Layout Introduction to the Standard Directory Layout Having a common directory layout would allow for users familiar with one Maven project to immediately feel at home in another Maven project. The advantages are analogous to adopting a site-wide look-and-feel. T maven.apache.org

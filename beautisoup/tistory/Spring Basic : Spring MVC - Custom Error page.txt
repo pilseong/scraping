@@ -1,0 +1,64 @@
+1. 스프링에서 View를 사용하는 방식은 이미 철지난 이야기이지만 그냥 붙여둔다. 2 우선 Error handler를 위한 Controller을 하나 만든다. 2-1 모든 에러는 error.jsp로 넘기고 있다. 2-2 필요하면 여기서 데이터베이스에 에러를 저장하거나 하는 작업을 한다. package pe.pilseong.steps.controller;
+
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
+
+import org.springframework.stereotype.Controller;
+import org.springframework.web.bind.annotation.ExceptionHandler;
+import org.springframework.web.servlet.ModelAndView;
+
+@Controller("error")
+public class ErrorController {
+  @ExceptionHandler(Exception.class)
+  public ModelAndView handleException(HttpServletRequest request, HttpServletResponse response, Exception ex) {
+    ModelAndView mv = new ModelAndView();
+    
+    mv.addObject("exception", ex.getStackTrace());
+    mv.addObject("url", request.getRequestURI());
+    mv.setViewName("error");
+    return mv;
+  }
+} 3. 사용자에게 에러를 보여주는 error.jsp 에러내용은 숨겨야 한다. <%@ taglib uri="http://java.sun.com/jsp/jstl/core" prefix="c"%>
+<%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt"%>
+<%@ taglib uri="http://www.springframework.org/tags/form" prefix="form"%>
+
+<html>
+
+<head>
+<title>Spring Boot Normal Web Application</title>
+<link href="webjars/bootstrap/3.3.6/css/bootstrap.min.css" rel="stylesheet">
+<link href="webjars/bootstrap-datepicker/1.0.1/css/datepicker.css" rel="stylesheet">
+
+</head>
+
+<body>
+<nav role="navigation" class="navbar navbar-default">
+	<div class="">
+		<a href="http://www.in28minutes.com" class="navbar-brand">in28Minutes</a>
+	</div>
+	<div class="navbar-collapse">
+		<ul class="nav navbar-nav">
+			<li class="active"><a href="/">Home</a></li>
+			<li><a href="/list-todos">Todos</a></li>
+		</ul>
+		<ul class="nav navbar-nav navbar-right">
+			<li><a href="/logout">Logout</a></li>
+		</ul>
+	</div>
+</nav>
+  <div class="container">
+    An exception occurred! Please contact Support!
+  </div>
+<script src="webjars/jquery/1.9.1/jquery.min.js"></script>
+<script src="webjars/bootstrap/3.3.6/js/bootstrap.min.js"></script>
+<script src="webjars/bootstrap-datepicker/1.0.1/js/bootstrap-datepicker.js"></script>
+
+<script>
+	$('#targetDate').datepicker({
+		format: 'dd/mm/yyyy'
+	});
+</script>
+
+</body>
+
+</html>

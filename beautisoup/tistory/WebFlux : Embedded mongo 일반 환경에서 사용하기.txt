@@ -1,0 +1,71 @@
+1. WebFlux에서 de.flapdoodle.embed:de.flapdoodle.embed.mongo 라이브러리는 내장 mongodb를 지원한다. 1-1 기본적으로 테스트 용도로 만들어졌다. 2. 보통은 test 용도로 사용되며 gradle에서는 testImplemetation으로 지정되어 테스트에서만 활성화 된다. 2-1 아래는 Spring initializr에서 gradle로 지정하여 생성한 build.gradle파일이다. 기본적으로 test로 지정되어 있다. plugins {
+	id 'org.springframework.boot' version '2.3.3.RELEASE'
+	id 'io.spring.dependency-management' version '1.0.10.RELEASE'
+	id 'java'
+}
+
+group = 'pe.pilseong'
+version = '0.0.1-SNAPSHOT'
+sourceCompatibility = '11'
+
+configurations {
+	compileOnly {
+		extendsFrom annotationProcessor
+	}
+}
+
+repositories {
+	mavenCentral()
+}
+
+dependencies {
+	implementation 'org.springframework.boot:spring-boot-starter-data-mongodb-reactive'
+	implementation 'org.springframework.boot:spring-boot-starter-webflux'
+	compileOnly 'org.projectlombok:lombok'
+	developmentOnly 'org.springframework.boot:spring-boot-devtools'
+	annotationProcessor 'org.projectlombok:lombok'
+	testImplementation('org.springframework.boot:spring-boot-starter-test') {
+		exclude group: 'org.junit.vintage', module: 'junit-vintage-engine'
+	}
+	testImplementation 'de.flapdoodle.embed:de.flapdoodle.embed.mongo'
+	testImplementation 'io.projectreactor:reactor-test'
+}
+
+test {
+	useJUnitPlatform()
+} 3. 하지만 귀찮게 mongodb를 별도로 설치하지 않고 프로그램을 테스트 하고 싶은 경우에 내장 DB를 사용할 수 있다. 3-1 별건 아니지만 내장 DB를 implementation scope으로 변경하면 된다. 3-2 많은 사람들이 scope을 생각하지 않고 왜 일반적인 환경에서는 기동이 안되는지 의문을 가질 수 있는데 3-2-1 스코프만 생각하면 의문은 쉽게 해결된다. plugins {
+	id 'org.springframework.boot' version '2.3.3.RELEASE'
+	id 'io.spring.dependency-management' version '1.0.10.RELEASE'
+	id 'java'
+}
+
+group = 'pe.pilseong'
+version = '0.0.1-SNAPSHOT'
+sourceCompatibility = '11'
+
+configurations {
+	compileOnly {
+		extendsFrom annotationProcessor
+	}
+}
+
+repositories {
+	mavenCentral()
+}
+
+dependencies {
+	implementation 'org.springframework.boot:spring-boot-starter-data-mongodb-reactive'
+	implementation 'org.springframework.boot:spring-boot-starter-webflux'
+	implementation 'de.flapdoodle.embed:de.flapdoodle.embed.mongo'
+	compileOnly 'org.projectlombok:lombok'
+	developmentOnly 'org.springframework.boot:spring-boot-devtools'
+	annotationProcessor 'org.projectlombok:lombok'
+	testImplementation('org.springframework.boot:spring-boot-starter-test') {
+		exclude group: 'org.junit.vintage', module: 'junit-vintage-engine'
+	}
+	testImplementation 'io.projectreactor:reactor-test'
+}
+
+test {
+	useJUnitPlatform()
+} 4. 이렇게 사용할 경우에는 테스트 시에 문제가 될 수 있는데, port를 0으로 지정하면 문제가 해결되는 경우가 있다. 4-1 따라서 테스트 용로도로만 사용하는 것이 바람직하다. 4-2 개발시 일반 runtime 환경에서는 docker로 mongodb를 사용하는 것이 좋다.

@@ -1,0 +1,10 @@
+1. 유저 생성하기 1-1 모든 권한 부여하기 CREATE USER 'newuser'@'localhost' IDENTIFIED BY 'password'
+
+GRANT ALL PRIVILEGES ON *.* TO 'prod_recipe'@'localhost' 1-2 특정 DML만 부여하기 grant select on dev_recipe.* to 'dev_recipe'@'localhost';
+grant insert on dev_recipe.* to 'dev_recipe'@'localhost';
+grant delete on dev_recipe.* to 'dev_recipe'@'localhost';
+grant update on dev_recipe.* to 'dev_recipe'@'localhost';
+grant select on prod_recipe.* to 'prod_recipe'@'localhost';
+grant insert on prod_recipe.* to 'prod_recipe'@'localhost';
+grant delete on prod_recipe.* to 'prod_recipe'@'localhost';
+grant update on prod_recipe.* to 'prod_recipe'@'localhost'; 2. 테이블 변경하기 2-1 PASSENGER 테이블의 first_name 컬럼을 varchar(200) 타입으로 변경 ALTER TABLE passenger MODIFY COLUMN first_name varchar(200) 3. 생서된 유저검색하기 select * from mysql.user where user like '%clinic%'
